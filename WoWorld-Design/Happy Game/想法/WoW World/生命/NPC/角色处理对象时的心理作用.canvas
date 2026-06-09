@@ -1,0 +1,18 @@
+{
+	"nodes":[
+		{"id":"71133815106f882c","type":"text","text":"角色","x":-140,"y":-140,"width":80,"height":50},
+		{"id":"09b2813068868b03","type":"text","text":"对象","x":100,"y":-90,"width":80,"height":50},
+		{"id":"ccf0c54d32dfdb60","x":-15,"y":-316,"width":115,"height":56,"type":"text","text":"环境\n"},
+		{"id":"3a02286376644fbb","type":"text","text":"即时心情\n","x":-360,"y":-40,"width":140,"height":50},
+		{"id":"958bc3525e9a7d1a","x":-290,"y":70,"width":166,"height":50,"type":"text","text":"态度（长期）\n"},
+		{"id":"e765b1d1ecf10958","x":-201,"y":172,"width":141,"height":50,"type":"text","text":"社会身份"},
+		{"id":"2deb8c2e80f315ab","x":-75,"y":246,"width":95,"height":52,"type":"text","text":"携带物\n"},
+		{"id":"87a1055efd641040","x":43,"y":298,"width":140,"height":50,"type":"text","text":"外貌认知"},
+		{"id":"e125076c3d084986","x":183,"y":323,"width":160,"height":50,"type":"text","text":"常态信息掌握度"},
+		{"id":"448c4312400c4f94","x":343,"y":400,"width":106,"height":52,"type":"text","text":"道德"}
+	],
+	"edges":[
+		{"id":"490c42a5470071de","fromNode":"71133815106f882c","fromSide":"right","toNode":"09b2813068868b03","toSide":"left","label":"互动\n\n"},
+		{"id":"f173eb017e8d01ea","fromNode":"71133815106f882c","fromSide":"bottom","toNode":"3a02286376644fbb","toSide":"top"}
+	]
+}

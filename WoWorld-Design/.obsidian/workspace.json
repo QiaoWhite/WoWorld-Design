@@ -1,0 +1,224 @@
+{
+  "main": {
+    "id": "0dab366648896a9b",
+    "type": "split",
+    "children": [
+      {
+        "id": "86cc0be6d70689bb",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "e0421fc6f88c5180",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "参考文档/001-核心系统设计参考-20260609/002-NPC心智模型与心理学参考.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "002-NPC心智模型与心理学参考"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "3554209de5d41238",
+    "type": "split",
+    "children": [
+      {
+        "id": "84790708d07e2310",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "9fd2dd038a914461",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          },
+          {
+            "id": "2017d33597c7bead",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "3b5b6a59cb843d9d",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "书签"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "6f0207a97ef0afb2",
+    "type": "split",
+    "children": [
+      {
+        "id": "0f6f2e4cc972feff",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "66487a616be19b33",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "参考文档/001-核心系统设计参考-20260609/002-NPC心智模型与心理学参考.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "002-NPC心智模型与心理学参考 的反向链接列表"
+            }
+          },
+          {
+            "id": "97cf603aec063438",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "参考文档/001-核心系统设计参考-20260609/002-NPC心智模型与心理学参考.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "002-NPC心智模型与心理学参考 的出链列表"
+            }
+          },
+          {
+            "id": "f7c49a5f1dc52aa3",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "33fc2d3f9f05792e",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          },
+          {
+            "id": "5126de9cccdeb4d3",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "参考文档/001-核心系统设计参考-20260609/002-NPC心智模型与心理学参考.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "002-NPC心智模型与心理学参考 的大纲"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "bases:新建数据库": false
+    }
+  },
+  "active": "e0421fc6f88c5180",
+  "lastOpenFiles": [
+    "参考文档/001-核心系统设计参考-20260609/001-涌现叙事与故事生成器设计参考.md",
+    "Change/CHG-003-创建人世哲学与NPC完整性深化-20260609.md",
+    "参考文档/README.md",
+    "参考文档/README.md.tmp.26396.bb1a26f97a64",
+    "参考文档/001-涌现叙事与故事生成器设计参考.md",
+    "参考文档/001-核心系统设计参考-20260609/README.md",
+    "参考文档/001-核心系统设计参考-20260609/006-体素地形与渲染技术参考.md",
+    "参考文档/001-核心系统设计参考-20260609/005-GOAP与分层AI决策系统参考.md",
+    "参考文档/001-核心系统设计参考-20260609/004-全球多元文化体系设计参考.md",
+    "参考文档/001-核心系统设计参考-20260609/003-程序化世界生成参考.md",
+    "参考文档/001-核心系统设计参考-20260609/002-NPC心智模型与心理学参考.md",
+    "参考文档/001-核心系统设计参考-20260609",
+    "参考文档/README.md.tmp.26396.400e0f15b675",
+    "参考文档/006-体素地形与渲染技术参考.md",
+    "参考文档/006-体素地形与渲染技术参考.md.tmp.26396.990a69307b71",
+    "参考文档/005-GOAP与分层AI决策系统参考.md",
+    "参考文档/005-GOAP与分层AI决策系统参考.md.tmp.26396.84f445e7cd69",
+    "参考文档/004-全球多元文化体系设计参考.md",
+    "参考文档/004-全球多元文化体系设计参考.md.tmp.26396.f21f6ba31a5c",
+    "参考文档/003-程序化世界生成参考.md",
+    "参考文档/003-程序化世界生成参考.md.tmp.26396.6953d422a42c",
+    "参考文档/002-NPC心智模型与心理学参考.md",
+    "参考文档/002-NPC心智模型与心理学参考.md.tmp.26396.db0304045981",
+    "参考文档/001-涌现叙事与故事生成器设计参考.md.tmp.26396.360280816acc",
+    "参考文档",
+    "Change/hand/003.md",
+    "Happy Game/想法/开发想法草稿/技术架构.md",
+    "Happy Game/想法/开发想法草稿/创意.md",
+    "Change/CHG-002-设计哲学深化与风格定义-20260609.md",
+    "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver1.01.md",
+    "Happy Game/开发阶段/家具系统设计.md",
+    "Change/CHG-001-废止阶段性实现规划-20260609.md",
+    "Change/NPC数量目标变更 20260609.md",
+    "Change/README.md",
+    "Happy Game/欢迎.md"
+  ]
+}

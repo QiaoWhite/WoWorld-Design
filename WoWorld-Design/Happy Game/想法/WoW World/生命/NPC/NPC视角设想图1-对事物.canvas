@@ -1,0 +1,37 @@
+{
+	"nodes":[
+		{"id":"8af330f7fa8472b7","type":"text","text":"有机物","x":-111,"y":306,"width":94,"height":60},
+		{"id":"33409f47867f9eec","type":"text","text":"自然物","x":124,"y":480,"width":94,"height":60},
+		{"id":"2b5d9d4d2a2cd8b8","type":"text","text":"无机物","x":179,"y":306,"width":94,"height":60},
+		{"id":"6a4f244833c913b0","type":"text","text":"物","x":7,"y":120,"width":78,"height":60},
+		{"id":"2fe67c4fd42bf9d8","type":"text","text":"理念","x":-259,"y":-74,"width":78,"height":60},
+		{"id":"15d18295a2aa74bf","type":"text","text":"[[NPC视角设想]]","x":-36,"y":-41,"width":157,"height":54},
+		{"id":"1b2181d6cda5eeb5","type":"text","text":"人造物","x":300,"y":480,"width":94,"height":60},
+		{"id":"aca3ed8ce92799df","type":"text","text":"植物","x":-95,"y":480,"width":78,"height":60},
+		{"id":"1cf793c082231e2f","type":"text","text":"动物","x":-220,"y":480,"width":78,"height":60},
+		{"id":"caa2cd5ed96bb790","type":"text","text":"人","x":-4,"y":-210,"width":94,"height":60},
+		{"id":"9ca4a1021d8d21b9","type":"text","text":"看法\n","x":-515,"y":-300,"width":86,"height":60},
+		{"id":"c4cc0a514c1cdce0","x":-660,"y":-261,"width":80,"height":51,"type":"text","text":"数量"},
+		{"id":"098b832124747463","type":"text","text":"他人\n","x":-71,"y":-390,"width":78,"height":60},
+		{"id":"7b722c2dea92edf4","type":"text","text":"自我","x":121,"y":-390,"width":78,"height":60},
+		{"id":"3d483444e8091e4f","type":"text","text":"感官环境","x":-400,"y":306,"width":141,"height":60},
+		{"id":"720007d1e2a82a07","type":"text","text":"形而上","x":-423,"y":-150,"width":94,"height":60},
+		{"id":"ff155bba73f9a0e5","type":"text","text":"形而下","x":-423,"y":13,"width":94,"height":60}
+	],
+	"edges":[
+		{"id":"15943b5f6f4989bf","fromNode":"caa2cd5ed96bb790","fromSide":"top","toNode":"098b832124747463","toSide":"bottom"},
+		{"id":"cb403ae788feabce","fromNode":"caa2cd5ed96bb790","fromSide":"top","toNode":"7b722c2dea92edf4","toSide":"bottom"},
+		{"id":"ee3f2c6964be2286","fromNode":"6a4f244833c913b0","fromSide":"bottom","toNode":"8af330f7fa8472b7","toSide":"top"},
+		{"id":"4e1ce358b35f35bc","fromNode":"6a4f244833c913b0","fromSide":"bottom","toNode":"2b5d9d4d2a2cd8b8","toSide":"top"},
+		{"id":"cef9af6ede37799e","fromNode":"2b5d9d4d2a2cd8b8","fromSide":"bottom","toNode":"33409f47867f9eec","toSide":"top"},
+		{"id":"4310059a5934a999","fromNode":"2b5d9d4d2a2cd8b8","fromSide":"bottom","toNode":"1b2181d6cda5eeb5","toSide":"top"},
+		{"id":"f72875a5b6831292","fromNode":"15d18295a2aa74bf","fromSide":"top","toNode":"caa2cd5ed96bb790","toSide":"bottom"},
+		{"id":"29a58c113d224170","fromNode":"15d18295a2aa74bf","fromSide":"bottom","toNode":"6a4f244833c913b0","toSide":"top"},
+		{"id":"7c4c98626ab09a44","fromNode":"15d18295a2aa74bf","fromSide":"left","toNode":"2fe67c4fd42bf9d8","toSide":"right"},
+		{"id":"4404a640ad91722a","fromNode":"8af330f7fa8472b7","fromSide":"bottom","toNode":"1cf793c082231e2f","toSide":"top"},
+		{"id":"9c2062e9659843cc","fromNode":"8af330f7fa8472b7","fromSide":"bottom","toNode":"aca3ed8ce92799df","toSide":"top"},
+		{"id":"ed25032ffcd5b911","fromNode":"6a4f244833c913b0","fromSide":"left","toNode":"3d483444e8091e4f","toSide":"right"},
+		{"id":"b3e376ebf9a07d25","fromNode":"2fe67c4fd42bf9d8","fromSide":"left","toNode":"ff155bba73f9a0e5","toSide":"right"},
+		{"id":"c20961e58f1bef60","fromNode":"2fe67c4fd42bf9d8","fromSide":"left","toNode":"720007d1e2a82a07","toSide":"right"}
+	]
+}

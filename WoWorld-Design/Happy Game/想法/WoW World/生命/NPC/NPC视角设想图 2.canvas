@@ -1,0 +1,11 @@
+{
+	"nodes":[
+		{"id":"15d18295a2aa74bf","type":"text","text":"[[NPC视角设想]]","x":-142,"y":-40,"width":157,"height":54},
+		{"id":"d7245750285fec62","type":"text","text":"智能","x":-260,"y":120,"width":78,"height":60},
+		{"id":"3619e8562e6709ce","type":"text","text":"野蛮","x":-102,"y":-260,"width":78,"height":60}
+	],
+	"edges":[
+		{"id":"4ba398d51382cbe2","fromNode":"15d18295a2aa74bf","fromSide":"bottom","toNode":"d7245750285fec62","toSide":"top"},
+		{"id":"6d46e960e042e894","fromNode":"15d18295a2aa74bf","fromSide":"top","toNode":"3619e8562e6709ce","toSide":"bottom"}
+	]
+}

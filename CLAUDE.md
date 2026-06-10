@@ -27,7 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `NPC属性.md` — 早期NPC属性头脑风暴
 
 ### `想法/` — 概念设计（脑暴阶段，标注 #草稿 的为早期文档）
-- `WoW World/` — 世界观核心设计：NPC（心理学/行为/决策/社交）、魔法（19文档完整体系：公理→元素→方程式→类型→魔力→施法→设计→器物→人文→前沿）、战斗、经济、道德、文化、信仰、仪式、事件
+- `WoW World/` — 世界观核心设计：NPC（心理学/行为/决策/社交）、魔法（20+文档完整体系：公理→元素→方程式→类型→魔力→施法→设计→器物→人文→前沿）、战斗、经济、道德、文化、信仰、仪式、事件
 - `世界生成/` — 程序化世界生成管线（01-07编号文档 + 自然景观/人文景观子目录）
 - `开发想法草稿/` — 技术架构、创意愿景（注：原 `开发流程.md` 阶段性路线图已按 CHG-002 删除）
 - `战斗/` — 实时碰撞战斗系统v0.1：武器模块化、体术、团队战、位移、站位
@@ -42,6 +42,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### `Change/`（WoWorld-Design 根目录） — 设计文档结构性变更追踪
 - 每份变更文档按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名
 - 当前包含 CHG-001（NPC数量目标变更）、CHG-002（废止阶段性规划）、CHG-003（设计哲学深化）、CHG-004（创建人世哲学与NPC完整性）、CHG-005（魔法系统冲突修正）、CHG-006（魔法系统模块化重组）
+- ⚠️ 注意：Change 文件夹中存在编号重复的历史文件（早期变更在编号体系规范化过程中产生了多个版本），以上列表为当前权威编号。新建变更文档时应参照 `Change/README.md` 中的索引确定下一个编号
 - 详见 `Change/README.md`
 
 ### `参考文档/`（WoWorld-Design 根目录） — 核心系统参考性设计文档
@@ -50,6 +51,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `001-核心系统设计参考-20260609/`：涌现叙事、NPC心智、世界生成、全球文化、GOAP决策、体素地形
   - `002-魔法系统冲突分析-20260609/`：魔法文件夹6文档的7项冲突分析与修改建议
   - `003-魔法系统模块化扩展建议-20260609/`：13个建议新建模块、中心文档重构方案、5层实现优先级
+  - `004-技术栈重新设计-20260609/`：技术栈调整建议——Rust模拟核心+Godot客户端混合架构
+  - `005-技术栈深入讨论-20260610/`：数据结构、ECS组件与并发、Bevy vs Godot深度对比、开发工作流与项目结构
+  - `006-技术栈缺陷分析与修订方案-20260610/`：十大缺陷批判、三种替代架构、最终修订方案（NPC动画/体素渲染/物理迁移到Rust侧GPU计算）
+  - `007-围绕Godot的务实技术栈方案-20260610/`：自建渲染器真实代价、Godot规模化六策略、Godot优先+Rust模拟方案
+  - `008-LLM辅助开发与理念实践平衡-20260610/`：LLM辅助下006方案重估、理念与实践三层文档结构
+  - `009-LLM辅助+UAF启发的务实技术栈-20260610/`：条件重设(边学边做)、UAF GPU动画架构、C#+Godot方案
+  - `010-两种约束条件下的技术栈方案-20260610/`：必须Rust+Godot方案、抛弃Godot零基方案
+  - `011-Rust+Godot综合方案-长期Mod与性能平衡-20260610/`：UAF Rust实现、Rhai Mod引擎、帧预算、低多边形美学
+  - `012-011方案审查-冲突缺陷与修正-20260610/`：5个理念冲突修正、Rust平滑体素社区项目参考
+  - `013-自建体素世界生成方案-20260610/`：分层密度场、Desire Path道路形成、Transvoxel+噪声管线
+  - `014-体素远景奇幻与高速移动方案-20260610/`：8级LOD远景、DensityProvider奇幻地形、7层垂直生态、GPU噪声高速加载
+  - **`015-正式技术栈方案-20260610/`**：**★ 综合004-014全部审查修正的正式技术蓝图 v1.0。后续技术决策以本文档为准。**
 - 详见 `参考文档/README.md`
 
 ### 文档层级：`想法/` vs `开发阶段/`
@@ -73,12 +86,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 技术栈（已规划，尚未实现）
 
-- **引擎**: Godot 4.6.2
-- **体素**: Voxel Tools (Zylann) 插件 + Transvoxel（Marching Cubes LOD变体）
+> 📘 **权威技术方案见 `参考文档/015-正式技术栈方案-20260610/`**。以下为概要。
+
+- **引擎**: Godot 4.6 LTS
+- **模拟语言**: Rust (stable 1.80+) — 通过 GDExtension 与 Godot 集成
+- **体素**: 自建 Transvoxel（Rust 侧）→ Godot ArrayMesh 渲染。分层密度场（基础地形+奇幻+文化+NPC修改+玩家修改+天气），8级LOD覆盖0-6.4km+
 - **画面**: 3D低多边形 + 像素纹理
-- **NPC AI**: GOAP规划（安全网，占9%决策）+ 概率行为树（日常，占90%）+ 可选LLM增强（1%）
-- **世界生成**: 多层噪声 → 生物群系 → 聚落 → 建筑(WFC) → 道路 → NPC初始化 → 历史模拟
-- **架构**: Game Manager → World Mgr / NPC Mgr → 生成管线 / 模拟管线 → Event Bus → 各子系统
+- **NPC AI**: GOAP规划（安全网，占9%决策）+ 概率行为树（日常，占90%）+ 可选LLM增强（1%）。SoA数据布局 + rayon并行
+- **动画**: UAF启发的模块化GPU动画——Rust CPU批量骨骼矩阵 → Godot GPU skinning shader。无AnimationTree节点
+- **世界生成**: 多层噪声 → 生物群系 → 聚落 → 建筑(WFC) → 道路 → NPC初始化 → 历史模拟。种子确定性+增量存档
+- **数据库**: LMDB — 双层记忆架构（事件事实库 + 主观记忆库）
+- **时间/天气**: Rust侧TimeManager + WeatherManager；Godot Sky shader天体渲染；季节+天气影响NPC行为权重
+- **Mod**: TOML数据驱动 + Rhai脚本引擎（远期）；参数调节API（非行为编写）；5级Mod支持
+- **架构**: Rust模拟核心（NPC/世界生成/时间天气/Mod）→ GDExtension → Godot客户端（渲染/UI/音频/输入/玩家物理）
 - **美术**: AI生成(Stable Diffusion) + 手动调整(Blender)
 - **平台**: Windows / Linux / macOS
 

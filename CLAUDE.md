@@ -18,6 +18,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **尚无游戏代码**，本仓库纯粹是设计文档。技术方案历经 001→015（v1.0）→016（v2.0）→**018（v3.0，当前权威）** 演进。
 
 > ⚠️ **重要说明**：WoWorld 目前仅处于理念设计阶段。设计文档中提及的任何代码方案、伪代码、数据结构示例等，仅用于辅助阐明设计理念，在实际开发中随时可能大幅重构甚至推翻重写。
+>
+> **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 Obsidian。当前无 `woworld/` 代码目录。
 
 ## 文档结构
 
@@ -51,6 +53,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **当前活跃文档**：
 | 编号 | 内容 |
 |------|------|
+| **020** | [战斗系统文档审查-缺陷不足矛盾与优化](WoWorld-Design/参考文档/020-战斗系统文档审查-缺陷不足矛盾与优化-20260611/) — 战斗系统 14 篇开发文档的综合审查报告 |
 | **019** | [NPC文档重写-问题分析与优化方向](WoWorld-Design/参考文档/019-NPC文档重写-问题分析与优化方向-20260611/) — NPC ver2.0 重写中识别的 7 个潜在问题 + 4 个架构优化方向 |
 | **018** | [**正式技术栈方案 v3.0**](WoWorld-Design/Happy Game/开发阶段/技术栈方案/) ← **★ 当前权威方案（已迁移至开发阶段）** |
 | **017** | [开发阶段测试记录](WoWorld-Design/参考文档/017-开发阶段测试记录-20260610/) — 方法论+50份双视角测试报告 |
@@ -116,3 +119,4 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **设计变更**：对多个文档的结构性修改，在 `Change/` 按 `CHG-XXX-简短描述-YYYYMMDD.md` 创建变更文档。CHG文档之间及CHG与参考文档之间用 `[[]]` 交叉引用
 - **参考文档**：在 `参考文档/` 中创建 `NNN-简短描述-YYYYMMDD` 格式子文件夹，内部文档从 001 编号
 - **技术决策**：以 `开发阶段/技术栈方案/` 为权威依据。所有 001-016 为历史演进存档，017 为测试方法论，018 已正式迁移至开发阶段
+- **规划文件**：项目根目录的 `task_plan.md`、`findings.md`、`progress.md` 为 planning-with-files 工作流文件，用于追踪任务进度和设计决策。这些文件由 Claude 自动维护，不应手动编辑

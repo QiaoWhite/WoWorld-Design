@@ -44,7 +44,7 @@
 ### 三大决策环
 
 1. **本地概率决策** (~90%) — 文化习俗 × 个人习惯 × 人格偏移 × 情绪修正 → 加权随机采样
-2. **GOAP 安全网** (~9%) — 饥饿 >0.85 / 重伤 / 致命威胁 / 重大交易 / 仪式 → 确定性规划
+2. **GOAP 安全网** (~9%) — 饥饿 <0.3 / 口渴 <0.25 / 重伤 / 致命威胁 / 重大交易 / 仪式 → 确定性规划
 3. **LLM 增强（可选）** (~1%) — 复杂社交场景。仅从预定义行动库选取。安全网关 + 速率限制
 
 ---
@@ -177,12 +177,18 @@ impl BigFive {
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Physiology {
-    pub hunger: f32,           // 0-1, 安全区 <0.3, 警告区 0.3-0.6, GOAP强制 >0.85
-    pub thirst: f32,           // 0-1, GOAP强制 >0.9
-    pub fatigue: f32,          // 0-1, GOAP强制 >0.9
+    // ⚠️ 尺度方向已统一为 Life.Vitals 约定:
+    //    hunger/thirst: 0.0=极度缺乏 ~ 1.0=完全满足 (0=bad, 1=good)
+    //    fatigue:       0.0=精力充沛 ~ 1.0=极其疲劳 (0=good, 1=bad)
+    //    与生命系统 004-身体状态与生命过程 完全一致
+    pub hunger: f32,           // 0.0=极度饥饿 ~ 1.0=饱腹, GOAP强制 <0.3
+    pub thirst: f32,           // 0.0=脱水 ~ 1.0=不渴, GOAP强制 <0.25
+    pub fatigue: f32,          // 0.0=精力充沛 ~ 1.0=极其疲劳, GOAP强制 >0.9
     pub health: f32,           // 0-1 (1=满血, 0=濒死), GOAP强制 <0.3
     pub stamina: f32,          // 瞬时可用体力 (区别于 fatigue)
-    pub mana: Option<f32>,     // 法力 (非施法者 = None)
+    // ★ mana 已废弃——改为从 Life.SpiritState + Life.MagicAttributes 读取
+    //    见 生命/004-身体状态与生命过程.md §四 (Spirit & Magic)
+    //    灵元素含量/十元素亲和/魔力强度/控制/抗性/恢复速度——由 Life 基类统一管理
     pub temperature: f32,      // 体感温度 (受季节/天气/服装修正)
 }
 ```
@@ -568,7 +574,7 @@ impl EmotionState {
 
     /// 生理拉扯 — 身体状态影响情绪轴
     pub fn apply_physiological_pull(&mut self, phys: &Physiology) {
-        if phys.hunger > 0.6 { self.pleasure -= 0.001 * phys.hunger; }
+        if phys.hunger < 0.4 { self.pleasure -= 0.001 * (0.4 - phys.hunger); }
         if phys.fatigue > 0.7 { self.arousal -= 0.001 * phys.fatigue; }
         if phys.health < 0.5 { self.control -= 0.001 * (0.5 - phys.health); }
     }
@@ -900,8 +906,8 @@ const VEHICLE_ACTION_MODIFIERS: [(VehicleCondition, ActionCategory, f32); 6] = [
 /// 触发条件 — 仅当生存/重大危机时激活 (~9% 决策)
 impl GoapPlanner {
     pub fn should_activate(npc: &NpcData) -> Option<Goal> {
-        if npc.physiology.hunger > 0.85 { return Some(Goal::SurvivalEat); }
-        if npc.physiology.thirst > 0.9  { return Some(Goal::SurvivalDrink); }
+        if npc.physiology.hunger < 0.3  { return Some(Goal::SurvivalEat); }
+        if npc.physiology.thirst < 0.25 { return Some(Goal::SurvivalDrink); }
         if npc.physiology.fatigue > 0.9 { return Some(Goal::SurvivalSleep); }
         if npc.physiology.health < 0.3  { return Some(Goal::SurvivalHeal); }
         if npc.current_state.combat_threat > 0.7 {

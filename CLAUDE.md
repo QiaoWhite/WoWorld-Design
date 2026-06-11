@@ -37,6 +37,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `战斗/` — **战斗系统 14 篇**（三层模型/信息不对称/招式积木/魔法融入/半自动HUD）
   - `魔法/` — **魔法系统 18 篇**（七层结构：十元素→魔力→施法→工程→人文）
   - `世界生成/` — **世界生成 9 篇**（11阶段管线：全球大陆架构→海洋系统→自然基底→资源→聚落→WFC建筑→交通→NPC历史→世界边界。v3 重构）
+  - `生命/` — **生命系统 12 篇**（Life基类架构、智能种族/动物/灵兽/怪物/亡灵/植物/神明/玩家、12维积木拼装、四层质量防线、繁衍三层社会约束）
 
 ### `Change/` — 设计变更追踪
 按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名。当前：
@@ -45,6 +46,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **[CHG-008](WoWorld-Design/Change/CHG-008-设计深度补充-世界尺度战斗天象载具城市蓝图-20260610.md)**：设计深度补充——700m山+海陆73+体积云+半自动战斗+城市规划+载具+蓝图
 - **[CHG-009](WoWorld-Design/Change/CHG-009-NPC开发文档Rust重写-v3升级-20260611.md)**：NPC开发文档全面重写：GDScript→Rust伪代码+v3全系统植入
 - **[CHG-010](WoWorld-Design/Change/CHG-010-世界生成v3重构-20260611.md)**：世界生成方案 v3 重构——自建Transvoxel+25万km²+海陆7:3+海洋系统+港口/游牧聚落+承载容量+两层WFC+全部参数重算
+- **[CHG-011](WoWorld-Design/Change/CHG-011-生命系统v1.0设计-20260611.md)**：生命系统 v1.0 全新设计——Life基类+8大生命类型+12维程序化生成+四层质量防线+灵兽5驯服路径+亡灵7来源+神明三模式+繁衍三层约束
 - 详见 `Change/README.md`
 
 ### `参考文档/` — 参考性设计文档

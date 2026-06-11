@@ -1,32 +1,52 @@
 # Progress Log — WoWorld 设计文档
 
-## Session: 2026-06-11
+## Session: 2026-06-11/12
 
-### Phase 0: 会话初始化
+### Phase 6: 全文档审计 + 修复
 - **Status:** complete
-- **Started:** 2026-06-11 (continuing from previous session)
-- Actions taken:
-  - 理解仓库结构（开发阶段 vs 想法 vs 参考文档 vs Change）
-  - 建立 planning-with-files 工作流（task_plan.md / findings.md / progress.md）
-  - 记录当前开发阶段模块完成状态
-  - 上一会话完成：技术栈方案迁移至开发阶段、技术架构重写、游戏概述迁移
-- Files created/modified:
-  - `task_plan.md` (created) — 任务计划
-  - `findings.md` (created) — 研究发现与决策记录
-  - `progress.md` (created) — 进度日志
+- 5 并行审计代理覆盖全部五大模块 + 跨模块
+- 发现 ~77 问题（16致命+20高+23中+18低）
+- 四轮修复完成，34 文件修改
+- CHG-012 变更文档创建
+- Commits: `4a93d6b` + `52a6d6b`
 
-### 上一会话完成的工作（上下文恢复）
-- **技术栈方案迁移**: `参考文档/018/` → `开发阶段/技术栈方案/`
-- **技术架构重写**: `想法/开发想法草稿/技术架构.md` 从 GDScript 时代完全重写为 v3.0 Rust+Godot
-- **游戏概述迁移**: `想法/开发想法草稿/创意.md` → `开发阶段/游戏概述.md`
-- **索引更新**: `开发阶段/README.md`、`CLAUDE.md` 同步更新
-- 共 16 文件变更，748 行新增，633 行删除
+### Phase 7: 植物系统 v2.0
+- **Status:** complete
+- /grill-me 访谈 18 分支
+- 009-植物.md: 93 行 → 1,850 行 (+1,889%)
+- 覆盖完整：8维生成/种子驱动/产物/生态/农业/灵元素/巨树/过渡带/数据合同/水生+洞穴/渲染/炼金/NPC/读树/天气
+- Commit: `2d20241`
 
-## 5-Question Reboot Check
-| Question | Answer |
-|----------|--------|
-| Where am I? | Phase 0 complete，等待新任务 |
-| Where am I going? | 等待用户指定下一个任务 |
-| What's the goal? | 推进 WoWorld 设计文档，将概念成熟化并产出正式开发规格 |
-| What have I learned? | See findings.md — 仓库结构、技术决策、待补充模块 |
-| What have I done? | 会话初始化完成，上一会话完成了大量迁移和重写工作 |
+### Phase 8: 动物系统 v2.0 + 003 维度扩展
+- **Status:** complete
+- /grill-me 访谈水生+飞行生物
+- 003: +维度扩展（感官/运动子类型/迁徙/变态/深度层/高度层/盐度）
+- 005-动物.md: 94 行 → 918 行 (+877%)
+- 覆盖完整：水陆空三域/浮力/游泳/鱼群AI/飞行spline/魔法飞行/跨域/玩家水中空中体验/NPC交互细节
+- Commits: `f17bdc1` + `fed26d1` (NPC+玩家补充)
+- CLAUDE.md 更新: `223995a`
+- Planning files 全面更新: 当前
+
+---
+
+## 最近提交
+```
+223995a 更新 CLAUDE.md
+fed26d1 动物 v2.0 补充：NPC-动物交互细节 + 玩家水中/空中体验
+f17bdc1 动物系统 v2.0 + 003维度扩展
+2d20241 植物系统 v2.0
+52a6d6b CHG-012 变更文档
+4a93d6b CHG-012: 全文档审计——修复约77个矛盾/冲突/错误
+```
+
+## 开发阶段总行数
+| 模块 | 行数 |
+|------|------|
+| 世界生成 (10文件) | 2,926 |
+| 生命系统 (13文件) | 4,828 |
+| NPC 活人感 (1文件) | 2,599 |
+| 魔法系统 (20文件) | 2,092 |
+| 战斗系统 (14文件) | 1,496 |
+| 技术栈方案 | ~600 |
+| 游戏概述 | ~120 |
+| **总计** | **~14,661** |

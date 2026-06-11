@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Happy Game/开发阶段/魔法/03-实践层/007-施法媒介与方式.md",
+                "file": "Happy Game/开发阶段/魔法/06-人文层/016-魔法学习与传承.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "007-施法媒介与方式"
+              "title": "016-魔法学习与传承"
             }
           }
         ]
@@ -198,8 +198,26 @@
       "bases:新建数据库": false
     }
   },
-  "active": "7ef170f8dfaf12d5",
+  "active": "9fd2dd038a914461",
   "lastOpenFiles": [
+    "Happy Game/开发阶段/生命/README.md.tmp.184.ffbebb4e400e",
+    "Happy Game/开发阶段/生命/README.md.tmp.184.8564ee897ffb",
+    "Happy Game/开发阶段/生命/009-植物.md.tmp.184.aa25b59fbee8",
+    "Happy Game/开发阶段/魔法/07-高级层/019-魔法前沿理论.md",
+    "Happy Game/开发阶段/魔法/04-工程层/014-魔法卷轴.md",
+    "Happy Game/开发阶段/魔法/04-工程层/013-魔导书.md",
+    "Happy Game/开发阶段/魔法/04-工程层/012-魔法设计.md",
+    "Happy Game/开发阶段/魔法/03-实践层/011-契约魔法.md",
+    "Happy Game/开发阶段/魔法/03-实践层/010-仪式魔法.md",
+    "Happy Game/开发阶段/魔法/03-实践层/009-触媒与材料.md",
+    "Happy Game/开发阶段/魔法/03-实践层/007-施法媒介与方式.md",
+    "Happy Game/开发阶段/魔法/03-实践层/008-法阵系统.md",
+    "Happy Game/开发阶段/魔法/01-基础层/004-魔法方程式.md",
+    "Happy Game/开发阶段/魔法/01-基础层/003-元素交互.md",
+    "Happy Game/开发阶段/魔法/01-基础层/002-十元素.md",
+    "Happy Game/开发阶段/魔法/01-基础层/001-魔法总纲.md",
+    "Change/CHG-012-开发文档全审计-矛盾冲突错误修复-20260611.md",
+    "Change/CHG-012-开发文档全审计-矛盾冲突错误修复-20260611.md.tmp.184.8c078d228a02",
     "Happy Game/开发阶段/游戏概述.md.tmp.184.c9581b7b48cb",
     "Happy Game/开发阶段/魔法/04-工程层/013-魔导书.md.tmp.184.dbb97facfa96",
     "Happy Game/开发阶段/魔法/04-工程层/012-魔法设计.md.tmp.184.1ac0549d8c58",
@@ -207,12 +225,6 @@
     "Happy Game/开发阶段/战斗/006-魔法在战斗中的融入.md.tmp.184.d9198ad70adc",
     "Happy Game/开发阶段/战斗/006-魔法在战斗中的融入.md.tmp.184.5e7d72c15d50",
     "Happy Game/开发阶段/魔法/README.md.tmp.32952.57d0d541d59c",
-    "Happy Game/开发阶段/README.md.tmp.32952.ce9219307628",
-    "Happy Game/开发阶段/魔法/01-基础层/001-魔法总纲.md.tmp.32952.150e3d03797c",
-    "Happy Game/开发阶段/魔法/01-基础层/002-十元素.md.tmp.32952.903bd1ebd3ca",
-    "Happy Game/开发阶段/魔法/01-基础层/002-十元素.md.tmp.32952.3492001d9e43",
-    "Happy Game/开发阶段/魔法/01-基础层/001-魔法总纲.md",
-    "Happy Game/开发阶段/魔法/01-基础层/002-十元素.md",
     "Happy Game/开发阶段/战斗/006-魔法在战斗中的融入.md",
     "Happy Game/开发阶段/战斗/003-三层战斗模型.md",
     "Happy Game/开发阶段/战斗/001-战斗系统总览.md",
@@ -224,18 +236,6 @@
     "Happy Game/开发阶段/生命/003-程序化生成系统.md",
     "Happy Game/开发阶段/生命/002-种族与特质.md",
     "Change/CHG-010-世界生成v3重构-20260611.md",
-    "Change/CHG-011-生命系统v1.0设计-20260611.md",
-    "Happy Game/开发阶段/世界生成/006-交通网络.md",
-    "Happy Game/开发阶段/生命/011-玩家.md",
-    "Happy Game/开发阶段/世界生成/008-NPC初始化与历史模拟.md",
-    "Happy Game/开发阶段/世界生成/002-自然景观.md",
-    "Happy Game/开发阶段/生命/012-繁衍系统.md",
-    "Happy Game/开发阶段/生命/004-身体状态与生命过程.md",
-    "Happy Game/开发阶段/生命/005-动物.md",
-    "Happy Game/开发阶段/生命/006-灵兽.md",
-    "Happy Game/想法/WoW World/生命/怪物.md",
-    "Happy Game/开发阶段/生命/010-神明与信仰.md",
-    "Happy Game/开发阶段/生命/009-植物.md",
     "Happy Game/想法/WoW World/生命/NPC/角色处理对象时的心理作用.canvas"
   ]
 }

@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Happy Game/开发阶段/魔法/06-人文层/016-魔法学习与传承.md",
+                "file": "Happy Game/开发阶段/生命/009-植物.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "016-魔法学习与传承"
+              "title": "009-植物"
             }
           }
         ]
@@ -200,6 +200,15 @@
   },
   "active": "9fd2dd038a914461",
   "lastOpenFiles": [
+    "Happy Game/开发阶段/生命/README.md.tmp.184.a255cc1b07da",
+    "Happy Game/开发阶段/生命/005-动物.md.tmp.184.77885be06608",
+    "Happy Game/开发阶段/生命/003-程序化生成系统.md.tmp.184.06b103220c04",
+    "Happy Game/开发阶段/生命/003-程序化生成系统.md.tmp.184.e6a9a81bd2fe",
+    "Happy Game/开发阶段/生命/003-程序化生成系统.md.tmp.184.17ce5ae29c92",
+    "Happy Game/开发阶段/生命/003-程序化生成系统.md.tmp.184.73dad2fee699",
+    "Happy Game/想法/世界生成/自然景观.md",
+    "Happy Game/开发阶段/家具系统设计.md",
+    "Happy Game/开发阶段/魔法/06-人文层/016-魔法学习与传承.md",
     "Happy Game/开发阶段/生命/README.md.tmp.184.ffbebb4e400e",
     "Happy Game/开发阶段/生命/README.md.tmp.184.8564ee897ffb",
     "Happy Game/开发阶段/生命/009-植物.md.tmp.184.aa25b59fbee8",
@@ -219,12 +228,6 @@
     "Change/CHG-012-开发文档全审计-矛盾冲突错误修复-20260611.md",
     "Change/CHG-012-开发文档全审计-矛盾冲突错误修复-20260611.md.tmp.184.8c078d228a02",
     "Happy Game/开发阶段/游戏概述.md.tmp.184.c9581b7b48cb",
-    "Happy Game/开发阶段/魔法/04-工程层/013-魔导书.md.tmp.184.dbb97facfa96",
-    "Happy Game/开发阶段/魔法/04-工程层/012-魔法设计.md.tmp.184.1ac0549d8c58",
-    "Happy Game/开发阶段/战斗/006-魔法在战斗中的融入.md.tmp.184.caa940d338d7",
-    "Happy Game/开发阶段/战斗/006-魔法在战斗中的融入.md.tmp.184.d9198ad70adc",
-    "Happy Game/开发阶段/战斗/006-魔法在战斗中的融入.md.tmp.184.5e7d72c15d50",
-    "Happy Game/开发阶段/魔法/README.md.tmp.32952.57d0d541d59c",
     "Happy Game/开发阶段/战斗/006-魔法在战斗中的融入.md",
     "Happy Game/开发阶段/战斗/003-三层战斗模型.md",
     "Happy Game/开发阶段/战斗/001-战斗系统总览.md",
@@ -233,9 +236,6 @@
     "Happy Game/开发阶段/生命/007-怪物.md",
     "Happy Game/开发阶段/生命/001-生命总纲.md",
     "Happy Game/开发阶段/世界生成/004-聚落生成.md",
-    "Happy Game/开发阶段/生命/003-程序化生成系统.md",
-    "Happy Game/开发阶段/生命/002-种族与特质.md",
-    "Change/CHG-010-世界生成v3重构-20260611.md",
     "Happy Game/想法/WoW World/生命/NPC/角色处理对象时的心理作用.canvas"
   ]
 }

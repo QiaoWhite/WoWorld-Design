@@ -145,6 +145,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 附魔 (Enchantment) | **物品系统** `008` | Combat/Magic | 卡槽附魔(日常经济,可撤换)+直接附魔(历史锚点,永久)——两者可共存于同一物品 |
 | 制造配方 (CraftingRecipe) | **物品系统** `006` | NPC/Magic | TOML数据驱动——不是代码。配方发现=学习/实验/购买/天启 |
 
+### CHG-015 新增契约（技能系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| 技能标识 (SkillId) | **技能系统** `001`/`002` | 全部模块 | SkillId=u64全局恒定(8+8+16+32bit,5分类22子组)——NPC/Combat/Magic/物品系统的SkillId引用全部以技能系统为权威 |
+| 技能实例 (SkillEntry) | **技能系统** `001` | 全部模块 | xp/level/innate_aptitude(0.7-1.3天生一次roll)/total_xp_earned/times_used——稀疏存储，不存在=untrained |
+| 累积XP公式 | **技能系统** `001` | Combat/Magic/NPC | total_xp(L)=100×(e^(0.04L)-1)/0.04——[TUNING]可调。用进不退——无衰减 |
+| 天赋模型 | **技能系统** `001`/`002` | NPC | 三层叠加：MentalAccess trait(0.7-1.0)/天生倍率(0.7-1.3每NPC每技能独立)/交叉训练(同组0.04-0.20,天花板min(40,0.5L),非递归) |
+| 技能管辖范围 | **技能系统** `001` | NPC/物品/Combat/Magic | 5大类(Combat/Magic/Artisan/Academic/Survival)——社交/经济不在管辖。玩家MentalAccess+PhysicalAccess均返回1.0 |
+| 教学系统 | **技能系统** `003` | NPC/Magic | 四种路径统一在技能系统：自学(1.0×)/师承(1.2-3.0×)/学院(1.3×)/秘传(→Magic调用add_xp_direct)。TeachingRisk trait空默认 |
+| 交叉训练 | **技能系统** `002` | 全部模块 | 仅DirectAction/Teaching/DirectInfusion触发——CrossTraining不递归。天花板min(40, source_level×0.5)。元素组边界由Magic 002权威定义 |
+| SkillCategory | **技能系统** `002` | NPC | 5类枚举（非NPC旧7类）——删除Social和Economic。NPC文档以技能系统为权威 |
+
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 
 ## 工作约定

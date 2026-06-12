@@ -89,8 +89,8 @@ pub struct NpcData {
     // ── 知识 ──
     pub knowledge: Knowledge,
 
-    // ── 长期目标 ──
-    pub long_term_planning: LongTermPlanning,
+    // ── 自我叙事（替代原 LongTermPlanning 占位符）──
+    pub self_narrative: SelfNarrative,
 
     // ── 社会身份 ──
     pub social_identity: SocialIdentity,
@@ -222,8 +222,31 @@ pub struct EmotionState {
     pub active_composite_label: Option<CompositeEmotion>,
     pub composite_intensity: f32,
 
-    /// 无聊累积值 (触发创新行为)
-    pub boredom_accumulated: f32,
+    /// ★ 心境层——缓慢变化（天→周），与快速情绪（秒→小时）分离
+    /// 心境是情绪的"天气"，情绪是心境的"阵雨"
+    pub mood: MoodState,
+}
+
+/// ★ 心境状态——独立于瞬时情绪
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MoodState {
+    pub mood_pleasure: f32,          // -1~1 这段日子开心吗
+    pub mood_arousal: f32,           // 0~1  这段日子精力充沛吗
+    pub mood_control: f32,           // -1~1 这段日子掌控感如何
+    pub mood_label: Option<MoodLabel>,
+    pub days_since_last_shift: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MoodLabel {
+    Cheerful,     // 开朗
+    Melancholic,  // 忧郁
+    Irritable,    // 易怒
+    Serene,       // 宁静
+    Anxious,      // 焦虑
+    Apathetic,    // 淡漠
+    Euphoric,     // 狂喜
+    Despondent,   // 沮丧
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1002,7 +1025,8 @@ pub struct ProbabilisticDecisionEngine {
     cultural_weights: BTreeMap<ActionId, f32>,
 
     /// 个人习惯权重 — 行为完成后累积更新
-    personal_weights: BTreeMap<ActionId, f32>,
+    /// ★ 替换原 personal_weights，完整规格见 §2.3.5
+    habits: HabitSystem,
 
     /// 滞后区间 — 目标确定后最小执行时间
     min_execution_time: Duration,  // ≥5s (017 测试 P2 #7 验证)
@@ -1023,10 +1047,12 @@ impl DecisionEngine for ProbabilisticDecisionEngine {
             .map(|action| {
                 let weight =
                     self.cultural_weight(&action)      // 文化习俗
-                    * self.personal_weight(&action, npc) // 个人习惯
+                    * self.habit_weight(&action, npc)  // 个人习惯（HabitSystem）
                     * self.personality_modifier(&action, &npc.personality) // 人格偏移
                     * self.emotion_modifier(&action, &npc.emotion)         // 情绪修正
+                    * self.mood_modifier(&action, &npc.emotion.mood)       // ★ 心境修正（独立于情绪）
                     * self.physiology_modifier(&action, &npc.physiology)   // 生理需求
+                    * self.intrinsic_motivation_weight(&action, npc) // ★ 内在驱动（SelfNarrative）
                     * self.time_modifier(&action, world)   // v3: 昼夜修正
                     * self.weather_modifier(&action, world) // v3: 天气修正
                     * self.sky_modifier(&action, &npc.sky_perception) // v3: 天象修正
@@ -1254,6 +1280,8 @@ impl Relationship {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SocialIdentity {
     /// 自我标签: ["铁匠", "父亲", "猎户", "酒鬼"]
+    /// ★ 自我标签——从 SelfNarrative.self_concept 派生（缓存视图）
+    /// 实际权威来源: npc.self_narrative.self_concept
     pub self_labels: Vec<String>,
 
     /// 感知到的社会地位 (通过社会比较动态更新)
@@ -1399,6 +1427,428 @@ pub enum DistrictType {
     PortDistrict,       // v3: 港口区 — 装卸/交易/航海行为
     StationDistrict,    // v3: 车站区 — 火车/载具行为
     AdministrativeCenter,
+}
+```
+
+---
+
+## 2.8 自我叙事引擎（SelfNarrative）★ 新增
+
+> **设计意图**: 取代原 `LongTermPlanning` 占位符字段（从未定义）。NPC 不只是行事——它反思自己做过的事，从记忆归纳出"我是谁"、"我的人生在往哪里走"。这是从"行为模拟"到"存在模拟"的关键跨越。
+>
+> **核心理念**: 开发者不写任何生命故事。只定义反思算法和归纳规则。具体每个 NPC 的自我认知——全是涌现。
+
+### 2.8.1 数据结构
+
+```rust
+/// 自我叙事引擎——NPC 对自我的持续归纳
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SelfNarrative {
+    /// 自我标签——每个标签带置信度和来源
+    pub self_concept: Vec<SelfLabel>,
+
+    /// 生命章节——从记忆摘要中归纳
+    pub life_chapters: Vec<LifeChapter>,
+
+    /// 核心价值观——从反复出现的正/负面经历中结晶
+    pub core_values: Vec<CoreValue>,
+
+    /// 当前人生阶段的主题
+    pub current_life_theme: LifeTheme,
+
+    /// 长期期望——"我想成为什么样的人"
+    pub aspirations: Vec<Aspiration>,
+
+    /// 上次反思的游戏日
+    pub last_reflection: GameDay,
+
+    /// 停滞感——替代原 boredom_accumulated
+    /// 0=人生充满意义和新体验, 1=极度停滞/无聊
+    pub stagnation_sense: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SelfLabel {
+    pub label: String,           // "铁匠"、"母亲"、"幸存者"
+    pub confidence: f32,         // 0-1
+    pub source: LabelSource,
+    pub valence: f32,            // -1(负面自我认知) ~ 1(正面)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum LabelSource {
+    SelfAttributed,                           // "我认为我是..."
+    OtherAttributed { source_npc: Option<NpcId> }, // "别人说我是..."
+    EventDriven { event_id: MemoryId },       // 某次经历后形成
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LifeChapter {
+    pub title: String,
+    pub start_day: GameDay,
+    pub end_day: Option<GameDay>,
+    pub dominant_emotion: f32,   // 该时期的平均愉悦度
+    pub key_events: Vec<MemoryId>,
+    pub significance: f32,       // 对"我是谁"的重要程度 0-1
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoreValue {
+    pub value: String,           // "诚实"、"自由"、"忠诚"、"安全"
+    pub strength: f32,           // 0-1
+    pub source_experiences: Vec<MemoryId>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum LifeTheme {
+    Exploration,     // 探索——尝试新方向，未定型
+    Building,        // 建设——建立事业/家庭
+    Mastery,         // 精进——深耕已有方向
+    Crisis,          // 危机——重大变故后的重新评估期
+    Decline,         // 衰退——老年期，回顾多于计划
+    Legacy,          // 遗产——关注身后留下什么
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Aspiration {
+    pub description: String,     // "成为镇上最好的铁匠"
+    pub category: AspirationCategory,
+    pub progress: f32,           // 0-1
+    pub priority: f32,           // 0-1
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AspirationCategory {
+    SkillMastery,    // 掌握一项技能
+    SocialStanding,  // 获得社会地位
+    Creation,        // 创造某物（建筑/艺术品/著作）
+    Relationship,    // 建立/修复重要关系
+    Knowledge,       // 理解某件事
+    Legacy,          // 留下持久的影响
+}
+```
+
+### 2.8.2 反思周期
+
+每 7 游戏日（或重大事件冲击力 >0.8 后立即触发），自我叙事引擎运行一次：
+
+```rust
+impl SelfNarrative {
+    /// 周期性自我反思——将近期经历编织进自我认知
+    pub fn reflect(&mut self, npc: &NpcData, current_day: GameDay) {
+        // 1. 停滞检测——近期有多少 meaningful 新记忆?
+        let recent_count = npc.memory.events.iter()
+            .filter(|m| m.game_day.days_since(current_day) < 30.0)
+            .filter(|m| m.impact_score > 0.2)
+            .count();
+        self.stagnation_sense = if recent_count < 2 {
+            (self.stagnation_sense + 0.1).min(1.0)    // 生活一成不变 → 停滞感上升
+        } else {
+            (self.stagnation_sense - 0.15).max(0.0)   // 有新鲜事 → 停滞感下降
+        };
+
+        // 2. 自我标签更新
+        //   - 从近期记忆中提取重复出现的角色/行为 → 强化相关 SelfLabel
+        //   - 长时间未出现的标签 → confidence 缓慢衰减
+        //   - high impact events → 可能新增或移除标签
+        //   - 摄入 CombatNarrativeDetector 产生的 ProposedSelfLabelChange
+
+        // 3. 生命章节检测
+        //   - stagnation_sense > 0.7 持续 >30 天 + no new chapters recently
+        //     → 可能开启新章节（"我需要改变点什么"）
+        //   - 冲击力 >0.8 的事件 → 自动开启新章节
+        //   - 每 365 游戏日 → 自然章节回顾
+
+        // 4. 核心价值观结晶
+        //   - 检索所有正面高冲击力记忆 → 统计关联的情感/情境
+        //   - "每次我做X都感到骄傲" → X 相关的价值观强化
+        //   - 长期未验证的价值观 → strength 衰减
+
+        // 5. Aspiration 生成与更新
+        //   - stagnation_sense > 0.6 + 高开放性 → ExploreUnknown / MasterSkill
+        //   - 高尽责性 + Building 主题 → CreateSomething
+        //   - 中年 + 未实现的 aspiration → 可能触发 Crisis 主题（"中年危机"）
+        //   - 高宜人性 → DeepenConnection / SocialStanding
+        //   - 老年 / 濒死经历 → LeaveLegacy
+
+        // 6. LifeTheme 转换
+        match self.current_life_theme {
+            LifeTheme::Exploration => {
+                if self.aspirations.iter().any(|a| a.progress > 0.5) {
+                    self.current_life_theme = LifeTheme::Building;
+                }
+            }
+            LifeTheme::Building | LifeTheme::Mastery => {
+                if self.stagnation_sense > 0.7 && npc.identity.age > npc.adult_age() * 1.5 {
+                    self.current_life_theme = LifeTheme::Crisis;
+                }
+            }
+            LifeTheme::Crisis => {
+                // Crisis 结束后 → 根据人格决定下一个主题
+                if npc.personality.openness > 0.6 {
+                    self.current_life_theme = LifeTheme::Exploration;
+                } else {
+                    self.current_life_theme = LifeTheme::Mastery;
+                }
+            }
+            LifeTheme::Decline => {
+                if npc.identity.age > npc.max_lifespan() * 0.85 {
+                    self.current_life_theme = LifeTheme::Legacy;
+                }
+            }
+            _ => {}
+        }
+
+        // LifeTheme 触发条件:
+        //   age > 70% 最大寿命 + body decline >20% → Decline
+        //   age > 85% 或 closeness_to_death >0.8 → Legacy
+
+        self.last_reflection = current_day;
+    }
+}
+```
+
+### 2.8.3 内在驱动目标
+
+> 扩展 GOAP——从纯粹匮乏驱动到意义驱动。内在目标进入概率决策器（`intrinsic_motivation_weight` 乘数），**不走** GOAP 安全网——它们是"想要"而非"必须"。
+
+```rust
+/// 内在驱动目标——从 SelfNarrative 生成
+#[derive(Debug, Clone)]
+pub enum IntrinsicGoal {
+    /// 好奇心——探索未知
+    ExploreUnknown {
+        target_type: ExplorationTarget,
+        urgency: f32,
+    },
+    /// 能力感——精进一项技能
+    MasterSkill {
+        skill_id: SkillId,
+        target_level: f32,
+    },
+    /// 自主性——做出与自我叙事一致的决定
+    ActOnValue {
+        value: String,
+    },
+    /// 创造——留下自己的痕迹
+    CreateSomething {
+        creation_type: CreationType,
+    },
+    /// 连接——深化/修复重要关系
+    DeepenConnection {
+        target_id: NpcId,
+        desired_depth: f32,
+    },
+    /// 传承——为身后做准备
+    LeaveLegacy {
+        legacy_type: LegacyType,
+    },
+}
+
+/// 从 SelfNarrative 生成内在目标——每 7 游戏日调用一次
+fn generate_intrinsic_goals(narrative: &SelfNarrative, npc: &NpcData) -> Vec<IntrinsicGoal> {
+    let mut goals = Vec::new();
+
+    // 停滞驱动——"生活需要改变"
+    if narrative.stagnation_sense > 0.6 {
+        match npc.personality.openness {
+            o if o > 0.6 => goals.push(IntrinsicGoal::ExploreUnknown {
+                target_type: ExplorationTarget::NearestUnexplored,
+                urgency: narrative.stagnation_sense,
+            }),
+            _ => goals.push(IntrinsicGoal::MasterSkill {
+                skill_id: npc.highest_skill_id(),
+                target_level: (npc.highest_skill_level() + 0.2).min(1.0),
+            }),
+        }
+    }
+
+    // Aspiration 驱动——"我在成为我想成为的人吗?"
+    for aspiration in &narrative.aspirations {
+        if aspiration.progress < 0.5 && aspiration.priority > 0.5 {
+            goals.push(aspiration_to_intrinsic_goal(aspiration));
+        }
+    }
+
+    // Legacy 驱动——"我死后留下什么?"
+    if narrative.current_life_theme == LifeTheme::Legacy {
+        goals.push(IntrinsicGoal::LeaveLegacy {
+            legacy_type: LegacyType::TeachApprentice,
+        });
+    }
+
+    goals
+}
+```
+
+### 2.8.4 习惯系统（HabitSystem）
+
+> 替换原 `personal_weights: BTreeMap<ActionId, f32>`（有声明无算法）。赋予习惯完整的生命周期。
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HabitSystem {
+    pub habits: BTreeMap<ActionId, HabitEntry>,
+    pub routines: Vec<Routine>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HabitEntry {
+    pub weight: f32,                // 当前权重 0-1
+    pub repetition_count: u32,      // 累计执行次数
+    pub last_performed: GameDay,
+    pub satisfaction_history: f32,  // EMA, -1~1
+    pub is_automatic: bool,         // >30次 + weight>0.6 → 自动化
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Routine {
+    pub actions: Vec<ActionId>,
+    pub typical_time_of_day: f32,    // 0-1 (0=日出, 1=日落)
+    pub typical_location: LocationId,
+    pub consistency: f32,            // 这个 routine 有多固定 0-1
+    pub disruption_tolerance: f32,   // 偏离 routine 时的不适感 0-1
+}
+
+impl HabitSystem {
+    /// 行为完成后调用——加强习惯
+    pub fn reinforce(&mut self, action: &Action, satisfaction: f32, day: GameDay) {
+        let entry = self.habits.entry(action.id).or_insert(HabitEntry {
+            weight: 0.1,
+            repetition_count: 0,
+            last_performed: day,
+            satisfaction_history: 0.0,
+            is_automatic: false,
+        });
+        entry.repetition_count += 1;
+        entry.last_performed = day;
+        entry.weight = (entry.weight + 0.02 * satisfaction).min(1.0);
+        entry.satisfaction_history =
+            entry.satisfaction_history * 0.9 + satisfaction * 0.1; // EMA
+        if entry.repetition_count > 30 && entry.weight > 0.6 {
+            entry.is_automatic = true;
+        }
+    }
+
+    /// 习惯衰减——未执行时的不适
+    pub fn decay(&mut self, action_id: &ActionId, days_since: f32) -> Option<f32> {
+        let entry = self.habits.get_mut(action_id)?;
+        if entry.is_automatic && days_since > 3.0 {
+            entry.weight -= 0.01 * days_since;
+            return Some(0.05 * days_since);  // 不适感——影响心境
+        }
+        None
+    }
+
+    /// 用于决策器的权重查询
+    pub fn habit_weight(&self, action: &Action, _npc: &NpcData) -> f32 {
+        self.habits.get(&action.id)
+            .map(|e| 0.5 + e.weight * 0.5)  // 中性基线 0.5，习惯在 0.5-1.0 之间调节
+            .unwrap_or(0.5)                   // 未曾做过的行为 = 中性权重
+    }
+}
+```
+
+### 2.8.5 心境与情绪的交互
+
+在 §2.1 情绪动态中新增心境相关方法：
+
+```rust
+impl EmotionState {
+    /// ★ 心境累积——情绪→心境（天到周尺度）
+    /// 每天调用一次
+    pub fn accumulate_mood(&mut self, personality: &BigFive) {
+        // 情绪向心境的缓慢传递
+        self.mood.mood_pleasure += (self.pleasure - self.mood.mood_pleasure) * 0.05;
+        self.mood.mood_arousal += (self.arousal - self.mood.mood_arousal) * 0.05;
+        self.mood.mood_control += (self.control - self.mood.mood_control) * 0.05;
+
+        // 心境惯性——比情绪慢得多
+        // 情绪变化速度: 秒到小时
+        // 心境变化速度: 天到周
+
+        // 人格对心境漂移的影响
+        let mood_baseline_pleasure = 0.2 - personality.neuroticism * 0.4;
+        self.mood.mood_pleasure += (mood_baseline_pleasure - self.mood.mood_pleasure) * 0.01;
+
+        self.mood.days_since_last_shift += 1.0;
+
+        // 心境标签更新
+        self.mood.mood_label = Self::classify_mood(&self.mood);
+    }
+
+    /// ★ 心境对情绪的偏置——"有色眼镜"效应
+    pub fn apply_mood_bias(&mut self, event_pleasure: f32) -> f32 {
+        if self.mood.mood_pleasure > 0.5 {
+            event_pleasure * 1.2   // 好心境 → 放大正面体验
+        } else if self.mood.mood_pleasure < -0.3 {
+            event_pleasure * 0.8   // 坏心境 → 削弱正面体验
+        } else {
+            event_pleasure
+        }
+    }
+
+    fn classify_mood(mood: &MoodState) -> Option<MoodLabel> {
+        match (mood.mood_pleasure, mood.mood_arousal) {
+            (p, a) if p > 0.5 && a > 0.5 => Some(MoodLabel::Euphoric),
+            (p, a) if p > 0.3 && a > 0.3 => Some(MoodLabel::Cheerful),
+            (p, _) if p > 0.3 && mood.mood_control > 0.3 => Some(MoodLabel::Serene),
+            (p, a) if p < -0.5 && a > 0.5 => Some(MoodLabel::Despondent),
+            (p, _) if p < -0.3 && a < 0.3 => Some(MoodLabel::Melancholic),
+            (p, a) if p < -0.2 && a > 0.5 => Some(MoodLabel::Irritable),
+            (_, a) if a < 0.2 => Some(MoodLabel::Apathetic),
+            (p, a) if p < -0.3 && a > 0.3 => Some(MoodLabel::Anxious),
+            _ => None,
+        }
+    }
+}
+
+// ★ 心境→决策权重修正（在 ProbabilisticDecisionEngine 中）
+const MOOD_ACTION_MODIFIERS: [(MoodLabel, ActionCategory, f32); 8] = [
+    (MoodLabel::Melancholic,  ActionCategory::Solitude,       1.3),
+    (MoodLabel::Melancholic,  ActionCategory::FriendlySocial, 0.7),
+    (MoodLabel::Irritable,    ActionCategory::PhysicalAttack, 1.2),
+    (MoodLabel::Irritable,    ActionCategory::Cooperation,    0.8),
+    (MoodLabel::Serene,       ActionCategory::Creative,       1.2),
+    (MoodLabel::Anxious,      ActionCategory::Escape,         1.3),
+    (MoodLabel::Euphoric,     ActionCategory::FriendlySocial, 1.4),
+    (MoodLabel::Apathetic,    ActionCategory::Explore,        0.5),
+];
+```
+
+### 2.8.6 预期/恐惧——未来事件着色心境
+
+> 无需新增存储——动态计算。每周从 GOAP 计划和记忆中检测即将发生的重要事件。
+
+```rust
+/// 预期状态——每周计算一次，O(10)
+pub fn compute_anticipation(npc: &NpcData) -> AnticipationEffect {
+    let mut near_future_valence = 0.0;
+    let mut count = 0;
+
+    // 从记忆中检索未来 7 天内即将发生的事件
+    // (如已安排的婚礼、预期的战斗、计划中的旅行)
+    for memory in &npc.memory.events {
+        if memory.tags.contains(&"upcoming".into()) {
+            let days_until = memory.expected_occurrence_day().days_until();
+            if days_until < 7.0 {
+                near_future_valence += memory.emotional_encoding.valence
+                    / (1.0 + days_until);  // 越近 → 影响越大
+                count += 1;
+            }
+        }
+    }
+
+    AnticipationEffect {
+        near_future_valence: if count > 0 {
+            (near_future_valence / count as f32).clamp(-1.0, 1.0)
+        } else { 0.0 },
+        // 注入心境: mood_pleasure += near_future_valence * 0.1
+    }
+}
+
+pub struct AnticipationEffect {
+    pub near_future_valence: f32, // -1(恐惧) ~ 1(期待)
 }
 ```
 
@@ -2015,6 +2465,9 @@ pub struct ProposedMemory {
     pub impact_score: f32,
     pub importance: Importance,
     pub relationship_delta: Option<RelationshipDelta>,
+    /// ★ SelfLabelChange 的目标已变更为 SelfNarrative.proposed_label_changes
+    /// 不再直接写入 SocialIdentity.self_labels。
+    /// SelfNarrative.reflect() 在反思周期中摄取并根据一致性接受/拒绝/修改。
     pub self_label_change: Option<SelfLabelChange>,
     pub moral_question: Option<MoralQuestion>,
     pub reputation_impact: Option<ReputationImpact>,
@@ -2504,7 +2957,9 @@ pub fn coastal_npc_behavior_modifier(
 | 类别 | 预算 | 说明 |
 |------|------|------|
 | **Rust 模拟核心** | ≤7.0ms | — |
-| ├─ NPC 心智 (200 L1 + 500 L2/帧, rayon) | ≤2.5ms | 情绪+概率决策+社交感知 |
+| ├─ NPC 心智 (200 L1 + 500 L2/帧, rayon) | ≤2.5ms | 情绪+心境+概率决策+习惯+内在驱动+社交感知 |
+| ├─ 自我叙事反思 (分摊至每日, L1+L2) | ≤0.01ms | 7日周期, ~1570次/游戏日 (帧分摊) |
+| ├─ 心境更新 (L1+L2, 每日) | ≤0.01ms | O(1)/NPC, 分摊至帧 |
 | ├─ GOAP 规划 (≤8 并发, 2ms 硬超时) | ≤1.5ms | 仅目标变化时触发 |
 | ├─ 战斗 AI (半自动, ≤20 活跃战斗) | ≤1.5ms | 统一代码路径 |
 | ├─ 骨骼矩阵计算 (rayon, glam SIMD) | ≤0.5ms | 1000 NPC × 50 bones |

@@ -133,6 +133,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 海洋深度分级 | **Life** `003`/`005` | World Gen | 深渊边界=4000m。透光层0-200m/中层200-1000m/深层1000-4000m/深渊4000m+ |
 | 死亡原因 | **Life** `004 §九` | History（墓碑文本映射） | 25种，五大类：物理伤害7/环境6/生物5/魔法4/时间与特殊3 |
 
+### CHG-014 新增契约（物品系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| 物品标识 (ItemDefId/ItemEntId) | **物品系统** `001`/`002` | 全部模块 | ItemDefId=u64全局恒定(8+56bit), ItemEntId=u64存档内唯一——旧MaterialId/MagicItemId/resource_type通过映射表桥接 |
+| 物品属性 (ItemProperties) | **物品系统** `003` | 全部模块 | 核心属性+Quality(4档)×Rarity(5档)+AestheticProps——各模块在此之上叠加 |
+| 装备槽位 (EquipmentSlots) | **物品系统** `004` | NPC/Life | BodyPlan自动派生——不预定义物种类型。双套Outfit切换由NPC自主决定 |
+| 库存与仓储 | **物品系统** `005` | NPC/Player | 30基础槽位+容器五层体系——[TUNING]可调。货币独立于库存(CharacterWallet) |
+| 物品装配 (Assembly) | **物品系统** `001` | Combat/Magic | 通用组件树框架+四种JointType(Rigid/Hinge/Chain/Flexible)——Combat/Magic注册slot_type |
+| 附魔 (Enchantment) | **物品系统** `008` | Combat/Magic | 卡槽附魔(日常经济,可撤换)+直接附魔(历史锚点,永久)——两者可共存于同一物品 |
+| 制造配方 (CraftingRecipe) | **物品系统** `006` | NPC/Magic | TOML数据驱动——不是代码。配方发现=学习/实验/购买/天启 |
+
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 
 ## 工作约定

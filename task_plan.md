@@ -11,7 +11,7 @@
 - **`Change/`** — 设计变更追踪（CHG-XXX 格式）。
 
 ## Current Phase
-Phase 9 complete — 历史系统 v1.0 完成并提交
+Phase 10 complete — CHG-013 跨模块一致性修正完成。Next: Phase 11 (Tier 1 新模块)
 
 ## Phases
 
@@ -74,7 +74,25 @@ Phase 9 complete — 历史系统 v1.0 完成并提交
 - [x] 覆盖：事件因果链三层模型（趋势→力量→事件）、30K-40K事件、生命痕迹七种情境双重驱动、Work→PhysicalBook书籍模型、AetherImprint空间残留、大日志全量记录渐进验证纠错、六条历史嵌入管道
 - **Status:** complete
 
----
+### Phase 10: 跨模块一致性审计 + 修正 (CHG-013)
+- [x] 4 并行审计代理：NPC vs All / Combat vs Magic vs Life / World Gen vs History vs Life / Tech Stack vs All
+- [x] 发现 ~95 冲突：11 CRITICAL + 20 HIGH + 28 MEDIUM + 36 LOW
+- [x] 全部 11 CRITICAL 修正：
+  - C1: Physiology 建立 from_vitals() 派生（不删除） · C2: NPC 增加 BodyPartDamage · C3: 雷/电 逐项修正
+  - C4: 魔力恢复对齐 Magic 慢速模型 · C5: Life 采纳 Combat 渐进部位伤害 · C6: 魔力单位统一"刻" u32
+  - C7: World Gen 群系输出连续参数场 · C8/C9: AetherImprint 归属 History + 读树接口统一
+  - C10/C11: 性能文档全面更新到 v3.0
+- [x] 20 HIGH 核心部分修正：H1(mental+appearance→LifeEntity) · H2(Magic引用→Life) · H4(P9类型统一) · H7(施法时间) · H10(spirit过载两段式) · H11(5字段) · H14(Work数量) · H15(海洋深度4000m) · H16(死亡原因25种) · H19(physique→physical) · 文档更新
+- [x] 17 文件修改 +345/-149 · CHG-013 变更文档 · CLAUDE.md 更新(接口契约表)
+- [x] 2 审计代理验证全部 9 组跨模块接口——全部一致
+- **Status:** complete
+
+### Phase 11: Tier 1 新模块 — 地基层（物品/技能/天气/对话）
+- [x] **P0: 物品系统** — 10 文件(9+README) 2,252 行。两层ID/装配框架/Quality×Rarity/双套Outfit/五层仓储/卡槽+直接附魔/铜银金货币
+- [ ] **P0: 技能系统** — 3-5 篇，分类/等级曲线/协同冲突/衰减/教学/上限/天赋
+- [ ] **P1: 天气与季节系统** — 3-5 篇，天气类型/NPC响应/战斗影响/季节循环/极端天气
+- [ ] **P1: 对话系统** — 5-8 篇，UI/对话树/关键词匹配/情绪关系影响/LLM接口/方言预留
+- **Status:** in_progress (物品系统完成，技能系统进行中)
 
 ## 开发阶段模块状态总览
 
@@ -98,6 +116,7 @@ Phase 9 complete — 历史系统 v1.0 完成并提交
 | └ 繁衍 | 1 | 350 | v1.0 | ✅ |
 | └ README | 1 | 63 | — | ✅ |
 | **历史系统** | 7 | ~3,500 | v1.0 | ✅ |
+| **物品系统** | 10 | 2,252 | v1.0 | ✅ |
 | **家具系统** | 1 | — | v0.1 | ⚠️ |
 | **性能优化** | 1 | — | v0.1 | ⚠️ |
 
@@ -111,7 +130,7 @@ Phase 9 complete — 历史系统 v1.0 完成并提交
 | UI/UX | ⬜ | HUD 规范/菜单/对话界面 |
 
 ## Change 文档清单
-CHG-001~006（早期）· CHG-007（测试+缺陷修正）· CHG-008（设计深度补充）· CHG-009（NPC Rust 重写）· CHG-010（世界生成 v3）· CHG-011（生命系统 v1.0）· CHG-012（全文档审计+矛盾修复）
+CHG-001~006（早期）· CHG-007（测试+缺陷修正）· CHG-008（设计深度补充）· CHG-009（NPC Rust 重写）· CHG-010（世界生成 v3）· CHG-011（生命系统 v1.0）· CHG-012（全文档审计+矛盾修复）· **CHG-013（跨模块一致性审计+接口契约·20文件·95冲突修正）**
 
 ## Decisions Made
 | Decision | Rationale |

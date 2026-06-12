@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Change/CHG-013-跨模块一致性冲突修正-20260612.md",
+                "file": "Happy Game/开发阶段/物品系统/001-物品系统总纲.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "CHG-013-跨模块一致性冲突修正-20260612"
+              "title": "001-物品系统总纲"
             }
           }
         ]
@@ -200,18 +200,30 @@
   },
   "active": "7ef170f8dfaf12d5",
   "lastOpenFiles": [
-    "Change/hand/005 冲突回应.md",
+    "Change/CHG-014-物品系统v1.0创建-20260612.md",
+    "Happy Game/开发阶段/物品系统/004-装备系统.md",
+    "Happy Game/开发阶段/物品系统/009-跨模块接口与数据合同.md",
+    "Happy Game/开发阶段/战斗/005-招式积木与流派生成.md.tmp.22408.7a06296995a6",
+    "Happy Game/开发阶段/README.md.tmp.22408.65c018d3fb96",
+    "Happy Game/开发阶段/README.md.tmp.22408.9fe5cbe8f73d",
+    "Change/CHG-014-物品系统v1.0创建-20260612.md.tmp.22408.2416d9f1b4bc",
+    "Happy Game/开发阶段/物品系统/008-魔法物品与附魔.md",
+    "Happy Game/开发阶段/物品系统/007-物品获取途径.md",
+    "Happy Game/开发阶段/物品系统/009-跨模块接口与数据合同.md.tmp.22408.cd27209f83a2",
+    "Happy Game/开发阶段/物品系统/006-制造与配方.md",
+    "Happy Game/开发阶段/物品系统/005-背包与库存.md",
+    "Happy Game/开发阶段/物品系统/008-魔法物品与附魔.md.tmp.22408.e3ebab8a51d9",
+    "Happy Game/开发阶段/物品系统/003-物品属性与品质.md",
+    "Happy Game/开发阶段/物品系统/007-物品获取途径.md.tmp.22408.9c159fc26ef2",
+    "Happy Game/开发阶段/物品系统/002-物品分类与ID体系.md",
+    "Happy Game/开发阶段/物品系统/006-制造与配方.md.tmp.22408.c2f054100940",
+    "Happy Game/开发阶段/物品系统/001-物品系统总纲.md",
+    "Happy Game/开发阶段/物品系统/005-背包与库存.md.tmp.22408.d16ae430c10c",
+    "Happy Game/开发阶段/物品系统/004-装备系统.md.tmp.22408.010937c55c8b",
+    "Happy Game/开发阶段/物品系统/README.md",
+    "Happy Game/开发阶段/性能优化分析 20260603.md",
     "Change/CHG-013-跨模块一致性冲突修正-20260612.md",
-    "Change/CHG-013-跨模块一致性冲突修正-20260612.md.tmp.22408.405890d5ecde",
-    "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md.tmp.22408.9e93e98c8060",
-    "Happy Game/开发阶段/世界生成/001-世界生成总流程.md.tmp.22408.27edede2364f",
-    "Happy Game/开发阶段/世界生成/002-自然景观.md.tmp.22408.45b50772acd2",
-    "Happy Game/开发阶段/魔法/03-实践层/007-施法媒介与方式.md.tmp.22408.40f3f9bc78f2",
-    "Happy Game/开发阶段/世界生成/001-世界生成总流程.md.tmp.22408.8c40fb29f20e",
-    "Happy Game/开发阶段/生命/004-身体状态与生命过程.md.tmp.22408.0d366918843f",
-    "Happy Game/开发阶段/历史/README.md.tmp.22408.6cf399ae48d6",
-    "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md.tmp.22408.cd6fe3795780",
-    "Happy Game/开发阶段/生命/004-身体状态与生命过程.md.tmp.22408.1bf5aa806cd3",
+    "Change/hand/005 冲突回应.md",
     "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md",
     "Happy Game/开发阶段/NPC活人感模块/02-性别与吸引力系统.md",
     "Happy Game/开发阶段/生命/004-身体状态与生命过程.md",
@@ -223,19 +235,6 @@
     "Happy Game/开发阶段/历史/005-大日志系统.md",
     "Happy Game/开发阶段/历史/003-生命痕迹与书籍著作.md",
     "Happy Game/开发阶段/历史/001-历史系统总纲.md",
-    "Happy Game/开发阶段/生命/009-植物.md",
-    "Happy Game/开发阶段/历史/README.md",
-    "Happy Game/想法/世界生成/自然景观.md",
-    "Happy Game/开发阶段/魔法/06-人文层/016-魔法学习与传承.md",
-    "Happy Game/开发阶段/魔法/07-高级层/019-魔法前沿理论.md",
-    "Happy Game/开发阶段/魔法/04-工程层/014-魔法卷轴.md",
-    "Happy Game/开发阶段/魔法/04-工程层/013-魔导书.md",
-    "Happy Game/开发阶段/魔法/04-工程层/012-魔法设计.md",
-    "Happy Game/开发阶段/魔法/03-实践层/011-契约魔法.md",
-    "Happy Game/开发阶段/魔法/03-实践层/010-仪式魔法.md",
-    "Happy Game/开发阶段/魔法/03-实践层/009-触媒与材料.md",
-    "Happy Game/开发阶段/魔法/03-实践层/007-施法媒介与方式.md",
-    "Happy Game/开发阶段/魔法/03-实践层/008-法阵系统.md",
     "Happy Game/想法/WoW World/生命/NPC/角色处理对象时的心理作用.canvas"
   ]
 }

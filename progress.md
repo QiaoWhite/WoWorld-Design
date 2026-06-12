@@ -39,11 +39,29 @@
   - 005 大日志：纯功能性/全量记录/渐进验证/纠错/搜索/关系图谱
   - 006 接口与性能：信息传播/世界生成/NPC/植物/魔法/战斗六模块接口 + LMDB存储 + 性能预算
 
+### Phase 10: 跨模块一致性审计 + 修正 (CHG-013)
+- **Status:** complete
+- 4 并行审计代理：NPC vs All / Combat vs Magic vs Life / World Gen vs History vs Life / Tech Stack vs All
+- 发现 ~95 冲突（11 CRITICAL + 20 HIGH + 28 MEDIUM + 36 LOW）
+- 全部 11 CRITICAL 修正：Physiology派生/部位持久化/雷电/魔力恢复/部位渐进/魔力刻/群系参数场/AetherImprint/读树接口/性能文档
+- 20 HIGH 核心修正：H1/H2/H4/H7/H10/H11/H14/H15/H16/H19 + 文档更新
+- 17 文件修改 +345/-149 · CHG-013 变更文档 · CLAUDE.md 更新(接口契约表)
+- 2 审计代理验证全部 9 组跨模块接口——全部一致
+
+### Phase 11a: 物品系统 v1.0
+- **Status:** complete
+- /grill-me 访谈 8 项设计决策——全部锁定
+- 物品系统/ 目录 + README + 001~009 共 10 文件 2,252 行
+- 覆盖：两层ID / 通用装配框架 / Quality×Rarity / BodyPlan槽位 / 双套Outfit(BG3式) / 五层仓储 / 卡槽+直接附魔 / 铜银金货币 / 12组跨模块接口
+- 关联修改：Combat 005（装配框架引用+远程武器缺口标记）、CLAUDE.md（新增7行契约）、开发阶段/README.md（新增模块）
+- CHG-014 变更文档
+
 ---
 
 ## 最近提交
 ```
-223995a 更新 CLAUDE.md
+419d7c3 CHG-013: 跨模块一致性审计与修正——18文件修改+接口契约建立
+385f15e NPC活人感模块 ver2.1——哲学深化：从行为模拟到存在模拟
 fed26d1 动物 v2.0 补充：NPC-动物交互细节 + 玩家水中/空中体验
 f17bdc1 动物系统 v2.0 + 003维度扩展
 2d20241 植物系统 v2.0

@@ -187,6 +187,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 自然语言理解 (InputInterpreter) | **语言表达** `007` | NPC/Player | 三层回落：L1关键词(永远可用,~10µs)→L2嵌入(离线,~5ms)→L3 LLM(可插拔,~1-2s)。99%对话走L1+模板。PlayerInput 四种统一(预设选项/搜索框/语音/打字) |
 | 跨模块文本管道 | **语言表达** `008` | 全部模块 | ExpressionRegistry::read() 统一入口。DialogueContext 纯数据注入——调用者从各模块收集数据后传入。lang_expression 不依赖任何业务模块。ContentMetadata.encoding 透传——Godot 层据此判断是否需要额外渲染(法阵图/音频) |
 
+### CHG-018 新增契约（语言表达系统 v1.1 完善——信息传播·非语言联动·记忆消化）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| 信息传播通道 | **语言表达** `009` | NPC/历史 | 五通道：Oral(面对面·衰减+失真)/Letter(跨远距·延迟=旅行时间)/Courier(信鸽·丢失风险)/Magical(即时·高门槛·魔耗)/Official(公告·一对多)。PropagationPayload 参数化传播数据包 |
+| 失真算子 | **语言表达** `009` | NPC | 五算子：ScaleDistortion(数量膨胀/缩小)/DetailLoss(细节丢失)/EmotionalAmplification(情感放大)/AttributionShift(归因替换)/Moralization(道德评价附加)。每次传播应用——传播次数越多失真越严重 |
+| 欺骗与谎言 | **语言表达** `009` | NPC | DeceptionIntent 四种(Honest/Exaggeration/Omission/Fabrication)。DeceptionDetection 检测概率=(intelligence×0.3)+(contradicting_info×0.3)-(trust×0.4) |
+| 谣言生命周期 | **语言表达** `009` | 历史 | 五阶段：Outbreak(24h)→Sustained(1-7d)→Decaying(7-30d)→Folklorized(30d+)→Dead。逻辑斯谛增长模型 `dR/dt = k·R·(1-R/N)` |
+| NPC间对话渲染 | **语言表达** `009` | Godot/NPC | 四层可见性：Full(完全字幕)/Partial(模糊字幕)/BarelyPerceptible("两个人在交谈")/Invisible(悄悄话·不可见)。PlayerPerception 随距离衰减 |
+| 悄悄话/密谋 | **语言表达** `009` | NPC | PrivateMode::Whisper(0.5m)/Conspiracy(0.3m+扫描)。偷听检测清晰度=指数衰减 `0.5^(excess_m)`。发现后果：FeignNormal/Confront/Recruit/Flee |
+| 非语言表达数据模型 | **语言表达** `010` | NPC/Godot | NonVerbalSignal 六类(面部/手势/姿态/视线/空间/触觉)。synthesize_nonverbal() 从对话内容+情绪+个性派生手势和表情。文化差异：GestureCultureMapping 跨文化误解 |
+| 对话→记忆消化 | **语言表达** `005` | NPC | EventMemory 新增字段：learning_method(LearningMethod)/source_expression: Option<ExpressionRef>/conversation_id: Option<ConversationId>/told_by: Option<NpcId>。digest_conversation_to_memory() 对话结束→为每个参与者生成记忆。digest_reading_to_memory() NPC阅读→记忆 |
+| 文化沟通规范 | **语言表达** `010` | NPC/世界生成 | CommunicationNorms：interruption_tolerance/eye_contact_norm/personal_space/directness/silence_tolerance/emotional_expressiveness/honorifics/touch_norms。影响 TurnMode 打断阈值/沉默处理/社交距离/敬语选择 |
+| 对话中断与恢复 | **语言表达** `005` | NPC | 五种中断(CombatStarted/ThirdPartyJoin/Environmental/PlayerLeft/NpcUrgentGoal)。ConversationSnapshot 快照→战斗后可恢复("刚才说到一半——")。超游戏内1小时过期 |
+
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 
 ## 工作约定

@@ -16,7 +16,7 @@
 | 物品系统 | ✅ | 10 | 2,512 | v1.0 | 两层ID+SlotInstanceId·装配框架(4 JointType)·全部武器类型·弹药生命周期·耐久修理·双套Outfit·五层仓储·卡槽+直接附魔 |
 | 技能系统 | ✅ | 4 | 2,006 | v1.0 | SkillId(5分类22子组u64)/SkillEntry/累积XP公式/天赋三层/TeachingSession四种路径 |
 | 天气与季节系统 | ✅ | 5 | 2,552 | v1.0 | WeatherQuery/WeatherSample双层温度/Markov6状态+雾/SeasonClock(120天/年)/13消费方合同 |
-| 语言表达系统 | ✅ | 9 | 3,583 | v1.0 | 三层Crate/ExpressionRef/ContentResolver/TextGenerator片段组合/多参与者对话/PhaticLayer/SocialField/NLU三层回落 |
+| 语言表达系统 | ✅ | 11 | 5,400+ | v1.1 | 三层Crate/ExpressionRef/ContentResolver/TextGenerator片段组合/多参与者对话/PhaticLayer/SocialField/NLU三层回落 + 信息传播系统(五通道+失真+谣言+NPC间对话渲染+悄悄话) + 非语言表达联动(6类信号+文化差异) + 对话→记忆消化(LearningMethod) |
 | 家具系统 | ⚠️ | 1 | — | v0.1 | 分类/功能/质量/文化变体 |
 | 性能优化 | ⚠️ | 1 | — | v0.1 | 瓶颈与缓解策略 |
 

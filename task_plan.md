@@ -94,6 +94,13 @@ Phase 10 complete — CHG-013 跨模块一致性修正完成。Next: Phase 11 (T
 - [x] **P1: 语言表达系统** — 9 文件(8+README) 3,583 行。三层Crate架构(woworld_types+lang_expression+业务模块)/LanguageId/ScriptId/LanguageFamily谱系DAG/ExpressionRef(8B Copy)/ContentResolver注册表/TextGenerator片段组合(~430片段)/Conversation多参与者(2→1000+·TurnMode四种)/DialogueIntent(NPC主动5种驱动)/TopicSelector(Alias Method)/PhaticLayer(5类~210片段)/SocialField群体动力学/SensoryMapping/InputInterpreter三层NLU/PlayerInput四种统一
 - **Status:** complete (Tier 1 地基层全部完成: 物品+技能+天气+语言表达)
 
+### Phase 12: 语言表达系统 v1.1 完善——非语言表达·信息传播·悄悄话·记忆消化
+- [x] **信息传播系统** (009) — NPC间信息传输管道融入语言表达模块。五传播通道(口头/书信/信鸽/魔法/公告)+失真算子(5种)+欺骗与谎言检测+谣言生命周期(5阶段)+NPC间对话渲染(4层可见性)+悄悄话/密谋模式+偷听检测
+- [x] **非语言表达联动** (010) — NonVerbalSignal数据模型(6类)+synthesize_nonverbal()+NPC感知对方非语言→DialogueIntent修正+文化差异(GestureCultureMapping/CommunicationNorms)+Godot渲染集成
+- [x] **对话→记忆消化** (005扩展) — EventMemory新增learning_method/source_expression/conversation_id/told_by字段+digest_conversation_to_memory()+NPC阅读→记忆+PostConversationDigestion
+- [x] **其他必要补充** (005扩展·009·010) — 对话中断与恢复(ConversationSnapshot)+悄悄话/密谋+欺骗与谎言检测+文化沟通规范(打断/视线/距离/直接性/沉默/敬语/触觉)+跨会话记忆+玩家名声口头传播
+- **Status:** complete
+
 ## 开发阶段模块状态总览
 
 | 模块 | 文档数 | 总行数 | 版本 | 状态 |
@@ -119,7 +126,7 @@ Phase 10 complete — CHG-013 跨模块一致性修正完成。Next: Phase 11 (T
 | **物品系统** | 10 | 2,512 | v1.0 | ✅ |
 | **技能系统** | 4 | 2,006 | v1.0 | ✅ |
 | **天气与季节系统** | 5 | 2,552 | v1.0 | ✅ |
-| **语言表达系统** | 9 | 3,583 | v1.0 | ✅ |
+| **语言表达系统** | 11 | 3,583→5,400+ | v1.1 | ✅ |
 | **家具系统** | 1 | — | v0.1 | ⚠️ |
 | **性能优化** | 1 | — | v0.1 | ⚠️ |
 | **总计** | **~71** | **~23,750** | — | — |

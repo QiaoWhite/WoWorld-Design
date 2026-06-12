@@ -74,13 +74,12 @@
 
 ---
 
-### Phase 11d: 语言表达系统 v1.0
+### Phase 12: 语言表达系统 v1.1 完善
 - **Status:** complete
-- 9 文件 (8文档+README) 3,583 行
-- 覆盖完整：三层 Crate 架构 / LanguageId 填幽灵类型 / ExpressionRef 统一句柄 / ContentResolver 注册表 / TextGenerator 片段组合(~430片段) / Conversation 多参与者(2→1000+) / TurnMode 四种 / DialogueIntent 五种驱动 / TopicSelector Alias Method / PhaticLayer 五类(~210片段) / SocialField 群体动力学 / SensoryMapping / InputInterpreter 三层回落 / PlayerInput 四种统一
-- 关键决策：依赖注入消除循环依赖 / 片段组合替代单体模板 / 听众=聚合统计非独立实体 / 三个幽灵概念(MagicEquation编码/LanguageId定义/参数化文本拼装)全部填实
-- 关联修改：CLAUDE.md（新增CHG-017契约13行）、开发阶段/README.md（新增模块+删除未开始的对话系统）、task_plan.md（Phase 11d标记完成）
-- CHG-017 变更文档
+- 2 新文件(009+010) + 005 重大扩展 + 008 更新 — 新增 ~1,900 行
+- 覆盖完整: 信息传播系统(五通道+失真5算子+欺骗检测+谣言生命周期5阶段+NPC间对话渲染4层+悄悄话/密谋+偷听检测) / 非语言表达联动(NonVerbalSignal 6类+synthesize_nonverbal+cross-cultural misunderstanding) / 对话→记忆消化(EventMemory新增4字段+digest_conversation_to_memory+digest_reading_to_memory) / 对话中断与恢复(ConversationSnapshot) / 文化沟通规范(CommunicationNorms) / 跨会话记忆
+- 关联修改：CLAUDE.md（新增CHG-018契约）、README.md（新增009/010+更新版本路线）、008-版本路线更新、task_plan.md/findings.md/progress.md 更新
+- CHG-018 变更文档
 - Commits: 待提交
 
 ---

@@ -114,6 +114,13 @@ pub struct NpcData {
     pub vehicle_state: Option<VehicleState>,    // 载具上时的状态
     pub sky_perception: SkyPerception,          // 天象感知缓存
     pub construction_task: Option<ConstructionTask>, // 施工任务
+
+    // ── 性别与吸引力系统（02-性别与吸引力系统.md）──
+    pub mental: MentalAttributes,               // 心智属性（过渡方案——融合后迁移至 LifeEntity）
+    pub physique: PhysicalAttributes,           // 身体属性（过渡方案——融合后迁移至 LifeEntity）
+    pub appearance: PhysicalAppearance,         // 外貌视觉特征（过渡方案）
+    pub attraction_template: AttractionTemplate, // 吸引力偏好模板
+    pub norm_internalizations: BTreeMap<NormId, NormInternalization>, // 规范内化（稀疏存储）
 }
 ```
 
@@ -125,7 +132,7 @@ pub struct Identity {
     pub id: NpcId,                     // "npc_7a3f_001"
     pub name: String,
     pub race: RaceId,
-    pub gender: Gender,
+    pub biological_sex: BiologicalSex,   // 生物性别（详见 02-性别与吸引力系统.md §8.1）
     pub age: f32,                      // 当前年龄 (岁)
     pub birth_day: GameDay,            // 出生游戏天数
     pub is_dead: bool,
@@ -288,6 +295,7 @@ pub enum EventType {
     Vehicular,                // v3: 载具事件
     Celestial,                // v3: 天象事件 (彩虹/日食/暴风雨等)
     Revelation,               // 重要发现/顿悟
+    EmotionalMilestone,       // ★ 情感里程碑——内心的重要发现（详见 02-性别与吸引力系统.md）
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -374,6 +382,166 @@ pub enum ConstructionRole {
     Foreman,          // 工头 — 分配任务给其他施工 NPC
     Supplier,         // 物资运输
 }
+```
+
+---
+
+## 1.1.7 性别与吸引力新增类型（02-性别与吸引力系统.md）
+
+> 以下类型为性别与吸引力系统的数据合同。定义于此以便所有 NPC 子系统引用。
+
+### AttractionType
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AttractionType {
+    Physical,       // 身体外貌吸引力
+    Charismatic,    // 人格魅力（通过交互逐渐感知）
+    Intellectual,   // 智力/才华的吸引
+    StatusBased,    // 社会地位的吸引
+    Composite,      // 上述多种的组合
+}
+```
+
+### BiologicalSex
+
+```rust
+/// 生物性别——替换原未定义的 Gender 类型
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum BiologicalSex {
+    Male,
+    Female,
+    Hermaphroditic,                          // 同时具有两性生殖能力
+    Sequential { current_phase: SequentialPhase }, // 生命中改变性别
+    Neuter,                                  // 无性别（亡灵/构装体）
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum SequentialPhase { Male, Female, Transitioning }
+```
+
+### InteractionType
+
+```rust
+/// 社会互动的类型分类
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum InteractionType {
+    CasualChat,
+    Cooperation,
+    Conflict,
+    Trade,
+    IntellectualExchange,
+    Courtship,        // ★ 求爱互动
+    Ceremony,
+    SharedActivity,
+}
+```
+
+### SocialInteraction
+
+```rust
+/// 每次社会互动的基础结构
+#[derive(Debug, Clone)]
+pub struct SocialInteraction {
+    pub interaction_type: InteractionType,
+    pub significance: f32,        // 0-1 这次互动有多"有意义"
+    pub effort_level: f32,        // 0-1 发起者付出了多少努力
+    pub target_id: NpcId,
+    pub duration_minutes: f32,
+    pub mood_at_time: f32,        // 互动时的情绪基调 -1~1
+}
+
+impl SocialInteraction {
+    pub fn is_courtship(&self) -> bool {
+        matches!(self.interaction_type, InteractionType::Courtship)
+    }
+}
+```
+
+### SkillCategory
+
+```rust
+/// 技能类别——用于 skill_preference 的 key
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum SkillCategory {
+    Combat,
+    Magic,
+    Artisan,
+    Academic,
+    Social,
+    Survival,
+    Economic,
+}
+```
+
+### MentalAttributes
+
+```rust
+/// 心智属性——过渡方案，存储于 NpcData.mental（融合后迁移至 LifeEntity）
+/// 完整定义见 生命/004-身体状态与生命过程 §三
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MentalAttributes {
+    pub intelligence: f32,       // 0-1
+    pub wisdom: f32,             // 0-1 社交洞察/风险评估/抵抗欺骗
+    pub willpower: f32,          // 0-1 抵抗恐惧/痛苦忍耐/控制冲动
+    pub charisma: f32,           // 0-1 社交说服/领袖力/NPC初始好感度
+    pub memory_capacity: u16,    // 0-2000
+}
+```
+
+### PhysicalAppearance
+
+```rust
+/// 外貌视觉特征——过渡方案，存储于 NpcData.appearance（融合后迁移至 LifeEntity）
+/// 完整定义见 02-性别与吸引力系统.md §1.1
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhysicalAppearance {
+    pub height: f32,             // 相对于种族均值的偏差 -1~1
+    pub build: BuildType,        // Slender/Lean/Average/Muscular/Stocky/Heavy
+    pub body_proportions: f32,   // -1~1
+    pub face_params: FaceParams, // 8 维连续参数
+    pub skin_tone: SkinTone,
+    pub hair_color: HairColor,
+    pub hair_style: HairStyle,
+    pub facial_hair: FacialHairStyle,
+    pub voice_pitch: f32,
+    pub voice_timbre: f32,
+    pub grooming_level: f32,     // 0-1 动态变化
+    pub scars: Vec<Scar>,
+    pub tattoos: Vec<Tattoo>,
+    pub distinguishing_marks: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum BuildType { Slender, Lean, Average, Muscular, Stocky, Heavy }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FaceParams {
+    pub face_width: f32, pub jaw_shape: f32, pub cheekbone_height: f32,
+    pub eye_size: f32, pub eye_spacing: f32, pub nose_bridge: f32,
+    pub nose_width: f32, pub lip_fullness: f32,
+}
+// SkinTone, HairColor, HairStyle, FacialHairStyle, Scar, Tattoo:
+// 实现阶段定义——不影响本文档的心智逻辑
+```
+
+### NormInternalization
+
+```rust
+/// 个体对一条文化规范的三维度内化程度
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NormInternalization {
+    pub cognitive_acceptance: f32,     // 认知认同 0-1
+    pub emotional_alignment: f32,      // 情感顺应 0-1
+    pub behavioral_compliance: f32,    // 行为顺从 0-1（受社会代价影响）
+}
+
+impl Default for NormInternalization {
+    fn default() -> Self {
+        Self { cognitive_acceptance: 1.0, emotional_alignment: 1.0, behavioral_compliance: 1.0 }
+    }
+}
+// 稀疏存储: 仅存储偏离 >0.15 的条目。未存储 = 完全内化（接受文化默认）
 ```
 
 ---
@@ -516,13 +684,23 @@ impl EmotionState {
 }
 ```
 
-### 2.1.3 30 种复合情绪标签
+### 2.1.3 33 种复合情绪标签
 
 **第一层（相邻基本情绪组合）**：喜爱(Joy+Trust)、屈从(Trust+Fear)、敬畏(Fear+Surprise)、失望(Surprise+Sadness)、懊悔(Sadness+Disgust)、蔑视(Disgust+Anger)、攻击性(Anger+Anticipation)、乐观(Anticipation+Joy)
 
 **第二层（隔位组合）**：内疚、好奇、绝望、震惊、怨恨、挖苦、胜利狂喜、希望
 
 **第三层（三重复合）**：敌意、焦虑、羞耻、兴奋、自罪感、嫉妒、自豪、同情、尴尬、怀旧、无聊、困惑、决心、宽慰
+
+**★ 第四层（吸引力相关——33 种）**：在以上 30 种基础上新增 3 种与吸引力/求爱相关的高阶复合情绪：
+
+| 新增情绪 | 组成 | 触发条件 | 行为影响 |
+|----------|------|---------|---------|
+| **深爱** (DeepLove) | Joy + Trust + 高 arousal | attraction>0.78 + reciprocated | 长期陪伴愉悦↑、分离 sadness↑ |
+| **单恋** (Longing) | Joy + Sadness + Anticipation | attraction>0.55 + 未 reciprocated | SeekProximity + 紧张、喜悦与焦虑并存 |
+| **心碎** (Heartbreak) | Sadness + Surprise + low control | 被拒绝/关系突然结束 | sadness↑↑、社交回避、需恢复期 |
+
+> 总计 **33 种复合情绪**。占有欲通过已有的"嫉妒"(第三层)+Anger 表达——不新增独立标签。
 
 ### 2.1.4 情绪动态
 
@@ -919,6 +1097,30 @@ impl GoapPlanner {
                 return Some(Goal::VehicleEmergencyRepair);
             }
         }
+        // ★ 求爱目标触发（02-性别与吸引力系统.md §5.3）
+        // 无伴侣 + 适婚年龄 + 文化婚姻压力 → FindPartner
+        if npc.is_eligible_for_pairing()
+            && npc.cultural_marriage_pressure() > 0.3
+        {
+            return Some(Goal::FindPartner {
+                min_attraction: 0.55,
+                desired_structure: npc.attraction_template.relationship_preference.preferred_structure.clone(),
+                urgency: npc.cultural_marriage_pressure(),
+            });
+        }
+        // 已有 crush + attraction>0.55 + 未 Bonded → PursueRomanticInterest
+        if let Some(target_id) = npc.highest_attraction_target() {
+            if let Some(rel) = npc.relationships.get(&target_id) {
+                if rel.attraction > 0.55
+                    && !matches!(rel.courtship_state, Some(CourtshipState::Bonded { .. }))
+                {
+                    return Some(Goal::PursueRomanticInterest {
+                        target_id,
+                        urgency: rel.attraction,
+                    });
+                }
+            }
+        }
         None
     }
 
@@ -936,6 +1138,19 @@ impl GoapPlanner {
                 Action::LowerNeedThreshold(0.15),       // 忍一忍
                 Action::CraftFood,                      // 自己做/采集
                 Action::FightForResource,               // 争夺
+            ],
+            // ★ 求爱目标 Plan B（02-性别与吸引力系统.md §5.3）
+            Goal::FindPartner { .. } => vec![
+                Action::ExpandSocialCircle,             // 扩大社交圈
+                Action::TravelToNearestSettlement,      // 去更大的聚落
+                Action::ImproveAppearance,              // 打理自己
+                Action::AskFriendForIntroduction,       // 请朋友介绍
+            ],
+            Goal::PursueRomanticInterest { target_id, .. } => vec![
+                Action::SeekProximity(target_id),       // 制造偶遇
+                Action::DisplaySkill { audience: target_id }, // 展示能力
+                Action::GiveGift(target_id),            // 送礼
+                Action::AcceptRejection,                // 接受现实——放手
             ],
             // ... 其他 Goal 的 Plan B
         }
@@ -979,6 +1194,8 @@ pub struct Relationship {
     pub affection: f32,      // 好感度 -1~1 (短期波动, 天级)
     pub trust: f32,          // 信任度 -1~1 (长期积累, 年级)
     pub familiarity: f32,    // 熟悉度 0~1 (基于互动次数和质量)
+    pub attraction: f32,     // ★ 吸引力 0~1（详见 02-性别与吸引力系统.md §4.2）
+    pub attraction_type: AttractionType, // ★ 吸引力类型
     pub status: StatusRelation, // 支配/服从/平等
 
     /// v3: 关系来源 (血缘/婚姻/工作/社交偶遇 → 影响关系变化速率)
@@ -986,6 +1203,9 @@ pub struct Relationship {
 
     pub last_interaction: GameDay,
     pub total_interactions: u32,
+
+    /// ★ 求爱状态（详见 02-性别与吸引力系统.md §6.1）
+    pub courtship_state: Option<CourtshipState>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1000,6 +1220,7 @@ pub enum StatusRelation {
 pub enum RelationshipSource {
     Bloodline,           // 血缘 → 信任度高, 变化慢
     Marriage,            // 婚姻 → 信任度高, 易受伤 (背叛冲击力 ×2)
+    Partnership,         // ★ 非婚姻伴侣关系（详见 02-性别与吸引力系统.md §6.1.4）
     Coworker,            // 同事 → 熟悉度高, 情感浅
     Friendship,          // 朋友 → 双向
     Acquaintance,        // 泛泛之交
@@ -1088,6 +1309,28 @@ pub struct CulturalSystem {
 /// - 群体隔离 → 分化 (习俗漂移)
 /// - 群体接触 → 融合 (中间文化涌现)
 /// - 文化传播速率 = f(贸易量, 婚姻率, 征服关系, 传教活动)
+
+/// ★ 中层规范的具体结构（02-性别与吸引力系统.md §8.2）
+/// CulturalNorms = Vec<CulturalNorm>
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CulturalNorm {
+    pub id: NormId,
+    pub description: String,
+    pub scope: NormScope,               // 规范约束的对象范围
+    pub severity_of_violation: f32,     // 违反的严重程度 0-1
+    pub social_feedback_count: SocialFeedbackCount, // 赞许/惩戒计数
+}
+
+/// 规范的作用范围——性别只是其中一维
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum NormScope {
+    Everyone,
+    SpecificGender(BiologicalSex),      // ★ 性别相关的规范
+    SpecificAge { min: f32, max: f32 },
+    SpecificProfession(ProfessionId),
+    SpecificSocialClass(SocialClass),
+    Intersection(Vec<NormScope>),       // 交叉约束: "女性+贵族"
+}
 ```
 
 ---
@@ -2489,6 +2732,12 @@ pub fn action_to_event(action: &Action, npc: &NpcData) -> Option<EventType> {
             if action.is_novel_location { Some(EventType::Revelation) }
             else { None }
         }
+        // ★ 求爱→记忆映射（02-性别与吸引力系统.md）
+        ActionCategory::Courtship => {
+            if action.is_propose_bond() { Some(EventType::Ceremony) }
+            else if action.impact > 0.3 { Some(EventType::EmotionalMilestone) }
+            else { None }
+        }
         // ... 约 30 条映射
         _ => None,  // 大多数日常行为不值得生成记忆
     }
@@ -2502,6 +2751,9 @@ pub fn action_satisfies_goal(action: &Action, goal: &Goal) -> bool {
         (ActionCategory::Heal, Goal::SurvivalHeal) => true,
         (ActionCategory::NavigationTask, Goal::VehicleMaintainCourse) => true,
         (ActionCategory::Maintenance, Goal::VehicleRepairDamage) => true,
+        // ★ 求爱→目标映射（02-性别与吸引力系统.md）
+        (ActionCategory::Courtship, Goal::FindPartner) => true,
+        (ActionCategory::Courtship, Goal::PursueRomanticInterest) => true,
         // ... 约 20 条映射
         _ => false,
     }

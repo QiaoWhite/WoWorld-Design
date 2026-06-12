@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Happy Game/开发阶段/物品系统/001-物品系统总纲.md",
+                "file": "Happy Game/开发阶段/物品系统/002-物品分类与ID体系.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "001-物品系统总纲"
+              "title": "002-物品分类与ID体系"
             }
           }
         ]
@@ -200,26 +200,27 @@
   },
   "active": "7ef170f8dfaf12d5",
   "lastOpenFiles": [
+    "Change/CHG-014-物品系统v1.0创建-20260612.md.tmp.22408.6ae68ab19871",
+    "Change/CHG-014-物品系统v1.0创建-20260612.md.tmp.22408.263c947a2da6",
+    "Change/CHG-014-物品系统v1.0创建-20260612.md.tmp.22408.86a0e768936d",
+    "Happy Game/开发阶段/物品系统/008-魔法物品与附魔.md.tmp.22408.692b00e25314",
+    "Happy Game/开发阶段/物品系统/004-装备系统.md.tmp.22408.09ed8f195822",
+    "Happy Game/开发阶段/战斗/005-招式积木与流派生成.md.tmp.22408.d8b3a231856c",
+    "Happy Game/开发阶段/物品系统/005-背包与库存.md.tmp.22408.baf841c77ea0",
+    "Happy Game/开发阶段/物品系统/005-背包与库存.md.tmp.22408.358844809ccd",
+    "Happy Game/开发阶段/物品系统/README.md.tmp.22408.77e992f26f62",
+    "Happy Game/开发阶段/物品系统/README.md.tmp.22408.303dc4e031e1",
+    "Happy Game/开发阶段/物品系统/009-跨模块接口与数据合同.md.tmp.22408.e9d78138c4d6",
+    "Happy Game/开发阶段/物品系统/007-物品获取途径.md",
+    "Happy Game/开发阶段/物品系统/006-制造与配方.md",
+    "Happy Game/开发阶段/物品系统/001-物品系统总纲.md",
     "Change/CHG-014-物品系统v1.0创建-20260612.md",
     "Happy Game/开发阶段/物品系统/004-装备系统.md",
     "Happy Game/开发阶段/物品系统/009-跨模块接口与数据合同.md",
-    "Happy Game/开发阶段/战斗/005-招式积木与流派生成.md.tmp.22408.7a06296995a6",
-    "Happy Game/开发阶段/README.md.tmp.22408.65c018d3fb96",
-    "Happy Game/开发阶段/README.md.tmp.22408.9fe5cbe8f73d",
-    "Change/CHG-014-物品系统v1.0创建-20260612.md.tmp.22408.2416d9f1b4bc",
     "Happy Game/开发阶段/物品系统/008-魔法物品与附魔.md",
-    "Happy Game/开发阶段/物品系统/007-物品获取途径.md",
-    "Happy Game/开发阶段/物品系统/009-跨模块接口与数据合同.md.tmp.22408.cd27209f83a2",
-    "Happy Game/开发阶段/物品系统/006-制造与配方.md",
     "Happy Game/开发阶段/物品系统/005-背包与库存.md",
-    "Happy Game/开发阶段/物品系统/008-魔法物品与附魔.md.tmp.22408.e3ebab8a51d9",
     "Happy Game/开发阶段/物品系统/003-物品属性与品质.md",
-    "Happy Game/开发阶段/物品系统/007-物品获取途径.md.tmp.22408.9c159fc26ef2",
     "Happy Game/开发阶段/物品系统/002-物品分类与ID体系.md",
-    "Happy Game/开发阶段/物品系统/006-制造与配方.md.tmp.22408.c2f054100940",
-    "Happy Game/开发阶段/物品系统/001-物品系统总纲.md",
-    "Happy Game/开发阶段/物品系统/005-背包与库存.md.tmp.22408.d16ae430c10c",
-    "Happy Game/开发阶段/物品系统/004-装备系统.md.tmp.22408.010937c55c8b",
     "Happy Game/开发阶段/物品系统/README.md",
     "Happy Game/开发阶段/性能优化分析 20260603.md",
     "Change/CHG-013-跨模块一致性冲突修正-20260612.md",

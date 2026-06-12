@@ -49,7 +49,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **[CHG-010](WoWorld-Design/Change/CHG-010-世界生成v3重构-20260611.md)**：世界生成方案 v3 重构——自建Transvoxel+25万km²+海陆7:3+海洋系统+港口/游牧聚落+承载容量+两层WFC+全部参数重算
 - **[CHG-011](WoWorld-Design/Change/CHG-011-生命系统v1.0设计-20260611.md)**：生命系统 v1.0 全新设计——Life基类+8大生命类型+12维程序化生成+四层质量防线+灵兽5驯服路径+亡灵7来源+神明三模式+繁衍三层约束
 - **[CHG-012](WoWorld-Design/Change/CHG-012-开发文档全审计-矛盾冲突错误修复-20260611.md)**：开发阶段全文档审计——五大模块约77个矛盾/冲突/错误修复——十元素冰→电统一、饥饿/口渴方向修正、魔法wikilink全面修复、边界距离重算、材质ID命名空间分离等
+- **[CHG-013](WoWorld-Design/Change/CHG-013-跨模块一致性冲突修正-20260612.md)**：跨模块一致性审计与修正——4并行代理审计67份文档发现~95冲突——修正全部11 CRITICAL + 20 HIGH——建立模块间接口契约（Physiology派生自Vitals/魔力单位统一为"刻"/部位伤害渐进模型/spirit过载两段式/群系参数场/AetherImprint归属/死亡原因25分类等）
 - 详见 `Change/README.md`
+
+**`Change/hand/`** — 用户直接设计反馈。包含对跨模块冲突的具体裁决意见（如魔力恢复速度以Magic为准、部位伤害以Combat为准、spirit过载方案等）。修改涉及的设计决策时，需检查此目录是否有相关意见。
 
 ### `参考文档/` — 参考性设计文档
 按 `NNN-简短描述-YYYYMMDD` 格式组织。001-015 已归档至 `第一部分-设计演进存档-20260610/`。
@@ -114,13 +117,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **.gitignore**: `.claude/` 目录已加入 gitignore
 - **Git远程**: `git@github.com:QiaoWhite/WoWorld-Design.git` (SSH)
 
+## 跨模块接口契约（关键——避免冲突复发）
+
+经 CHG-013 审计确定的关键接口所有权和约定。修改以下任何概念时必须维护这些契约：
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| 生命体征 (Vitals) | **Life** `004-身体状态与生命过程` | NPC（Physiology 为计算视图，通过 `from_vitals()` 派生） | Physiology 是主观感知层（0-1归一化），不可删除——NPC的GOAP/情绪代码依赖它 |
+| 魔力/法力 (Mana) | **Life** `§四` (`max_mana_ke: u32` + SpiritState + MagicAttributes) | Magic/Combat | 运行时全部用 `u32` 刻运算——避免浮点精度误差。恢复速度以Magic为准（慢速：1-3%/h活跃，5-10%/h冥想） |
+| 元素体系 (10 Elements) | **Magic** `002-十元素` | Combat/Life/History | 雷=声音/振动，电=闪电/电荷——不可混淆。金木水火土风雷电血灵——10元素顺序固定 |
+| 部位伤害 | **Combat** `012-战后过渡与伤势` | Life/NPC | 渐进三档软数值模型（轻/中/重伤）——不可用二值"该肢不可用"。仅影响数值，不影响攻击模组 |
+| 群系 (Biome) | **World Gen** `002-自然景观`（输出连续参数场） | Life（以参数场为输入） | 离散群系标签仅用于显示/日志——生成逻辑直接消费参数场 |
+| 灵元素印记 (AetherImprint) | **History** `004-灵元素印记` | Life（`CachedImprintView` 本地缓存，不独立存储） | 查询接口统一为 History 006 的 `AetherQuery` trait |
+| Spirit 消耗 | **Life** `004 §四` | Combat | 常规消耗Mana（安全），过载消耗raw spirit（渐进症状→系统阻断→0%不可逆死亡） |
+| 海洋深度分级 | **Life** `003`/`005` | World Gen | 深渊边界=4000m。透光层0-200m/中层200-1000m/深层1000-4000m/深渊4000m+ |
+| 死亡原因 | **Life** `004 §九` | History（墓碑文本映射） | 25种，五大类：物理伤害7/环境6/生物5/魔法4/时间与特殊3 |
+
+**冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
+
 ## 工作约定
 
 - 所有新设计文档使用 `.md` 格式，放在对应的 `想法/` 或 `开发阶段/` 子目录下
-- 使用 Obsidian wikilink 语法 `[[路径/文件名]]` 引用其他文档
+- 使用 Obsidian wikilink 语法 `[[路径/文件名]]` 引用其他文档。**跨模块引用必须加 `[[]]`**——这是用户明确要求，方便 Obsidian 导航
 - 新文档跟随 `> ` 块引用 frontmatter 风格
 - 后续Godot项目代码将放在 `woworld/` 目录下（目前尚不存在）
 - **设计变更**：对多个文档的结构性修改，在 `Change/` 按 `CHG-XXX-简短描述-YYYYMMDD.md` 创建变更文档。CHG文档之间及CHG与参考文档之间用 `[[]]` 交叉引用
+- **用户设计反馈**：`Change/hand/` 目录存储用户对具体设计问题的直接裁决。涉及已有模块的修改时，先检查是否有相关用户意见
 - **参考文档**：在 `参考文档/` 中创建 `NNN-简短描述-YYYYMMDD` 格式子文件夹，内部文档从 001 编号
 - **技术决策**：以 `开发阶段/技术栈方案/` 为权威依据。所有 001-016 为历史演进存档，017 为测试方法论，018 已正式迁移至开发阶段
 - **规划文件**：项目根目录的 `task_plan.md`、`findings.md`、`progress.md` 为 planning-with-files 工作流文件，用于追踪任务进度和设计决策。这些文件由 Claude 自动维护，不应手动编辑
+- **修改后必须自检**：完成跨模块修改后，重新审计所涉及的模块间接口——确保没有引入新冲突

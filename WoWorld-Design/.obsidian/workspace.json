@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Happy Game/开发阶段/生命/009-植物.md",
+                "file": "Change/CHG-013-跨模块一致性冲突修正-20260612.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "009-植物"
+              "title": "CHG-013-跨模块一致性冲突修正-20260612"
             }
           }
         ]
@@ -198,22 +198,35 @@
       "bases:新建数据库": false
     }
   },
-  "active": "9fd2dd038a914461",
+  "active": "7ef170f8dfaf12d5",
   "lastOpenFiles": [
-    "Happy Game/开发阶段/生命/005-动物.md.tmp.184.b50d01cc8b01",
-    "Happy Game/开发阶段/生命/005-动物.md.tmp.184.540ced4542d3",
-    "Happy Game/开发阶段/生命/005-动物.md.tmp.184.0c9979f4f65e",
-    "Happy Game/开发阶段/生命/README.md.tmp.184.a255cc1b07da",
-    "Happy Game/开发阶段/生命/005-动物.md.tmp.184.77885be06608",
-    "Happy Game/开发阶段/生命/003-程序化生成系统.md.tmp.184.06b103220c04",
-    "Happy Game/开发阶段/生命/003-程序化生成系统.md.tmp.184.e6a9a81bd2fe",
-    "Happy Game/开发阶段/生命/003-程序化生成系统.md.tmp.184.17ce5ae29c92",
-    "Happy Game/开发阶段/生命/003-程序化生成系统.md.tmp.184.73dad2fee699",
-    "Happy Game/想法/世界生成/自然景观.md",
+    "Change/hand/005 冲突回应.md",
+    "Change/CHG-013-跨模块一致性冲突修正-20260612.md",
+    "Change/CHG-013-跨模块一致性冲突修正-20260612.md.tmp.22408.405890d5ecde",
+    "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md.tmp.22408.9e93e98c8060",
+    "Happy Game/开发阶段/世界生成/001-世界生成总流程.md.tmp.22408.27edede2364f",
+    "Happy Game/开发阶段/世界生成/002-自然景观.md.tmp.22408.45b50772acd2",
+    "Happy Game/开发阶段/魔法/03-实践层/007-施法媒介与方式.md.tmp.22408.40f3f9bc78f2",
+    "Happy Game/开发阶段/世界生成/001-世界生成总流程.md.tmp.22408.8c40fb29f20e",
+    "Happy Game/开发阶段/生命/004-身体状态与生命过程.md.tmp.22408.0d366918843f",
+    "Happy Game/开发阶段/历史/README.md.tmp.22408.6cf399ae48d6",
+    "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md.tmp.22408.cd6fe3795780",
+    "Happy Game/开发阶段/生命/004-身体状态与生命过程.md.tmp.22408.1bf5aa806cd3",
+    "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md",
+    "Happy Game/开发阶段/NPC活人感模块/02-性别与吸引力系统.md",
+    "Happy Game/开发阶段/生命/004-身体状态与生命过程.md",
     "Happy Game/开发阶段/家具系统设计.md",
+    "Happy Game/想法/开发想法草稿/创意.md",
+    "Happy Game/开发阶段/历史/006-外部接口与性能预算.md",
+    "Happy Game/开发阶段/历史/004-灵元素印记与历史嵌入世界.md",
+    "Happy Game/开发阶段/历史/002-事件因果链与历史模拟.md",
+    "Happy Game/开发阶段/历史/005-大日志系统.md",
+    "Happy Game/开发阶段/历史/003-生命痕迹与书籍著作.md",
+    "Happy Game/开发阶段/历史/001-历史系统总纲.md",
+    "Happy Game/开发阶段/生命/009-植物.md",
+    "Happy Game/开发阶段/历史/README.md",
+    "Happy Game/想法/世界生成/自然景观.md",
     "Happy Game/开发阶段/魔法/06-人文层/016-魔法学习与传承.md",
-    "Happy Game/开发阶段/生命/README.md.tmp.184.ffbebb4e400e",
-    "Happy Game/开发阶段/生命/README.md.tmp.184.8564ee897ffb",
     "Happy Game/开发阶段/魔法/07-高级层/019-魔法前沿理论.md",
     "Happy Game/开发阶段/魔法/04-工程层/014-魔法卷轴.md",
     "Happy Game/开发阶段/魔法/04-工程层/013-魔导书.md",
@@ -223,19 +236,6 @@
     "Happy Game/开发阶段/魔法/03-实践层/009-触媒与材料.md",
     "Happy Game/开发阶段/魔法/03-实践层/007-施法媒介与方式.md",
     "Happy Game/开发阶段/魔法/03-实践层/008-法阵系统.md",
-    "Happy Game/开发阶段/魔法/01-基础层/004-魔法方程式.md",
-    "Happy Game/开发阶段/魔法/01-基础层/003-元素交互.md",
-    "Happy Game/开发阶段/魔法/01-基础层/002-十元素.md",
-    "Happy Game/开发阶段/魔法/01-基础层/001-魔法总纲.md",
-    "Change/CHG-012-开发文档全审计-矛盾冲突错误修复-20260611.md",
-    "Happy Game/开发阶段/战斗/006-魔法在战斗中的融入.md",
-    "Happy Game/开发阶段/战斗/003-三层战斗模型.md",
-    "Happy Game/开发阶段/战斗/001-战斗系统总览.md",
-    "Happy Game/开发阶段/世界生成/007-体素设计决策.md",
-    "Happy Game/开发阶段/世界生成/001-世界生成总流程.md",
-    "Happy Game/开发阶段/生命/007-怪物.md",
-    "Happy Game/开发阶段/生命/001-生命总纲.md",
-    "Happy Game/开发阶段/世界生成/004-聚落生成.md",
     "Happy Game/想法/WoW World/生命/NPC/角色处理对象时的心理作用.canvas"
   ]
 }

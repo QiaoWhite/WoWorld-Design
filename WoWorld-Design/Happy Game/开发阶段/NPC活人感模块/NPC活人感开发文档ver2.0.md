@@ -117,7 +117,7 @@ pub struct NpcData {
 
     // ── 性别与吸引力系统（02-性别与吸引力系统.md）──
     pub mental: MentalAttributes,               // 心智属性（过渡方案——融合后迁移至 LifeEntity）
-    pub physique: PhysicalAttributes,           // 身体属性（过渡方案——融合后迁移至 LifeEntity）
+    pub physical: PhysicalAttributes,           // 身体属性（已融合至 LifeEntity.physical，此处为计算视图引用）
     pub appearance: PhysicalAppearance,         // 外貌视觉特征（过渡方案）
     pub attraction_template: AttractionTemplate, // 吸引力偏好模板
     pub norm_internalizations: BTreeMap<NormId, NormInternalization>, // 规范内化（稀疏存储）
@@ -187,18 +187,102 @@ pub struct Physiology {
     // ⚠️ 尺度方向已统一为 Life.Vitals 约定:
     //    hunger/thirst: 0.0=极度缺乏 ~ 1.0=完全满足 (0=bad, 1=good)
     //    fatigue:       0.0=精力充沛 ~ 1.0=极其疲劳 (0=good, 1=bad)
-    //    与生命系统 004-身体状态与生命过程 完全一致
+    //    与生命系统 [[004-身体状态与生命过程]] 完全一致
     pub hunger: f32,           // 0.0=极度饥饿 ~ 1.0=饱腹, GOAP强制 <0.3
     pub thirst: f32,           // 0.0=脱水 ~ 1.0=不渴, GOAP强制 <0.25
     pub fatigue: f32,          // 0.0=精力充沛 ~ 1.0=极其疲劳, GOAP强制 >0.9
     pub health: f32,           // 0-1 (1=满血, 0=濒死), GOAP强制 <0.3
     pub stamina: f32,          // 瞬时可用体力 (区别于 fatigue)
     // ★ mana 已废弃——改为从 Life.SpiritState + Life.MagicAttributes 读取
-    //    见 生命/004-身体状态与生命过程.md §四 (Spirit & Magic)
+    //    见 [[004-身体状态与生命过程|生命/004-身体状态与生命过程]] §四 (Spirit & Magic)
     //    灵元素含量/十元素亲和/魔力强度/控制/抗性/恢复速度——由 Life 基类统一管理
     pub temperature: f32,      // 体感温度 (受季节/天气/服装修正)
+
+    // ★ 部位伤害——持久化存储，非战斗临时数据
+    //    损伤值来自 Combat [[012-战后过渡与伤势]] 的部位伤害模型
+    //    仅影响属性数值，不影响战斗动作模组（不会因手臂受伤而切换单手动画）
+    pub body_part_damage: BodyPartDamage,
+}
+
+/// 部位损伤数据——持久化到 NPC 数据中
+/// 每个部位独立存储 damage: f32 (0.0-1.0, 0=完好, 1=完全损坏)
+/// 具体部位集合由 Life 的形态模板决定
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BodyPartDamage {
+    pub head: f32,
+    pub torso: f32,
+    pub left_arm: f32,
+    pub right_arm: f32,
+    pub left_leg: f32,
+    pub right_leg: f32,
+    pub tail: f32,      // 0.0 if no tail
+    pub wings: f32,     // 0.0 if no wings
+    // 额外肢体由形态模板动态扩展
+    pub extra_limbs: Vec<f32>,
 }
 ```
+
+### 1.1.3a Physiology 派生自 Life.Vitals（主观感知层）
+
+`Physiology` 不是独立存储的数据——它是 **NPC 主观感知身体状态的"镜头"**，每次决策前从 `Life.Vitals`（客观生物数据）派生。两者关系：
+
+```
+Life.Vitals (客观生物真相, LMDB 存储, 绝对值)
+    │
+    │  Physiology::from_vitals(vitals, perception_context)
+    │  - health = vitals.hp / vitals.max_hp           // 绝对→归一化
+    │  - temperature = 体感温度(body_temp, 衣服, 天气)  // 客观→体感
+    │  - stamina = vitals.stamina / vitals.max_stamina  // 归一化
+    │  - body_part_damage → 直接从 Life 同步（持久化数据）
+    │
+    ▼
+NPC.Physiology (主观感知, NPC 决策用, 0-1 归一化)
+    → GOAP 阈值判断 (hunger < 0.3 → 找食物)
+    → 情绪引擎 (health < 0.5 → 恐惧上升)
+    → 行为选择 (fatigue > 0.9 → 必须睡觉)
+```
+
+**为什么保留 Physiology 而非直接用 Vitals**：
+- NPC 的 GOAP/情绪/行为代码全部基于 0-1 归一化值做阈值判断——这些值不是"物理事实"而是"身体感受"
+- `temperature` 是体感温度（受衣服/天气修正）——Life 的 `body_temperature` 是核心体温（生理事实）
+- `health` 是"我觉得自己还剩多少"——Life 的 `hp` 是"还剩多少血"（绝对值）
+- 两个抽象层服务于不同目的：Life 管理生物事实，NPC 管理行为决策
+
+```rust
+impl Physiology {
+    /// 从 Life.Vitals + 感知上下文 派生 NPC 的主观身体感知
+    pub fn from_vitals(v: &Vitals, ctx: &PerceptionContext) -> Self {
+        Self {
+            hunger:     v.hunger,                                           // 直通（已是 0-1）
+            thirst:     v.thirst,                                           // 直通（已是 0-1）
+            fatigue:    v.fatigue,                                          // 直通（已是 0-1）
+            health:     v.hp / v.max_hp.max(1.0),                           // 绝对值→归一化
+            stamina:    v.stamina / v.max_stamina.max(1.0),                 // 绝对值→归一化
+            temperature: Self::perceived_temperature(v.body_temperature, ctx),
+            body_part_damage: v.body_part_damage.clone(),                   // 持久化部位损伤
+        }
+    }
+
+    /// 体感温度 = 核心体温 + 环境/衣着修正
+    fn perceived_temperature(core: f32, ctx: &PerceptionContext) -> f32 {
+        let clothing_mod = ctx.clothing_warmth.clamp(0.0, 1.0);
+        let weather_mod = ctx.ambient_temperature_offset;
+        core + weather_mod * (1.0 - clothing_mod * 0.7)
+    }
+}
+
+/// 感知上下文——影响 NPC 如何"感受"自己的身体
+struct PerceptionContext {
+    clothing_warmth: f32,           // 衣着保暖度 0-1
+    ambient_temperature_offset: f32, // 环境温度偏移（相对常温）
+    // 未来可扩展：疾病/药物/醉酒等感知扭曲因子
+}
+```
+
+**重要**：NPC 模块的 GOAP/情绪/行为代码 **零修改**——继续使用 0-1 归一化的 `Physiology`。此设计确保：
+1. Life 是唯一的生物数据权威源（`Vitals`）
+2. NPC 的心智模型完全保留（`Physiology` 的计算视图）
+3. 两者通过 `from_vitals()` 明确桥接——不合并、不删除
 
 ### 1.1.4 EmotionState
 

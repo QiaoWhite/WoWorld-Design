@@ -60,7 +60,7 @@
 - **Status:** complete
 - 三轮深入审查（7+4+7=18个问题识别和修正）
 - 技能系统/ 目录 + README + 001~003 共 4 文件
-- 覆盖：SkillId(5分类22子组u64)/SkillEntry(xp/level/innate_aptitude/total_xp/times_used)/累积XP公式(指数减速)/天赋三层(MentalAccess trait+天生倍率0.7-1.3+交叉训练非递归天花板)/TeachingSession四种路径/TeachingRisk trait/完整跨模块接口7组
+- 覆盖：SkillId(5分类22子组u64)/SkillEntry(xp/level/innate_aptitude/total_xp_earned/times_used)/累积XP公式(指数减速)/天赋三层(MentalAccess trait+天生倍率0.7-1.3+交叉训练非递归天花板)/TeachingSession四种路径/TeachingRisk trait/完整跨模块接口7组
 - 关键决策：社交/经济不在管辖 / 用进不退(无衰减) / 种族天赋不硬编码 / 玩家MentalAccess+PhysicalAccess返回全1.0 / 技能定义TOML数据驱动 / SkillCategory从NPC旧7类缩减为5类 / 认知错乱删除
 - 关联修改：CLAUDE.md（新增CHG-015契约）、开发阶段/README.md（新增模块+更新待补充）、task_plan.md（Phase 11更新）
 
@@ -84,10 +84,10 @@ f17bdc1 动物系统 v2.0 + 003维度扩展
 | 生命系统 (13文件) | 4,828 |
 | 历史系统 (7文件) | ~3,500 |
 | 物品系统 (10文件) | 2,512 |
-| 技能系统 (4文件) | 1,549 |
+| 技能系统 (4文件) | 2,006 |
 | NPC 活人感 (1文件) | 2,599 |
 | 魔法系统 (20文件) | 2,092 |
 | 战斗系统 (14文件) | 1,496 |
 | 技术栈方案 | ~600 |
 | 游戏概述 | ~120 |
-| **总计** | **~19,710** |
+| **总计** | **~20,167** |

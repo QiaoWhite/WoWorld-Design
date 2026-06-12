@@ -567,17 +567,21 @@ impl SocialInteraction {
 
 ### SkillCategory
 
+> ⚠️ **v2.0→v2.1 待更新**：此枚举已被技能系统 v1.0 取代为权威定义。`Social` 和 `Economic` 已删除（不在技能系统管辖范围）。新的 5 分类定义见 [[../技能系统/002-技能分类体系|技能系统 002]]。以下为旧版文档——保留至 NPC v2.1 重写时同步。
+
 ```rust
 /// 技能类别——用于 skill_preference 的 key
+/// ⚠️ DEPRECATED: 权威定义已迁移至技能系统 002
+/// Social 和 Economic 已删除——不在技能系统管辖
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum SkillCategory {
     Combat,
     Magic,
     Artisan,
     Academic,
-    Social,
+    Social,     // ⚠️ 已弃用——社交能力由对话系统管辖
     Survival,
-    Economic,
+    Economic,   // ⚠️ 已弃用——经济行为本质社交行为
 }
 ```
 

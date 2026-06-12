@@ -173,6 +173,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 时间/天参数 | **天气系统** `003` | 全部 | day_duration_seconds=2880(48分钟), days_per_year=120, days_per_season=30——全部 [TUNING]。日长=纬度+季节函数 |
 | 性能预算 | **天气系统** `001` | 技术栈方案 | Rust CPU ≤0.25ms/帧（含全部轮询），降水粒子 ≤0.4ms GPU，VRAM 增量 ≤2.5MB。WeatherSample 栈上 Copy (~120 bytes)，零分配轮询 |
 
+### CHG-017 新增契约（语言表达系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| 语言标识 (LanguageId/ScriptId) | **语言表达** `002` | 全部模块 | LanguageId=u32(高16位语系+低16位编号), ScriptId=u16——此前为幽灵类型，现正式定义。历史 Work.language、物品铭文、魔法文本均以语言表达为权威 |
+| 语言能力 (Proficiency) | **语言表达** `002` | NPC/技能 | Proficiency=f32(0.0-1.0)——替代旧 bool literacy。NPC 语言学习由技能系统 linguistics 驱动 |
+| 可读物句柄 (ExpressionRef) | **语言表达** `001`/`004` | 全部模块 | 8字节 Copy 类型(carrier_type u8 + local_id 7B)——对齐 ItemEntId 范式。可存入 NPC 记忆、大日志、对话锚点。不拥有内容——只是指针 |
+| 内容解析 (ContentResolver) | **语言表达** `004` | 历史/魔法/物品 | 各模块实现 ContentResolver trait + 注册到 ExpressionRegistry。新载体类型零改动集成。LocatableReadable 扩展用于物理位置查询 |
+| 文本生成 (TextGenerator) | **语言表达** `003` | 全部模块 | 片段组合模型（~430片段·~86KB）——非单体模板。参数命名遵循标准常量~50个。三种编码(Text/Geometric/Audio)统一产出文本。滤镜管道(PersonalityFilter/RelationshipFilter)后处理 |
+| 对话系统 (Conversation) | **语言表达** `005` | NPC | 多参与者模型(2→1000+)。TurnMode 四种(FreeForm/Moderated/Speech/Ritual)。DialogueIntent 五种驱动 NPC 主动对话。ConversationTopic 三种来源(预设/大日志/NLU)。DialogueContext 依赖注入——lang_expression 不反向查询任何模块 |
+| 社交层 (PhaticLayer/SocialField) | **语言表达** `006` | NPC | PhaticLayer 五类应酬(~210片段)——开场/穿插/反应/收尾/自发。SocialField 群体动力学(惯性/极化/从众)——听众=聚合统计非独立实体。1000人演讲≈1人文本成本+浮点计算 |
+| 自然语言理解 (InputInterpreter) | **语言表达** `007` | NPC/Player | 三层回落：L1关键词(永远可用,~10µs)→L2嵌入(离线,~5ms)→L3 LLM(可插拔,~1-2s)。99%对话走L1+模板。PlayerInput 四种统一(预设选项/搜索框/语音/打字) |
+| 跨模块文本管道 | **语言表达** `008` | 全部模块 | ExpressionRegistry::read() 统一入口。DialogueContext 纯数据注入——调用者从各模块收集数据后传入。lang_expression 不依赖任何业务模块。ContentMetadata.encoding 透传——Godot 层据此判断是否需要额外渲染(法阵图/音频) |
+
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 
 ## 工作约定

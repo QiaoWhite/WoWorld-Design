@@ -20,6 +20,7 @@
 | **★ 物品系统** | [物品系统/](物品系统/) | 9 篇开发规格 + README。两层 ID 模型(ItemDefId/ItemEntId)、通用组件装配框架(Rigid/Hinge/Chain/Flexible)、Quality×Rarity 双维度、BodyPlan 槽位派生、双套 Outfit BG3式切换、五层仓储体系、卡槽+直接附魔两条路径、铜银金货币。**所有物品标识和属性的权威依据。** | ✅ v1.0 |
 | **★ 技能系统** | [技能系统/](技能系统/) | 3 篇开发规格 + README。SkillId(5分类u64)/SkillEntry(xp/level/innate_aptitude/total_xp/times_used)、累积XP公式(指数减速base=100/k=0.04)、天赋三层(MentalAccess trait/天生倍率0.7-1.3/交叉训练非递归天花板min(40,0.5L))、TeachingSession四种路径(自学/师承/学院/秘传)、TeachingRisk trait空默认。**所有技能数据模型和升级/教学机制的权威依据。** | ✅ v1.0 |
 | **★ 天气与季节系统** | [天气与季节系统/](天气与季节系统/) | 4 篇开发规格 + README。WeatherQuery trait 统一轮询（零事件总线）、WeatherSample 双层温度（regional/ground）+ 群系微气候修正、Markov 6状态+雾独立维度、ClimateRegion→LocalWeather 两层空间、极端天气参数组合判定+三层NPC响应、SeasonClock 纯时间函数（120天/年·48分钟/天 [TUNING]）、13消费方完整数据合同、历史气象异常生成（种子驱动极值采样+灾害集群）、WeatherVisualPacket（~200 bytes/帧，≤0.5ms GPU 降水粒子）。**所有天气/季节数据的权威依据。** | ✅ v1.0 |
+| **★ 语言表达系统** | [语言表达/](语言表达/) | 8 篇开发规格 + README。三层 Crate 架构（woworld_types + lang_expression + 业务模块）、LanguageId/ScriptId/LanguageFamily 语言谱系 DAG、ExpressionRef 统一可读物句柄（8B Copy）、ContentResolver trait 注册表模式、TextGenerator 片段组合引擎（~430 片段·~86KB）、Conversation 多参与者对话（2→1000+·TurnMode 四种模式）、DialogueIntent NPC 主动对话（5种驱动）、ConversationTopic 话题模型（Alias Method 采样）、PhaticLayer 应酬层（5类 ~210 片段）、SocialField 群体动力学（惯性/极化/从众/SensoryMapping）、InputInterpreter 三层 NLU 回落、PlayerInput 四种输入统一（预设/搜索/语音/打字）。**所有语言/文字/对话数据的权威依据。** | ✅ v1.0 |
 | **家具系统** | [家具系统设计.md](家具系统设计.md) | 家具分类/功能/质量/文化变体 | ⚠️ v0.1 |
 | **性能优化** | [性能优化分析 20260603.md](性能优化分析 20260603.md) | 性能瓶颈与缓解策略 | ⚠️ v0.1 |
 
@@ -29,8 +30,7 @@
 
 | 模块 | 状态 | 预计内容 |
 |------|------|---------|
-| 对话系统 | ⬜ | 对话树/关键词匹配/情绪关系影响/预制模板/LLM接口/语言方言——Phase 11d |
-| 信息传播系统 | ⬜ | NPC间信息传输管道——口头/书信/信鸽/魔法传信 + 传播延迟 + 失真算子 + 传说/谣言/新闻传播 |
+| 信息传播系统 | ⬜ | NPC间信息传输管道——口头/书信/信鸽/魔法传信 + 传播延迟 + 失真算子 + 传说/谣言/新闻传播——语言表达模块提供 PropagableEventSource 消费接口 |
 | 载具系统 | ⬜ | 移动参考系/载具NPC行为/建造流程 |
 | 蓝图与建造 | ⬜ | 三途径/集体施工/建筑参数化 |
 | 经济与社会 | ⬜ | 受控动态经济/团体/事件/道德/法律 |

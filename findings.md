@@ -14,11 +14,13 @@
 | 生命系统 | ✅ | 13 | ~4,828 | 混合 | Life 基类/动物(v2.0水陆空)/植物(v2.0)/灵兽/怪物/亡灵/神明/玩家/繁衍 |
 | 历史系统 | ✅ | 7 | ~3,500 | v1.0 | 事件因果链·生命痕迹·书籍·灵元素印记·大日志·外部接口 |
 | 物品系统 | ✅ | 10 | 2,512 | v1.0 | 两层ID+SlotInstanceId·装配框架(4 JointType)·全部武器类型·弹药生命周期·耐久修理·双套Outfit·五层仓储·卡槽+直接附魔 |
+| 技能系统 | ✅ | 4 | 2,006 | v1.0 | SkillId(5分类22子组u64)/SkillEntry/累积XP公式/天赋三层/TeachingSession四种路径 |
+| 天气与季节系统 | ✅ | 5 | 2,552 | v1.0 | WeatherQuery/WeatherSample双层温度/Markov6状态+雾/SeasonClock(120天/年)/13消费方合同 |
+| 语言表达系统 | ✅ | 9 | 3,583 | v1.0 | 三层Crate/ExpressionRef/ContentResolver/TextGenerator片段组合/多参与者对话/PhaticLayer/SocialField/NLU三层回落 |
 | 家具系统 | ⚠️ | 1 | — | v0.1 | 分类/功能/质量/文化变体 |
 | 性能优化 | ⚠️ | 1 | — | v0.1 | 瓶颈与缓解策略 |
 
 ### 待补充的 ⬜ 模块
-- 技能系统（Phase 11a 进行中）、天气与季节系统（Phase 11b）、对话系统（Phase 11b）
 - 载具系统、蓝图与建造、经济与社会、UI/UX、信息传播系统
 
 ## 关键设计决策

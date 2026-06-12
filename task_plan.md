@@ -91,8 +91,8 @@ Phase 10 complete — CHG-013 跨模块一致性修正完成。Next: Phase 11 (T
 - [x] **P0: 物品系统** — 10 文件(9+README) 2,512 行。两层ID+SlotInstanceId/装配框架(Rigid/Hinge/Chain/Flexible)/全部武器类型(近战/远程/法器/投掷/拳套)/弹药生命周期/耐久修理机制/Quality×Rarity/双套Outfit/五层仓储/卡槽+直接附魔/铜银金货币
 - [x] **P0: 技能系统** — 4 文件(3+README)。SkillId(5分类22子组u64)/SkillEntry(xp/level/innate_aptitude/total_xp/times_used)/累积XP公式/天赋三层(MentalAccess trait+天生倍率+交叉训练非递归+天花板)/TeachingSession四种路径/TeachingRisk trait/完整跨模块接口7组
 - [x] **P1: 天气与季节系统** — 5 文件(4+README) 2,552 行。WeatherQuery统一轮询(零事件总线)/WeatherSample双层温度+群系微气候/Markov6状态+雾独立/ClimateRegion→LocalWeather两层/极端天气参数组合+三层NPC响应/SeasonClock纯时间(120天/年·48分钟/天[TUNING])/13消费方数据合同/历史气象异常(种子极值采样+灾害集群)/WeatherVisualPacket(~200 bytes/帧)
-- [ ] **P1: 对话系统** — 5-8 篇，UI/对话树/关键词匹配/情绪关系影响/LLM接口/方言预留
-- **Status:** in_progress (物品+技能+天气系统完成，对话系统进行中)
+- [x] **P1: 语言表达系统** — 9 文件(8+README) 3,583 行。三层Crate架构(woworld_types+lang_expression+业务模块)/LanguageId/ScriptId/LanguageFamily谱系DAG/ExpressionRef(8B Copy)/ContentResolver注册表/TextGenerator片段组合(~430片段)/Conversation多参与者(2→1000+·TurnMode四种)/DialogueIntent(NPC主动5种驱动)/TopicSelector(Alias Method)/PhaticLayer(5类~210片段)/SocialField群体动力学/SensoryMapping/InputInterpreter三层NLU/PlayerInput四种统一
+- **Status:** complete (Tier 1 地基层全部完成: 物品+技能+天气+语言表达)
 
 ## 开发阶段模块状态总览
 
@@ -119,13 +119,15 @@ Phase 10 complete — CHG-013 跨模块一致性修正完成。Next: Phase 11 (T
 | **物品系统** | 10 | 2,512 | v1.0 | ✅ |
 | **技能系统** | 4 | 2,006 | v1.0 | ✅ |
 | **天气与季节系统** | 5 | 2,552 | v1.0 | ✅ |
+| **语言表达系统** | 9 | 3,583 | v1.0 | ✅ |
 | **家具系统** | 1 | — | v0.1 | ⚠️ |
 | **性能优化** | 1 | — | v0.1 | ⚠️ |
+| **总计** | **~71** | **~23,750** | — | — |
 
 ## 待补充模块
 | 模块 | 状态 | 预计内容 |
 |------|------|---------|
-| 信息传播系统 | ⬜ | NPC间信息传输管道——口头/书信/信鸽/魔法传信 + 传播延迟 + 失真算子 |
+| 信息传播系统 | ⬜ | NPC间信息传输管道——口头/书信/信鸽/魔法传信 + 传播延迟 + 失真算子——语言表达模块提供消费接口 |
 | 载具系统 | ⬜ | 移动参考系/载具 NPC 行为/建造流程 |
 | 蓝图与建造 | ⬜ | 三途径/集体施工/建筑参数化 |
 | 经济与社会 | ⬜ | 受控动态经济/团体/事件/道德/法律 |

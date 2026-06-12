@@ -74,6 +74,17 @@
 
 ---
 
+### Phase 11d: 语言表达系统 v1.0
+- **Status:** complete
+- 9 文件 (8文档+README) 3,583 行
+- 覆盖完整：三层 Crate 架构 / LanguageId 填幽灵类型 / ExpressionRef 统一句柄 / ContentResolver 注册表 / TextGenerator 片段组合(~430片段) / Conversation 多参与者(2→1000+) / TurnMode 四种 / DialogueIntent 五种驱动 / TopicSelector Alias Method / PhaticLayer 五类(~210片段) / SocialField 群体动力学 / SensoryMapping / InputInterpreter 三层回落 / PlayerInput 四种统一
+- 关键决策：依赖注入消除循环依赖 / 片段组合替代单体模板 / 听众=聚合统计非独立实体 / 三个幽灵概念(MagicEquation编码/LanguageId定义/参数化文本拼装)全部填实
+- 关联修改：CLAUDE.md（新增CHG-017契约13行）、开发阶段/README.md（新增模块+删除未开始的对话系统）、task_plan.md（Phase 11d标记完成）
+- CHG-017 变更文档
+- Commits: 待提交
+
+---
+
 ## 最近提交
 ```
 419d7c3 CHG-013: 跨模块一致性审计与修正——18文件修改+接口契约建立

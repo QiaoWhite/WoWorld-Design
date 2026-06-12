@@ -158,6 +158,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 交叉训练 | **技能系统** `002` | 全部模块 | 仅DirectAction/Teaching/DirectInfusion触发——CrossTraining不递归。天花板min(40, source_level×0.5)。元素组边界由Magic 002权威定义 |
 | SkillCategory | **技能系统** `002` | NPC | 5类枚举（非NPC旧7类）——删除Social和Economic。NPC文档以技能系统为权威 |
 
+### CHG-016 新增契约（天气与季节系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| 天气数据 (WeatherSample) | **天气系统** `001`/`004` | 全部模块 | 统一通过 `WeatherQuery::sample(pos, time)` trait 轮询——零事件总线。天气只提供客观物理事实——NPC 主观感知/魔法元素浓度/战斗环境判定均由各自模块自行推导 |
+| 季节时钟 (SeasonClock) | **天气系统** `003` | 全部模块 | 纯时间函数（120天/年·48分钟/天·均匀四季 [TUNING]）——输入 GameTime，输出 SeasonState。虚数年号（种子决定），春分开局 |
+| 温度模型 | **天气系统** `001` | Life/NPC/植物/动物 | 双层温度：regional_temperature（大气） + ground_temperature（群系修正——冠层/雪面/沙地/水体/城市）。NPC 根据高程上下文自选基准温度 |
+| 天气状态机 | **天气系统** `002` | 全部 | 6状态 Markov 链（Clear→PartlyCloudy→Overcast→LightPrecip→ModeratePrecip→HeavyStorm）+ 雾独立布尔维度。转移矩阵参数化生成——非硬编码 |
+| 极端天气 | **天气系统** `002` | NPC/战斗/海洋/载具/历史 | 不命名枚举类型——参数组合自然区分（风速×降水类型×强度×温度×位置）。三层 NPC 响应：L1温和偏移/L2警告强制偏移/L3灾难硬约束 |
+| 群系微气候 | **天气系统** `002` | 天气系统内部 | 冠层遮阳(-2~6°C)+雪面反照+沙地辐射(+8~20°C)+水体缓冲(±2~5°C)+城市热岛(+1~5°C)+洞穴恒温——天气系统 OWN 修正公式，消费世界生成的 BiomeMicroclimateQuery |
+| 视觉输出 | **天气系统** `001`/`004` | Godot 渲染/音频 | WeatherVisualPacket (~200 bytes/帧) → 调制已有体积云/天空/海洋 shader。降水粒子 ≤0.4ms GPU。transition_blend 仅存在于 WeatherVisualPacket——非 WeatherSample |
+| 历史气象异常 | **天气系统** `002` | 历史系统 | 种子驱动极值采样 → ~5,000-20,000 条 HistoricalWeatherAnomaly（纯气象事实）。历史系统在 P9 消费并转化为 HistoricalEvent——必须查询气象异常数据，不能独立随机 |
+| 时间/天参数 | **天气系统** `003` | 全部 | day_duration_seconds=2880(48分钟), days_per_year=120, days_per_season=30——全部 [TUNING]。日长=纬度+季节函数 |
+| 性能预算 | **天气系统** `001` | 技术栈方案 | Rust CPU ≤0.25ms/帧（含全部轮询），降水粒子 ≤0.4ms GPU，VRAM 增量 ≤2.5MB。WeatherSample 栈上 Copy (~120 bytes)，零分配轮询 |
+
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 
 ## 工作约定

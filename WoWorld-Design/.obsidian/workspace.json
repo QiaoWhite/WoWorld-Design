@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Happy Game/开发阶段/物品系统/002-物品分类与ID体系.md",
+                "file": "Happy Game/开发阶段/技能系统/README.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "002-物品分类与ID体系"
+              "title": "README"
             }
           }
         ]
@@ -200,17 +200,28 @@
   },
   "active": "7ef170f8dfaf12d5",
   "lastOpenFiles": [
-    "Change/CHG-014-物品系统v1.0创建-20260612.md.tmp.22408.6ae68ab19871",
-    "Change/CHG-014-物品系统v1.0创建-20260612.md.tmp.22408.263c947a2da6",
-    "Change/CHG-014-物品系统v1.0创建-20260612.md.tmp.22408.86a0e768936d",
-    "Happy Game/开发阶段/物品系统/008-魔法物品与附魔.md.tmp.22408.692b00e25314",
-    "Happy Game/开发阶段/物品系统/004-装备系统.md.tmp.22408.09ed8f195822",
-    "Happy Game/开发阶段/战斗/005-招式积木与流派生成.md.tmp.22408.d8b3a231856c",
-    "Happy Game/开发阶段/物品系统/005-背包与库存.md.tmp.22408.baf841c77ea0",
-    "Happy Game/开发阶段/物品系统/005-背包与库存.md.tmp.22408.358844809ccd",
-    "Happy Game/开发阶段/物品系统/README.md.tmp.22408.77e992f26f62",
-    "Happy Game/开发阶段/物品系统/README.md.tmp.22408.303dc4e031e1",
-    "Happy Game/开发阶段/物品系统/009-跨模块接口与数据合同.md.tmp.22408.e9d78138c4d6",
+    "Change/CHG-016-天气与季节系统v1.0创建-20260612.md",
+    "Change/CHG-016-天气与季节系统v1.0创建-20260612.md.tmp.22408.0f1bfcd54d21",
+    "Happy Game/开发阶段/README.md.tmp.22408.d37a1105a3e4",
+    "Happy Game/开发阶段/README.md.tmp.22408.b3e3f76199fe",
+    "Happy Game/开发阶段/天气与季节系统/004-跨模块接口与数据合同.md",
+    "Happy Game/开发阶段/天气与季节系统/004-跨模块接口与数据合同.md.tmp.22408.8e1b04227342",
+    "Happy Game/开发阶段/天气与季节系统/003-季节循环与时间.md",
+    "Happy Game/开发阶段/天气与季节系统/003-季节循环与时间.md.tmp.22408.d1933fd3cc1f",
+    "Happy Game/开发阶段/天气与季节系统/002-天气生成算法.md",
+    "Happy Game/开发阶段/天气与季节系统/002-天气生成算法.md.tmp.22408.55e8f8dbfed9",
+    "Happy Game/开发阶段/天气与季节系统/001-天气系统总纲.md",
+    "Happy Game/开发阶段/天气与季节系统/001-天气系统总纲.md.tmp.22408.357e9734e534",
+    "Happy Game/开发阶段/天气与季节系统/README.md",
+    "Happy Game/开发阶段/天气与季节系统/README.md.tmp.22408.4582232bf5ce",
+    "Happy Game/开发阶段/天气与季节系统",
+    "Happy Game/开发阶段/技能系统/003-教学与跨模块接口.md",
+    "Happy Game/开发阶段/技能系统/002-技能分类体系.md",
+    "Happy Game/开发阶段/技能系统/001-技能系统总纲.md",
+    "Happy Game/想法/WoW World/总设计草稿.md",
+    "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md.tmp.22408.78e6c3e44cce",
+    "Happy Game/开发阶段/技能系统/README.md",
+    "Happy Game/开发阶段/物品系统/002-物品分类与ID体系.md",
     "Happy Game/开发阶段/物品系统/007-物品获取途径.md",
     "Happy Game/开发阶段/物品系统/006-制造与配方.md",
     "Happy Game/开发阶段/物品系统/001-物品系统总纲.md",
@@ -220,22 +231,11 @@
     "Happy Game/开发阶段/物品系统/008-魔法物品与附魔.md",
     "Happy Game/开发阶段/物品系统/005-背包与库存.md",
     "Happy Game/开发阶段/物品系统/003-物品属性与品质.md",
-    "Happy Game/开发阶段/物品系统/002-物品分类与ID体系.md",
     "Happy Game/开发阶段/物品系统/README.md",
     "Happy Game/开发阶段/性能优化分析 20260603.md",
     "Change/CHG-013-跨模块一致性冲突修正-20260612.md",
     "Change/hand/005 冲突回应.md",
     "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md",
-    "Happy Game/开发阶段/NPC活人感模块/02-性别与吸引力系统.md",
-    "Happy Game/开发阶段/生命/004-身体状态与生命过程.md",
-    "Happy Game/开发阶段/家具系统设计.md",
-    "Happy Game/想法/开发想法草稿/创意.md",
-    "Happy Game/开发阶段/历史/006-外部接口与性能预算.md",
-    "Happy Game/开发阶段/历史/004-灵元素印记与历史嵌入世界.md",
-    "Happy Game/开发阶段/历史/002-事件因果链与历史模拟.md",
-    "Happy Game/开发阶段/历史/005-大日志系统.md",
-    "Happy Game/开发阶段/历史/003-生命痕迹与书籍著作.md",
-    "Happy Game/开发阶段/历史/001-历史系统总纲.md",
     "Happy Game/想法/WoW World/生命/NPC/角色处理对象时的心理作用.canvas"
   ]
 }

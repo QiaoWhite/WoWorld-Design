@@ -64,6 +64,14 @@
 - 关键决策：社交/经济不在管辖 / 用进不退(无衰减) / 种族天赋不硬编码 / 玩家MentalAccess+PhysicalAccess返回全1.0 / 技能定义TOML数据驱动 / SkillCategory从NPC旧7类缩减为5类 / 认知错乱删除
 - 关联修改：CLAUDE.md（新增CHG-015契约）、开发阶段/README.md（新增模块+更新待补充）、task_plan.md（Phase 11更新）
 
+### Phase 11c: 天气与季节系统 v1.0
+- **Status:** complete
+- /grill-me 访谈 25 问——全部设计决策锁定
+- 天气与季节系统/ 目录 + README + 001~004 共 5 文件 2,552 行
+- 覆盖：WeatherQuery统一轮询(零事件总线)/WeatherSample双层温度+群系微气候/Markov6状态+雾独立/ClimateRegion→LocalWeather两层/极端天气参数组合+三层NPC响应/SeasonClock纯时间(120天/年·48分钟/天[TUNING])/13消费方完整数据合同/历史气象异常(种子极值采样+灾害集群)/WeatherVisualPacket(~200 bytes/帧)
+- 关键决策：数据流统一轮询砍掉事件总线 / 双层温度(regional+ground) / 6状态Markov+雾独立维度 / 极端天气不命名枚举—参数组合区分 / 120天年+春分开局+虚数年号 / 天气只提供物理事实—NPC主观感知/魔法元素浓度/战斗环境各自自行推导
+- 关联修改：CLAUDE.md（新增CHG-016契约10行）、开发阶段/README.md（新增模块+删除待补充）、task_plan.md（Phase 11c标记完成）、CHG-016 变更文档
+
 ---
 
 ## 最近提交
@@ -85,6 +93,7 @@ f17bdc1 动物系统 v2.0 + 003维度扩展
 | 历史系统 (7文件) | ~3,500 |
 | 物品系统 (10文件) | 2,512 |
 | 技能系统 (4文件) | 2,006 |
+| 天气与季节系统 (5文件) | 2,552 |
 | NPC 活人感 (1文件) | 2,599 |
 | 魔法系统 (20文件) | 2,092 |
 | 战斗系统 (14文件) | 1,496 |

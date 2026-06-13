@@ -202,6 +202,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 文化沟通规范 | **语言表达** `010` | NPC/世界生成 | CommunicationNorms：interruption_tolerance/eye_contact_norm/personal_space/directness/silence_tolerance/emotional_expressiveness/honorifics/touch_norms。影响 TurnMode 打断阈值/沉默处理/社交距离/敬语选择 |
 | 对话中断与恢复 | **语言表达** `005` | NPC | 五种中断(CombatStarted/ThirdPartyJoin/Environmental/PlayerLeft/NpcUrgentGoal)。ConversationSnapshot 快照→战斗后可恢复("刚才说到一半——")。超游戏内1小时过期 |
 
+### CHG-019 新增契约（LLM增强层 + 语音输出接口 v2.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| LLM 场景粒度开关 | **语言表达** `011` | 全部 | LlmSceneConfig 19场景独立开关+master_switch。LLM 装饰器模式——包裹模板管道，失败/关闭/不可用→无缝回退模板 |
+| LLM 后端抽象 | **语言表达** `011` | 无(玩家配置) | LlmBackend trait 统一本地(5种)+云端(6种)+Mock。LlmBackendRegistry 多后端管理+场景路由+故障转移。LlmRequest/LlmResponse 后端无关通用格式 |
+| NPC 自主对话意愿 | **语言表达** `011` | NPC | NpcDialogueWillingness 六维(个性/情绪/关系/话题/情境/文化)——不设系统信任硬阈值。willingness 驱动 LLM 回应深度而非调用开关 |
+| 旅伴多人对话 | **语言表达** `011` | NPC | multi_travel_turn() 四人触发源(环境景色/时事流言/沉默时间/随机自发)+SpeakUrge竞争+TravelUtteranceStyle(自言自语/对全体/对特定/续前)。非LLM模式必须工作 |
+| 灵活可闻半径 | **语言表达** `011` | NPC/环境 | EffectiveAudibleRadius 六因子(有意控制/环境噪音/地形/天气/文化/个性)。替代固定米数 |
+| 语音身份 | **语言表达** `012` | NPC | VoiceProfile 物理(种族/性别/年龄→音高/音色/语速)+个性(外向性→表现力, 宜人性→粗砺度, 神经质→气声)。生成时确定 |
+| 语音情绪修饰 | **语言表达** `012` | NPC | VoiceEmotionModulation 五参数(音高偏移/语速/音量/颤抖/气声)←当前情绪。VoicePacket 统一 Rust→Godot 语音包 |
+| TTS 后端 | **语言表达** `012` | Godot | TtsEngine trait 五种(System/LocalAI/CloudAPI/PreRecorded/None)。与 LLM 无关——模板管道同样可用。TtsConfig 玩家开关+字幕模式 |
+| 语音优先级 | **语言表达** `012` | Godot | VoicePriority 五级(Critical打断/High/Normal/Ambient排队/Background)。多NPC同时说话时高优先先播 |
+
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 
 ## 工作约定

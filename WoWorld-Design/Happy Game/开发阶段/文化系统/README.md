@@ -28,6 +28,7 @@
 | **004** | [文化审美与物质](004-文化审美与物质.md) | BuildingStylePreferences（屋顶×材料×装饰×色彩派生链）、CulturalBeautyStandard、DietaryBasePreferences、FertilityNorms、ClothingPreferences、honor_weight | ✅ v1.0 |
 | **005** | [文化与技术](005-文化与技术.md) | TechnologyProfile 8 领域完整定义、逻辑斯谛增长函数、技术扩散（贸易/征服）、技术停滞与倒退、SettlementTechQuery trait 接口、物品可制造门槛 | ✅ v1.0 |
 | **006** | [文化演变与跨模块接口](006-文化演变与跨模块接口.md) | CultureQuery/CultureQueryExt/CultureMut trait 完整定义、代际漂移/贸易影响/征服强制/事件驱动四路径演变、亚文化分裂/克里奥尔化/文化消亡、20 条跨模块接口契约、幽灵类型替换清单、内部存储设计、性能预算 | ✅ v1.0 |
+| **007** | [地名系统](007-地名系统.md) | GeographicEntity/GeographicEntityType 完整定义（31种实体类型）、nameworthiness 四因子命名价值评分（物理显著性×文化相关性×邻近性×独特性）、命名模板系统、Exonym 五源懒生成（音变60%/描述15%/历史10%/不命名10%/独立5%）、感知分组（客观实体层级+文化差异）、五类地名变更场景（地貌改变/实体替换/实体消亡/政治变更/文化视野变化）、地名历史层积、CultureQuery 新增地名查询方法、世界生成 P3.0 实体识别步骤、~1,350行 | ✅ v1.0 |
 
 ## 三层参数架构速览
 

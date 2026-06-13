@@ -237,6 +237,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 职业标签 (ProfessionTag) | **世界生成**(初始分配)/**NPC身份系统**(运行时) | 经济系统(消费收入来源类型) | ~80-100个原子标签——TOML数据驱动+预留新增接口。proficiency从技能系统派生。任意2-4个排列组合→职业涌现。incongruity标记不寻常组合(不阻止) |
 | LLM经济增强 | **经济系统** `009` | 语言表达系统 | LLM不参与任何经济计算。结构化数据注入→自然语言包装。模板回退覆盖100%事件类型 |
 
+### CHG-023 新增契约（权力系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| UniversalPowerAtom (17原子) | **权力系统** `002` | 全部模块 | 17 原子分 5 类（结构/自指/关系/规范/裁决）——是 WoWorld 中所有权力关系的原子基础。经济 PowerAtom 通过调度层 `PowerToEconomicBridge` 单向映射 |
+| PowerTopology (权力拓扑图) | **权力系统** `003` | 全部模块（通过 PowerTopologyQuery trait） | 有向多重图。分表 SoA 存储 + 4 重索引（出边/入边/空间/原子类型）。EdgeId=u32。边生命周期：创建→行使→衰减→失效→软删除。循环委托 DFS 检测 |
+| PowerDomain (权力域) | **权力系统** `002` | 经济/文化/法律 | 6 种域——Territory(领土)/Market(市场)/Behavior(行为)/Information(信息)/Identity(身份)/Universal(通用)。领土域通过四叉树空间索引，16m Chunk LRU 缓存优化 NPC 移动触发 |
+| PowerSource (8条获取路径) | **权力系统** `004` | NPC/历史/战斗 | Inherited/Appointed/Elected/Purchased/Conquered/Divine/Emergent/Contractual。路径决定初始 legitimacy 和继承行为。玩家和 NPC 走同一套 8 条路径 |
+| SuccessionRule (继承规则) | **权力系统** `003` | NPC/生命 | 6 种——DesignatedHeir/Primogeniture/ElectedBy/RevertToSuperior/ExtinguishWithHolder/Unspecified。holder 死亡时自动触发。Unspecified → 继承危机事件 |
+| Legitimacy (合法性) | **权力系统** `004` | NPC/文化/天气 | subject 对 holder 权力的主观认可度(0-1)。5 因子可配置公式（程序正当性 0.35/结果满意度 0.20/文化契合度 0.20/时间惯性 0.15/仪式加持 0.10）。正反馈阻尼设计。不锁定，可崩溃。每游戏日分片并行重算 |
+| Duty (义务) | **权力系统** `005` | NPC/法律 | 权力边创建时自动生成对应 Duty。4 种类型——Obligation/Prohibition/Toleration/Remediation。违约 → 制裁塌缩链（有权者→有意愿者→执行或 legitimacy 下降）。无人制裁 → legitimacy 危机 → 革命检测 |
+| ImmunitySet (免疫) | **权力系统** `005` | 法律/NPC | subject 属性——非原子。5 种来源——Legal/Contractual/StatusBased/Divine/Customary。与 Derogate 原子互补（Immunity=subject 盾牌，Derogate=holder 让步）。覆盖外交豁免/议会免责/贵族特权/年幼儿童/神职人员 |
+| 规范层级规则 | **权力系统** `005` | 法律 | 三级优先级硬编码元规范：委托链距离(近优先) > 领域专属(domain-specific优先) > legitimacy(高优先)。平局 → 触发 Adjudicate 事件由上级裁决。RulePriority 字段作为 tiebreaker |
+| Contract 双边处理 | **权力系统** `002/005` | 经济/法律 | 唯一的双边原子——需双方同意。ContractRecord 关联对称边。interdependent 字段控制一边失效时另一边联动。双边契约 + Pledge 可完整表达婚姻/盟约/信托 |
+| Polity (政治实体) | **权力系统** `007` | 世界生成/历史/NPC | 4 条件涌现标签——领土连续性+统一权威+平均 legitimacy≥0.30+持续≥365天。惰性快照，不锁定内部边。弱惯性反馈(legitimacy 加成≤0.15)。每游戏年重算。PolityId=u32 |
+| GovernmentForm (政府形式) | **权力系统** `007` | 世界生成/文化 | 9 种——从权力边模式推断(AbsoluteMonarchy/ConstitutionalMonarchy/Oligarchy/DemocraticRepublic/Theocracy/MilitaryDictatorship/TribalConfederation/CityState/Stateless)。不预设，不从枚举创建 |
+| DiplomaticRelation (外交) | **权力系统** `007` | 经济/战斗/历史 | 连续分数(-1~+1)→离散状态(Allied/Friendly/Neutral/Cold/Hostile/War)。6因子公式(契约0.25+领土争议0.20+贸易依存0.15+近期冲突0.20+文化亲和0.10+历史深度0.10)。War状态有硬效果——临时战争权力边(lazy evaluation)+Immunity撤销+Conscript门槛降低+贸易冻结 |
+| Group 治理递归 | **权力系统** `006` | NPC | EntityId::Group 作为第一等 holder/subject。5 种治理类型——Autocracy/Oligarchy/Democracy/Consensus/CouncilOfElders。内部权力边递归表达。Group 行使权力时查询治理规则找代表 |
+| PowerToEconomicBridge | **调度层**（不属任一模块） | 经济系统 | 普适原子 → 经济 PowerAtom 单向映射。13 个经济原子中 4 个有普适对应(SetTaxRate/ToggleItemBan/GrantLicense/SetPriceCeiling)，9 个保留为经济专属。两模块互不导入 |
+| PowerTopologyQuery trait | **权力系统** `008` | 全部模块 | 14 个只读方法覆盖所有查询模式。PowerTopologyMut 仅为权力系统和授权调度代码使用。exercise_power() 返回(PowerExerciseResult, Vec\<PowerEvent\>)——模块不反向依赖任何消费方 |
+
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 
 ## 工作约定

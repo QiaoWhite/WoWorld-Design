@@ -109,4 +109,58 @@ f17bdc1 动物系统 v2.0 + 003维度扩展
 | 战斗系统 (14文件) | 1,496 |
 | 技术栈方案 | ~600 |
 | 游戏概述 | ~120 |
-| **总计** | **~20,167** |
+| **总计** | **~23,750** |
+
+---
+
+## Session: 2026-06-13 — 设计文档补全规划
+
+### 全面审计：缺失模块识别
+- **Status:** complete
+- 3 并行 Explore 代理：模块依赖矩阵 / 架构与性能约束 / 模块完整度评估
+- 发现 ~29 个缺失或薄弱的模块/子模块
+- 致命缺失(5)：文化·UI/UX·载具·建造·经济
+- 高度缺失(5)：存档·政治·采矿·名声·玩家
+- 中度缺失(7)：音频·疾病·派系·节日·教程·冒险小队·世界机
+- 现有模块薄弱：魔法(无性能预算)·战斗(缺远程武器)·NPC(缺感官系统)·家具(v0.1)
+
+### 创意穷举：52项设计机会
+- **Status:** complete
+- 1 个 Explore 代理深度遍历生命社会/权力政治/冒险发现/经济贸易/玩家体验/魔法技术/跨领域系统
+- 产出 52 项设计机会清单（NPC生命周期/节日庆典/娱乐游戏/饮食酒馆/时尚传播/犯罪执法/战争军事/地下城遗迹/考古文物/传说生物/贸易商队/金融地产/死亡传承/魔法教育/魔法基础设施/技术系统/音频/无障碍……）
+
+### 设计文档补全路线图创建
+- **Status:** complete
+- 产出 Phase 13-19 共 7 个 Phase 的完整补全规划
+- 覆盖 ~27 个新模块/子模块
+- 含 NPC 感官系统（视听嗅触+内感觉）完整设计框架
+- 预计新增 33,000-48,000 行设计规格
+- 写入 `task_plan.md` + `findings.md` + `progress.md`
+- 详细规划：`C:\Users\wusxi\.claude\plans\rust-pc-sequential-gray.md`
+- **关键决策**：NPC 必须通过模拟感官感知世界——不能"查询数据库"。信息不完整→决策不确定→行为涌现→故事生成
+
+---
+
+## Session: 2026-06-13/14 — 权力系统 v1.0
+
+### Phase 13: 权力系统 (Power System)
+- **Status:** complete
+- 全面 /grill-me 访谈：第一性概念(Power vs Polity) · 权力原子设计 · 拓扑图存储 · 合法性 · 义务免疫 · 领土团体 · 政治实体外交
+- 权力系统/ 目录 + README + 001~008 共 9 文件 4,098 行
+- 核心设计决策：
+  - **Power 第一，Polity 涌现**——权力关系是过程，政治实体是结果。17 个普适原子覆盖亲子到帝国全尺度
+  - **同一套原子，同一套代码路径**——Economy PowerAtom = 普适原子在 Market 域的投射
+  - **Polity 惰性快照，不锁定内部边**——弱惯性反馈 (legitimacy≤0.15)
+  - **制裁塌缩链**——无人制裁→legitimacy↓→革命。制裁不是自动的
+  - **玩家=NPC**——同一套 exercise_power()，8 条获取路径对玩家/NPC 平等
+- 覆盖完整：
+  - 001 总纲：设计哲学/17原子总览/PowerTopology总览/模块边界/性能预算
+  - 002 权力原子：17 UniversalPowerAtom(5分类:结构5/自指1/关系6/规范2/裁决3)/PowerDomain 6域/行使通用流程7步+9种错误类型/原子组合→角色涌现
+  - 003 拓扑图：分表SoA存储(17种原子专属列)/4重索引(出边/入边/空间四叉树/原子类型)/Edge生命周期(创建→行使→衰减→失效→软删除)/循环委托DFS防护/规范冲突排序
+  - 004 获取与合法性：8条获取路径(Inherited/Appointed/Elected/Purchased/Conquered/Divine/Emergent/Contractual)/5因子legitimacy公式(程序0.35+结果0.20+文化0.20+惯性0.15+仪式0.10)/SuccessionRule 6种/非行使衰减/玩家8入口
+  - 005 义务/免疫/规范：Duty实体(4种类型+自动生成+违约制裁塌缩链)/ImmunitySet(5种来源:Legal/Contractual/StatusBased/Divine/Customary)/规范层级3级优先/ContractRecord双边/Pledge自我约束/default_sanction/革命检测
+  - 006 领土与团体：Territory域(非新原子—Constrain+Territory组合)/ChunkPowerCache(16m LRU+缓存世代)/领土争议检测/EntityId::Group作为第一等holder/5种治理类型递归/Group权力行使流程
+  - 007 政治实体与外交：Polity 4条件涌现(领土连续性+统一权威+legitimacy≥0.30+持续≥365天)/GovernmentForm 9种边模式推断(含ConstitutionalMonarchy路径)/DiplomaticRelation 6因子连续分数(-1~+1)→6离散状态(Allied→War)/War硬效果(lazy evaluation+Immunity撤销+Conscript+贸易冻结)/ConnectedComponent+compute_history_depth完整定义
+  - 008 接口与性能：PowerTopologyQuery trait 14方法/PowerTopologyMut 8方法/PowerToEconomicBridge(4/13经济原子桥接+9经济专属)/PowerExerciseResult 10变体+PowerEvent 25变体/性能预算总表(CPU<0.1ms/帧,内存~250MB→180MB优化)/17条跨模块契约汇总
+- 关联修改：CLAUDE.md（新增CHG-023契约16行——扩展版）、开发阶段/（新增权力系统/ 9文件）、README.md（WIP）
+- 3 并行审查代理发现 ~55 问题(5 CRITICAL+5 HIGH+6 MEDIUM)——全部修复

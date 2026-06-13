@@ -203,7 +203,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 悄悄话/密谋 | **语言表达** `009` | NPC | PrivateMode::Whisper(0.5m)/Conspiracy(0.3m+扫描)。偷听检测清晰度=指数衰减 `0.5^(excess_m)`。发现后果：FeignNormal/Confront/Recruit/Flee |
 | 非语言表达数据模型 | **语言表达** `010` | NPC/Godot | NonVerbalSignal 六类(面部/手势/姿态/视线/空间/触觉)。synthesize_nonverbal() 从对话内容+情绪+个性派生手势和表情。文化差异：GestureCultureMapping 跨文化误解 |
 | 对话→记忆消化 | **语言表达** `005` | NPC | EventMemory 新增字段：learning_method(LearningMethod)/source_expression: Option<ExpressionRef>/conversation_id: Option<ConversationId>/told_by: Option<NpcId>。digest_conversation_to_memory() 对话结束→为每个参与者生成记忆。digest_reading_to_memory() NPC阅读→记忆 |
-| 文化沟通规范 | **语言表达** `010` | NPC/世界生成 | CommunicationNorms：interruption_tolerance/eye_contact_norm/personal_space/directness/silence_tolerance/emotional_expressiveness/honorifics/touch_norms。影响 TurnMode 打断阈值/沉默处理/社交距离/敬语选择 |
+| 文化沟通规范 | **文化系统** `003`（★ v1.0 所有权从语言表达 010 转移） | NPC/语言表达/世界生成 | CommunicationNorms：interruption_tolerance/eye_contact_norm/personal_space/directness/silence_tolerance/emotional_expressiveness/honorifics/touch_norms。文化系统定义字段和派生公式——语言表达通过 CultureQuery 只读消费。影响 TurnMode 打断阈值/沉默处理/社交距离/敬语选择 |
 | 对话中断与恢复 | **语言表达** `005` | NPC | 五种中断(CombatStarted/ThirdPartyJoin/Environmental/PlayerLeft/NpcUrgentGoal)。ConversationSnapshot 快照→战斗后可恢复("刚才说到一半——")。超游戏内1小时过期 |
 
 ### CHG-019 新增契约（LLM增强层 + 语音输出接口 v2.0）
@@ -257,6 +257,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Group 治理递归 | **权力系统** `006` | NPC | EntityId::Group 作为第一等 holder/subject。5 种治理类型——Autocracy/Oligarchy/Democracy/Consensus/CouncilOfElders。内部权力边递归表达。Group 行使权力时查询治理规则找代表 |
 | PowerToEconomicBridge | **调度层**（不属任一模块） | 经济系统 | 普适原子 → 经济 PowerAtom 单向映射。13 个经济原子中 4 个有普适对应(SetTaxRate/ToggleItemBan/GrantLicense/SetPriceCeiling)，9 个保留为经济专属。两模块互不导入 |
 | PowerTopologyQuery trait | **权力系统** `008` | 全部模块 | 14 个只读方法覆盖所有查询模式。PowerTopologyMut 仅为权力系统和授权调度代码使用。exercise_power() 返回(PowerExerciseResult, Vec\<PowerEvent\>)——模块不反向依赖任何消费方 |
+
+### CHG-024 新增契约（文化系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| CultureId | **文化系统** `001` | 全部模块 | CultureId=u32 扁平全局标识——替代所有幽灵类型(CultureSeed/CultureStyleId/CultureClusterId)。CultureGenealogy 独立存储谱系关系——不编码在 ID 中 |
+| CultureCoreParams | **文化系统** `002` | 全部模块 | 10 个 f32 核心参数(individualism/power_distance/uncertainty_avoidance/competition_orientation/long_term_orientation/indulgence/openness_to_outsiders/religiosity/militarism/artistry)——0-1 连续值。种子生成，代际漂移(σ=0.003/年)。不可再分原子——所有文化特征从此派生 |
+| CommunicationNorms | **文化系统** `003`（★ v1.0 从语言表达 010 正式转移） | 语言表达 `005`/`010`、NPC | 8 字段(interruption_tolerance/eye_contact_norm/personal_space_radius_m/directness/silence_tolerance/emotional_expressiveness/honorifics/touch_norms)——从 CultureCoreParams 确定性派生。语言表达保留 norms 的消费逻辑（如何调制对话行为） |
+| GestureCultureMapping | **文化系统** `003` | 语言表达 `010` | 与 CommunicationNorms 同步转移——文化系统定义手势含义，语言表达消费跨文化误解检测逻辑 |
+| BuildingStylePreferences | **文化系统** `004` | 世界生成 `005`（建筑 WFC）、家具系统 | 屋顶样式×墙体材质×装饰水平×色彩调色板×对称性×尺度×邻接修正——从核心参数×群系派生，不独立存储 |
+| CulturalBeautyStandard | **文化系统** `004` | NPC `02-性别与吸引力系统` | 审美标准从核心参数+统治阶层外观派生——所有权从 NPC 模块迁至文化系统。NPC 保留消费逻辑 |
+| DietaryBasePreferences | **文化系统** `004` | 经济系统（消费偏好） | 主食类型/肉食角色/饮酒文化/共食方式/香料偏好——从核心参数×群系食材派生 |
+| FertilityNorms | **文化系统** `004` | 生命 `012`（繁衍系统） | 理想家庭规模/非婚生污名/性别偏好/婚姻压力——从核心参数派生 |
+| honor_weight | **文化系统** `004` | 历史 `003`（立碑权重）、NPC、权力 `004`、战斗 | 荣誉权重——从 7 个核心参数的组合中涌现（非独立参数）。消费者的统一查询接口 |
+| TechnologyProfile | **文化系统** `005` | 技能系统（实现 SettlementTechQuery）、物品系统（可制造门槛） | 8 独立领域(metallurgy/construction/agriculture/navigation/textiles/medicine/writing/magic_tech)——各自独立逻辑斯谛增长。替代单一 TechEra 幽灵类型。不预设单线时代 |
+| SettlementTechQuery trait | **技能系统** `001`（trait 定义）→ **文化系统**（实现） | 技能系统 `003`（消费） | 接口由消费方模块定义——技能系统不需要知道 TechnologyProfile。Survival 技能不受技术天花板限制 |
+| CultureName | **文化系统** `001` | 权力 `007`（Polity 命名）、语言表达、UI | Endonym(音系规则生成)+Exonym(5源加权随机他称)双层体系 |
+| CultureGenealogy | **文化系统** `001` | 历史 `002`（事件因果链） | 文化谱系——父子/分裂/融合边+文化消亡标记 |
+| 文化空间模型 | **文化系统** `002` | 世界生成（P2.5 集成）、全部空间查询 | 障碍 Voronoi 离散区域+渐变边界带。3-8 个起源点从种子生成。P2.5 管线插入点——在 P2 自然基底后、P3 资源分布前 |
+| 文化演变 | **文化系统** `006` | 世界生成（P9 历史模拟引擎） | 四路径：代际漂移(σ=0.003/年)/贸易影响(传染性系数 0.3-0.8)/征服强制(被抵抗率减弱)/事件驱动(单次≤±0.15)。亚文化分裂(隔离>200年+距离>0.15)/克里奥尔化(混合>300年+距离>0.2)/文化消亡 |
+| CultureQuery trait | **文化系统** `006` | 全部模块 | pub trait(Send+Sync)——所有模块获取文化数据的唯一入口。零分配，实现方不透明。高频方法(culture_at/core_params/communication_norms)通过 SoA 缓存+四叉树 O(log n) |
+| CultureMut trait | **文化系统** `006` | 世界生成管线、历史模拟引擎 | pub(crate)——文化修改的唯一入口。消费模块不可调用 |
+| 群系对文化的修正 | **文化系统** `002` | 世界生成 `002`（提供群系数据） | 群系对初始文化参数仅温和偏移(±0.05上限)——文化性格主要来自种子随机性，非地理决定论 |
+| 文化与信仰的边界 | **文化系统** `001` | 信仰系统(待设计) | 文化只提供 religiosity 单参数——不决定信什么神。信仰系统为独立模块。religiosity 作为信仰分配加权因子，信仰反馈通过历史 CulturalShift 事件 |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 

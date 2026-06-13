@@ -39,6 +39,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `世界生成/` — **世界生成 9 篇**（11阶段管线：全球大陆架构→海洋系统→自然基底→资源→聚落→WFC建筑→交通→NPC历史→世界边界。v3 重构）
   - `生命/` — **生命系统 12 篇**（Life基类架构、智能种族/动物(v2.0水陆空三域)/灵兽/怪物/亡灵/植物(v2.0·1850行)/神明/玩家、12维积木拼装(含水生/飞行感官+运动子类型)、四层质量防线、繁衍三层社会约束）
   - `历史/` — **历史系统 6 篇**（事件因果链三层模型·趋势→力量→事件、生命痕迹七种情境·双重驱动、Work→PhysicalBook书籍模型、灵元素印记·读树、文物痕迹·关系遗产、大日志——纯功能性外置大脑·全量记录·渐进验证·纠错·关系图谱）
+  - `经济系统/` — **经济系统 9 篇 + README**（限价订单簿撮合引擎+分层定价、Market/Storefront市场模型、价格从交易涌现、交易主体四条件涌现、MarketRegulations参数化经济体制、PowerAtom权力原子框架、行为经济学×NPC心智映射、货币三管道+五大自动稳定器、LLM经济增强层）
 
 ### `Change/` — 设计变更追踪
 按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名。当前：
@@ -49,7 +50,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **[CHG-010](WoWorld-Design/Change/CHG-010-世界生成v3重构-20260611.md)**：世界生成方案 v3 重构——自建Transvoxel+25万km²+海陆7:3+海洋系统+港口/游牧聚落+承载容量+两层WFC+全部参数重算
 - **[CHG-011](WoWorld-Design/Change/CHG-011-生命系统v1.0设计-20260611.md)**：生命系统 v1.0 全新设计——Life基类+8大生命类型+12维程序化生成+四层质量防线+灵兽5驯服路径+亡灵7来源+神明三模式+繁衍三层约束
 - **[CHG-012](WoWorld-Design/Change/CHG-012-开发文档全审计-矛盾冲突错误修复-20260611.md)**：开发阶段全文档审计——五大模块约77个矛盾/冲突/错误修复——十元素冰→电统一、饥饿/口渴方向修正、魔法wikilink全面修复、边界距离重算、材质ID命名空间分离等
-- **[CHG-013](WoWorld-Design/Change/CHG-013-跨模块一致性冲突修正-20260612.md)**：跨模块一致性审计与修正——4并行代理审计67份文档发现~95冲突——修正全部11 CRITICAL + 20 HIGH——建立模块间接口契约（Physiology派生自Vitals/魔力单位统一为"刻"/部位伤害渐进模型/spirit过载两段式/群系参数场/AetherImprint归属/死亡原因25分类等）
+- **[CHG-013](WoWorld-Design/Change/CHG-013-跨模块一致性冲突修正-20260612.md)**：跨模块一致性审计与修正——4并行代理审计67份文档发现~95冲突——修正全部11 CRITICAL + 20 HIGH——建立模块间接口契约
+- CHG-014~019：物品系统/技能系统/天气系统/语言表达系统——地基模块的完整接口契约
+- **[CHG-022](WoWorld-Design/Change/CHG-022-经济系统v1.0创建-20260613.md)**：经济系统 v1.0 创建——9篇开发规格+README，~7,000行。限价订单簿+分层定价+Storefront+四条件涌现+参数化体制+PowerAtom+行为经济学映射+货币稳定器
 - 详见 `Change/README.md`
 
 **`Change/hand/`** — 用户直接设计反馈。包含对跨模块冲突的具体裁决意见（如魔力恢复速度以Magic为准、部位伤害以Combat为准、spirit过载方案等）。修改涉及的设计决策时，需检查此目录是否有相关意见。
@@ -62,6 +65,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |------|------|
 | **020** | [战斗系统文档审查-缺陷不足矛盾与优化](WoWorld-Design/参考文档/020-战斗系统文档审查-缺陷不足矛盾与优化-20260611/) — 战斗系统 14 篇开发文档的综合审查报告 |
 | **019** | [NPC文档重写-问题分析与优化方向](WoWorld-Design/参考文档/019-NPC文档重写-问题分析与优化方向-20260611/) — NPC ver2.0 重写中识别的 7 个潜在问题 + 4 个架构优化方向 |
+| **021** | [设计文档补全总体规划](WoWorld-Design/参考文档/021-WoWorld设计文档补全规划-20260613/) — Phase 13-19 全部缺失模块的总体规划 |
 | **018** | [**正式技术栈方案 v3.0**](WoWorld-Design/Happy Game/开发阶段/技术栈方案/) ← **★ 当前权威方案（已迁移至开发阶段）** |
 | **017** | [开发阶段测试记录](WoWorld-Design/参考文档/017-开发阶段测试记录-20260610/) — 方法论+50份双视角测试报告 |
 
@@ -86,7 +90,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **数据库**: LMDB — 流式Chunk存储（无限世界）。双层记忆架构（事件事实库 + 主观记忆库）
 - **时间/天气**: Rust侧TimeManager + WeatherManager；Godot Sky shader天体渲染；季节+天气→NPC行为乘数（温和偏移）；天气→Gerstner浪高+体积云形态联动
 - **Mod**: TOML数据驱动——Modder调节涌现乘数，不编写行为脚本。无Rhai/Lua/Python脚本引擎
-- **架构**: Rust模拟核心（NPC/世界生成/时间天气/Mod/战斗AI/载具逻辑/蓝图施工）→ GDExtension → Godot客户端（渲染/UI/音频/输入/玩家物理/海洋shader/体积云compute）
+- **架构**: Rust模拟核心（NPC/世界生成/时间天气/Mod/战斗AI/**经济系统**/载具逻辑/蓝图施工）→ GDExtension → Godot客户端（渲染/UI/音频/输入/玩家物理/海洋shader/体积云compute）
 - **硬件目标**: **GTX 1660 SUPER 6GB VRAM** 流畅运行，分发后大部分PC流畅。VRAM预算~4.2GB/6GB，内存~1.4GB/32GB，帧预算16.7ms（60fps）
 - **美术**: AI生成(Stable Diffusion) + 手动调整(Blender)
 - **平台**: Windows / Linux / macOS
@@ -215,6 +219,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 语音情绪修饰 | **语言表达** `012` | NPC | VoiceEmotionModulation 五参数(音高偏移/语速/音量/颤抖/气声)←当前情绪。VoicePacket 统一 Rust→Godot 语音包 |
 | TTS 后端 | **语言表达** `012` | Godot | TtsEngine trait 五种(System/LocalAI/CloudAPI/PreRecorded/None)。与 LLM 无关——模板管道同样可用。TtsConfig 玩家开关+字幕模式 |
 | 语音优先级 | **语言表达** `012` | Godot | VoicePriority 五级(Critical打断/High/Normal/Ambient排队/Background)。多NPC同时说话时高优先先播 |
+
+### CHG-022 新增契约（经济系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| 价格形成 (Market.last_price/TradeRecord) | **经济系统** `002` | 全部模块 | 价格从订单簿撮合交易中涌现——不存在中央定价公式。last_price是最近成交价的EMA。**任何模块不得直接写入价格** |
+| 市场机制 (Market/Storefront) | **经济系统** `002` | NPC/物品/世界生成 | Market≠物理地点——是订单簿+范围+交易模式。Storefront是交易原子单位——任何NPC在任何地点都可以开店 |
+| 交易执行 (TradeExecutor) | **经济系统** `002` | NPC/物品 | 玩家和NPC走同一代码路径。两阶段提交(钱包±库存)保证原子性 |
+| NPC经济子状态 (NpcEconomicState) | **经济系统** `001` | NPC | 通过trait注入NpcData——不修改NpcData本体。包含钱包/已知价格表/EconomicCognition(六维缓存)/贸易偏好/商人状态 |
+| 交易主体涌现 | **经济系统** `004` | NPC/世界生成 | 供给侧=盈余驱动。需求侧=匮乏驱动。中间商=四条件涌现(信息+资本+心理+物流)。**不指定"商人NPC"** |
+| 借贷 | **经济系统** `004` | 物品系统/NPC | 借贷=特化交易(赊购铜币)。欠条=ItemCategory::Financial的ItemDefId。**无独立银行系统**。放贷决策和违约处理由NPC心智驱动 |
+| 经济体制 (MarketRegulations) | **经济系统** `005` | 法律系统(待)/政治系统(待) | 全部参数连续可调——同一套订单簿引擎适应自由市场至军国经济。四种预设为[TUNING]起点 |
+| 市场权力 (PowerAtom/MarketAuthority) | **经济系统** `006` | 政治系统(待)/法律系统(待) | 权力=PowerAtom集合(~15种原子操作)。四种来源(正式/购买/事实垄断/暴力)。玩家和NPC走同一exercise_power() |
+| 行为经济学×NPC心智映射 | **经济系统** `007` | NPC | 十个行为经济学概念全部从NPC已有字段派生——**不新增人格维度**。EconomicCognition为计算缓存(从人格×技能×经验派生) |
+| 货币总量 (MoneySupply) | **经济系统** `008` | 世界生成/物品系统 | 三条管道(铸币/消费回收/跨区流动)。五大自动稳定器。货币总量增速与商品总量增速对齐 |
+| 职业标签 (ProfessionTag) | **世界生成**(初始分配)/**NPC身份系统**(运行时) | 经济系统(消费收入来源类型) | ~80-100个原子标签——TOML数据驱动+预留新增接口。proficiency从技能系统派生。任意2-4个排列组合→职业涌现。incongruity标记不寻常组合(不阻止) |
+| LLM经济增强 | **经济系统** `009` | 语言表达系统 | LLM不参与任何经济计算。结构化数据注入→自然语言包装。模板回退覆盖100%事件类型 |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 

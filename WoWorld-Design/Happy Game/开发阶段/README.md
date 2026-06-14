@@ -22,6 +22,9 @@
 | **★ 天气与季节系统** | [天气与季节系统/](天气与季节系统/) | 4 篇开发规格 + README。WeatherQuery trait 统一轮询（零事件总线）、WeatherSample 双层温度（regional/ground）+ 群系微气候修正、Markov 6状态+雾独立维度、ClimateRegion→LocalWeather 两层空间、极端天气参数组合判定+三层NPC响应、SeasonClock 纯时间函数（120天/年·48分钟/天 [TUNING]）、13消费方完整数据合同、历史气象异常生成（种子驱动极值采样+灾害集群）、WeatherVisualPacket（~200 bytes/帧，≤0.5ms GPU 降水粒子）。**所有天气/季节数据的权威依据。** | ✅ v1.0 |
 | **★ 语言表达系统** | [语言表达/](语言表达/) | 8 篇开发规格 + README。三层 Crate 架构（woworld_types + lang_expression + 业务模块）、LanguageId/ScriptId/LanguageFamily 语言谱系 DAG、ExpressionRef 统一可读物句柄（8B Copy）、ContentResolver trait 注册表模式、TextGenerator 片段组合引擎（~430 片段·~86KB）、Conversation 多参与者对话（2→1000+·TurnMode 四种模式）、DialogueIntent NPC 主动对话（5种驱动）、ConversationTopic 话题模型（Alias Method 采样）、PhaticLayer 应酬层（5类 ~210 片段）、SocialField 群体动力学（惯性/极化/从众/SensoryMapping）、InputInterpreter 三层 NLU 回落、PlayerInput 四种输入统一（预设/搜索/语音/打字）。**所有语言/文字/对话数据的权威依据。** | ✅ v1.0 |
 | **★ 经济系统** | [经济系统/](经济系统/) | 9 篇开发规格 + README。限价订单簿撮合引擎+分层定价、Market/Storefront 市场模型、价格从交易涌现、交易主体四条件涌现（供给/需求/中间商）、MarketRegulations 参数化经济体制（自由市场→军国经济）、PowerAtom 权力原子框架、行为经济学十概念×NPC心智映射、货币三管道+五大自动稳定器。**所有价格/市场/交易数据的权威依据。** | ✅ v1.0 |
+| **★ 文化系统** | [文化系统/](文化系统/) | 8 篇开发规格 + README。CultureCoreParams 10核心参数+三层派生架构、障碍Voronoi空间模型、CommunicationNorms所有权转移、审美/技术派生、演变四路径、地名系统31种实体类型+命名价值评分、节日与仪式系统 RitualDef统一原子+四类节日生成+权力桥接零耦合。**所有文化参数的权威依据。** | ✅ v1.0 |
+| **★ 权力系统** | [权力系统/](权力系统/) | 9 篇开发规格 + README。17普适权力原子+PowerTopology有向多重图+8条获取路径+Legitimacy 5因子公式+Duty制裁塌缩链+Polity涌现+外交6因子公式。**所有权力/合法性/政治实体数据的权威依据。** | ✅ v1.0 |
+| **★ 信仰系统** | [信仰系统/](信仰系统/) | 10 篇开发规格 + README。实践优先模型(ReligiousPracticeProfile)、FaithTheology 10连续参数、NPC→NPC接触传染、5传播渠道+4改变路径、FaithCalendarQuery trait实现、Divine授权事件桥接(零耦合)、MagicReligionRelation per-faith、SacredArchitectureParams→世界生成、神遗物生成+DivineBlessing附魔。**所有信仰/宗教/崇拜实践的权威依据。** | ✅ v1.0 |
 | **家具系统** | [家具系统设计.md](家具系统设计.md) | 家具分类/功能/质量/文化变体 | ⚠️ v0.1 |
 | **性能优化** | [性能优化分析 20260603.md](性能优化分析 20260603.md) | 性能瓶颈与缓解策略 | ⚠️ v0.1 |
 
@@ -31,7 +34,6 @@
 
 | 模块 | 状态 | 预计内容 |
 |------|------|---------|
-| 文化系统 | ⬜ | 文化参数场/沟通规范/审美与技术 |
 | 法律与秩序 | ⬜ | 犯罪/侦查/审判/惩罚/法外之地 |
 | 政治与派系 | ⬜ | 政治实体/派系动力/外交/战争 |
 | 名声系统 | ⬜ | 多维度名声/传播/头衔 |

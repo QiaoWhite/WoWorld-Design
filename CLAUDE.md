@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**集中在 `文化系统/`（文化模块）——最近完成了 008-节日与仪式系统（~1,400行）。模块总规模已从初始的 6 篇扩展到 8 篇（含地名系统 007 和节日与仪式系统 008）。
+**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/信仰系统/README|信仰系统 v1.0]]（2026-06-15，10篇+README，~3,750行）——实践优先模型+FaithTheology 10连续参数+5传播渠道+4改变路径+Divine授权事件桥接。模块累计 14 个独立系统，~50,000行正式开发规格。
 
 ## 文档结构
 
@@ -36,8 +36,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `README.md` — 模块总索引
   - `技术栈方案/` — **★ 正式技术栈方案 v3.0**（Rust+Godot架构、世界生成、性能预算、开发路线——所有技术决策的权威依据）
   - `NPC活人感模块/` — NPC系统权威规格（**ver2.0**，Rust伪代码）
-  - `文化系统/` — **文化系统 8 篇**（★ 当前活跃开发模块。CultureCoreParams 10核心参数+三层派生架构、障碍Voronoi空间模型、CommunicationNorms所有权转移、审美/技术派生、演变四路径、地名系统31种实体类型+命名价值评分、节日与仪式系统 RitualDef统一原子+四类节日生成+权力桥接零耦合。~10,000行）
-  - `NPC活人感模块/` — NPC系统权威规格（**ver2.0**，Rust伪代码）
+  - `文化系统/` — **文化系统 8 篇**（CultureCoreParams 10核心参数+三层派生架构、障碍Voronoi空间模型、CommunicationNorms所有权转移、审美/技术派生、演变四路径、地名系统31种实体类型+命名价值评分、节日与仪式系统 RitualDef统一原子+四类节日生成+权力桥接零耦合。~10,000行）
+      - `信仰系统/` -- **★ 信仰系统 10 篇**（最新完成 2026-06-15。实践优先模型 ReligiousPracticeProfile、FaithTheology 10连续参数、NPC→NPC接触传染5渠道+4改变路径、FaithCalendarQuery trait实现、Divine授权事件桥接零耦合。~3,750行）
+      - `权力系统/` -- **权力系统 9 篇 + README**（17普适权力原子+PowerTopology有向多重图+8条获取路径+Legitimacy 5因子+Duty制裁塌缩链+Polity涌现+外交6因子。~4,100行）
   - `战斗/` — **战斗系统 14 篇**（三层模型/信息不对称/招式积木/魔法融入/半自动HUD）
   - `魔法/` — **魔法系统 19 篇**（七层结构：十元素→魔力→施法→工程→人文）
   - `世界生成/` — **世界生成 9 篇**（11阶段管线：全球大陆架构→海洋系统→自然基底→资源→聚落→WFC建筑→交通→NPC历史→世界边界。v3 重构）
@@ -287,12 +288,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | CultureQuery trait | **文化系统** `006` | 全部模块 | pub trait(Send+Sync)——所有模块获取文化数据的唯一入口。零分配，实现方不透明。高频方法(culture_at/core_params/communication_norms)通过 SoA 缓存+四叉树 O(log n) |
 | CultureMut trait | **文化系统** `006` | 世界生成管线、历史模拟引擎 | pub(crate)——文化修改的唯一入口。消费模块不可调用 |
 | 群系对文化的修正 | **文化系统** `002` | 世界生成 `002`（提供群系数据） | 群系对初始文化参数仅温和偏移(±0.05上限)——文化性格主要来自种子随机性，非地理决定论 |
-| 文化与信仰的边界 | **文化系统** `001` | 信仰系统(待设计) | 文化只提供 religiosity 单参数——不决定信什么神。信仰系统为独立模块。religiosity 作为信仰分配加权因子，信仰反馈通过历史 CulturalShift 事件 |
+| 文化与信仰的边界 | **文化系统** `001` | **信仰系统** `001` | 文化只提供 religiosity 单参数——不决定信什么神。信仰系统为独立模块。religiosity 作为信仰分配加权因子，信仰反馈通过历史 CulturalShift 事件 |
 | GeographicEntity/GeographicName | **文化系统** `007` | 全部模块 | GeographicEntityId=u32——31种实体类型(山峰/河流/海洋/森林...)。nameworthiness 四因子评分(物理显著性×文化相关性×邻近性×独特性)—≥0.7必有专名。命名模板系统+Exonym五源懒生成。感知分组(客观实体层级+parent_entity)+五类地名变更场景。地名历史层积(旧名不删除——老年NPC自然使用旧名) |
 | RitualDef | **文化系统** `008` | NPC(个人仪式)、魔法(魔法仪式成分)、语言表达(TurnMode::Ritual) | 所有仪式的统一原子结构——节日仪式/个人仪式/魔法仪式三种语境复用。不存储强制性(强制性来自权力系统Duty) |
 | FestivalQuery/FestivalQueryExt | **文化系统** `008` | 全部模块 | 分层trait—高频4方法(festivals_on_date等)+低频6方法(npc_attending等) |
 | RitualQuery trait | **文化系统** `008`(定义) | 权力系统 `004`(消费—合法性ritual因子) | ★对标MentalAccess模式—消费方定义trait。权力系统主动拉取last_ritual_at |
 | FestivalEconomicImpact | **文化系统** `008` | 经济系统 `002` | 只包含需求信号(consumption_propensity_boost+additional_demand)—不设价格乘数。价格由订单簿撮合涌现(CHG-022契约) |
+
+### CHG-025 新增契约（信仰系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| FaithId | **信仰系统** `001` | 全部模块 | FaithId=u32 扁平全局标识——统一历史系统的 `ReligionId`。FaithGenealogy 独立存储谱系关系——不编码在 ID 中 |
+| FaithDefinition | **信仰系统** `002` | 全部模块 | 一个具体宗教实例的完整定义——FaithTheology 10 连续参数+教义+禁忌+万神殿+HolyDay+FastingRule。~500B/faith，种子驱动生成(P2.5) |
+| FaithTheology | **信仰系统** `002` | 文化 005（技术派生）、UI | 10 个 f32 连续参数(deity_count/ancestor_importance/nature_sacredness/hierarchy_degree/scripture_centrality/ritual_formality/exclusivity/mysticism/orthodoxy_vs_orthopraxy/faith_as_identity)——"信仰类型"标签从此派生，仅用于 UI |
+| ReligiousPracticeProfile | **信仰系统** `003`（定义）→ **NPC 模块**（存储） | NPC、信仰系统、战斗 | 实践优先模型——NPC 无"神学立场"，有参与实践(participation/motivation/theological_depth)。~40B/NPC，热路径本地读取 |
+| FaithQuery trait | **信仰系统** `010` | 全部模块 | pub trait(Send+Sync)——30 个只读方法。零分配。高频方法 O(1)缓存。对标 CultureQuery |
+| FaithCalendarQuery trait | **文化系统** `008`（定义）→ **信仰系统** `006`（实现） | 节日系统 | 对标 MentalAccess 模式。`holy_days()`/`primary_deities()`/`fasting_rules()`——信仰系统实现，节日系统消费 |
+| FaithMut trait | **信仰系统** `010` | 世界生成管线、历史模拟引擎 | pub(crate)——信仰修改的唯一入口。消费模块不可调用 |
+| FaithAgent trait | **信仰系统** `004`（定义）→ NPC/Player（实现） | 信仰系统 | 信仰系统不区分调用者是 NPC 还是玩家。热路径本地字段读取 |
+| MagicReligionRelation | **信仰系统** `008` | 文化 005（技术派生） | 四种关系(Gift/Blasphemy/Independent/Unified)——per-faith 属性，覆盖文化 005 的 `religiosity × 0.5` 假设 |
+| ReligiousReproductionNorms | **信仰系统** `002**（从 Life 012 迁移所有权） | Life 012（繁衍——消费） | 所有权从生命模块迁至信仰系统。Life 012 通过 FaithQuery 消费 |
+| DivineAuthorizationEvent | **信仰系统** `007`（发出） | 权力系统 004（消费） | 事件驱动——信仰系统不操作 PowerTopology。权力系统订阅 DivineAuthorization 事件→创建 PowerSource::Divine 的 PowerEdge |
+| SacredArchitectureParams | **信仰系统** `002` | 世界生成 P5-P6（建筑） | 神殿建筑参数——从 FaithTheology 派生。几何/方向/高度/光线/图像/材质/布局 7 维度 |
+| FuneralCustoms | **信仰系统** `006` | 生命 DeathCustom、历史墓碑 | 葬仪类型(土葬/火葬/天葬等 7 种)+陪葬品规则+哀悼期+对亡灵态度 |
+| SettlementFaithSnapshot | **信仰系统** `010**（惰性缓存） | 全部空间查询 | 从 NPC 聚合——不存储独立"区域信仰地图"。每游戏日增量更新(dirty settlements only)。"有人的地方才有信仰"原则的架构实现 |
+| FaithGenealogy | **信仰系统** `005** | 历史 002、UI | 信仰谱系——Schism/Fusion/Reformation/Revival 四种谱系边+消亡标记。对标 CultureGenealogy |
+| faith_morale_bonus() | **信仰系统** `010**（定义） | 战斗系统 008（TeamMorale） | 信仰系统定义 FaithCombatContext 枚举。战斗系统在计算 individual_morale 时调用——信仰不拥有 morale 公式 |
+| 实践优先模型 | **信仰系统** `001/003** | 全部模块 | NPC 无"神学立场"——标签从实践派生。废除 5 档 piety 标量。改用 DerivedReligiosity 三维度(behavioral_intensity/theological_depth/motivational_autonomy)——消费者按需取用 |
+| "有人的地方才有信仰"原则 | **信仰系统** `001** | 全部模块 | 信仰数据以 NPC 的 ReligiousPracticeProfile 为存储单元，空间分布从 NPC 人口聚合派生。信仰随 NPC 移动/交谈/死亡而传播/演变/消亡 |
+| 信仰塑造社会组织 | **信仰系统** `004** | Group/权力/CulturalNorm/战斗/经济 | 信仰只定义条件与修饰——执行全走现有系统。教众→Group。神职层级→PowerTopology 委托链。禁忌→CulturalNorm(NormScope::SpecificFaith)。神权政体→权力系统 GovernmentForm::Theocracy |
+| ChildFaithProfile 继承 | **信仰系统** `003** | 生命 012（繁衍） | 子女继承双亲的 participation 混合(0.7 因子)+社区温和引力。motivation 初始=Habitual。成年礼后可转变 |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 

@@ -19,7 +19,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > ⚠️ **重要说明**：WoWorld 目前仅处于理念设计阶段。设计文档中提及的任何代码方案、伪代码、数据结构示例等，仅用于辅助阐明设计理念，在实际开发中随时可能大幅重构甚至推翻重写。
 >
-> **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 Obsidian。当前无 `woworld/` 代码目录。
+> **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
+
+**当前活跃的开发工作**集中在 `文化系统/`（文化模块）——最近完成了 008-节日与仪式系统（~1,400行）。模块总规模已从初始的 6 篇扩展到 8 篇（含地名系统 007 和节日与仪式系统 008）。
 
 ## 文档结构
 
@@ -33,6 +35,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `游戏概述.md` — **游戏愿景与设计哲学**（创建另一个"人世"、核心竞争力、参考精神）
   - `README.md` — 模块总索引
   - `技术栈方案/` — **★ 正式技术栈方案 v3.0**（Rust+Godot架构、世界生成、性能预算、开发路线——所有技术决策的权威依据）
+  - `NPC活人感模块/` — NPC系统权威规格（**ver2.0**，Rust伪代码）
+  - `文化系统/` — **文化系统 8 篇**（★ 当前活跃开发模块。CultureCoreParams 10核心参数+三层派生架构、障碍Voronoi空间模型、CommunicationNorms所有权转移、审美/技术派生、演变四路径、地名系统31种实体类型+命名价值评分、节日与仪式系统 RitualDef统一原子+四类节日生成+权力桥接零耦合。~10,000行）
   - `NPC活人感模块/` — NPC系统权威规格（**ver2.0**，Rust伪代码）
   - `战斗/` — **战斗系统 14 篇**（三层模型/信息不对称/招式积木/魔法融入/半自动HUD）
   - `魔法/` — **魔法系统 19 篇**（七层结构：十元素→魔力→施法→工程→人文）
@@ -53,6 +57,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **[CHG-013](WoWorld-Design/Change/CHG-013-跨模块一致性冲突修正-20260612.md)**：跨模块一致性审计与修正——4并行代理审计67份文档发现~95冲突——修正全部11 CRITICAL + 20 HIGH——建立模块间接口契约
 - CHG-014~019：物品系统/技能系统/天气系统/语言表达系统——地基模块的完整接口契约
 - **[CHG-022](WoWorld-Design/Change/CHG-022-经济系统v1.0创建-20260613.md)**：经济系统 v1.0 创建——9篇开发规格+README，~7,000行。限价订单簿+分层定价+Storefront+四条件涌现+参数化体制+PowerAtom+行为经济学映射+货币稳定器
+- **[CHG-023](WoWorld-Design/Change/CHG-023-权力系统v1.0创建-20260613.md)**：权力系统 v1.0 创建——9篇开发规格+README，~4,100行。17普适权力原子+PowerTopology有向多重图+8条获取路径+Legitimacy 5因子公式+Duty制裁塌缩链+Polity涌现+外交6因子公式
+- **[CHG-024](WoWorld-Design/Change/CHG-024-文化系统v1.0创建-20260614.md)**：文化系统 v1.0 创建——首发6篇~3,400行。后续扩展：007-地名系统(~1,350行)+008-节日与仪式系统(~1,400行)。模块总规模 8 篇~10,000行。CultureCoreParams 10参数三层架构+障碍Voronoi空间模型+CommunicationNorms所有权转移+TechnologyProfile 8领域+RitualDef统一仪式原子+四类节日生成+权力桥接零耦合
 - 详见 `Change/README.md`
 
 **`Change/hand/`** — 用户直接设计反馈。包含对跨模块冲突的具体裁决意见（如魔力恢复速度以Magic为准、部位伤害以Combat为准、spirit过载方案等）。修改涉及的设计决策时，需检查此目录是否有相关意见。
@@ -65,6 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |------|------|
 | **020** | [战斗系统文档审查-缺陷不足矛盾与优化](WoWorld-Design/参考文档/020-战斗系统文档审查-缺陷不足矛盾与优化-20260611/) — 战斗系统 14 篇开发文档的综合审查报告 |
 | **019** | [NPC文档重写-问题分析与优化方向](WoWorld-Design/参考文档/019-NPC文档重写-问题分析与优化方向-20260611/) — NPC ver2.0 重写中识别的 7 个潜在问题 + 4 个架构优化方向 |
+| **022** | [节日系统设计探讨](WoWorld-Design/参考文档/022-节日系统设计探讨-20260614/) — 10篇原始设计~2,500行 + 5篇优化审查~1,200行。14大类79议题→正式规格008 |
 | **021** | [设计文档补全总体规划](WoWorld-Design/参考文档/021-WoWorld设计文档补全规划-20260613/) — Phase 13-19 全部缺失模块的总体规划 |
 | **018** | [**正式技术栈方案 v3.0**](WoWorld-Design/Happy Game/开发阶段/技术栈方案/) ← **★ 当前权威方案（已迁移至开发阶段）** |
 | **017** | [开发阶段测试记录](WoWorld-Design/参考文档/017-开发阶段测试记录-20260610/) — 方法论+50份双视角测试报告 |
@@ -281,6 +288,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | CultureMut trait | **文化系统** `006` | 世界生成管线、历史模拟引擎 | pub(crate)——文化修改的唯一入口。消费模块不可调用 |
 | 群系对文化的修正 | **文化系统** `002` | 世界生成 `002`（提供群系数据） | 群系对初始文化参数仅温和偏移(±0.05上限)——文化性格主要来自种子随机性，非地理决定论 |
 | 文化与信仰的边界 | **文化系统** `001` | 信仰系统(待设计) | 文化只提供 religiosity 单参数——不决定信什么神。信仰系统为独立模块。religiosity 作为信仰分配加权因子，信仰反馈通过历史 CulturalShift 事件 |
+| GeographicEntity/GeographicName | **文化系统** `007` | 全部模块 | GeographicEntityId=u32——31种实体类型(山峰/河流/海洋/森林...)。nameworthiness 四因子评分(物理显著性×文化相关性×邻近性×独特性)—≥0.7必有专名。命名模板系统+Exonym五源懒生成。感知分组(客观实体层级+parent_entity)+五类地名变更场景。地名历史层积(旧名不删除——老年NPC自然使用旧名) |
+| RitualDef | **文化系统** `008` | NPC(个人仪式)、魔法(魔法仪式成分)、语言表达(TurnMode::Ritual) | 所有仪式的统一原子结构——节日仪式/个人仪式/魔法仪式三种语境复用。不存储强制性(强制性来自权力系统Duty) |
+| FestivalQuery/FestivalQueryExt | **文化系统** `008` | 全部模块 | 分层trait—高频4方法(festivals_on_date等)+低频6方法(npc_attending等) |
+| RitualQuery trait | **文化系统** `008`(定义) | 权力系统 `004`(消费—合法性ritual因子) | ★对标MentalAccess模式—消费方定义trait。权力系统主动拉取last_ritual_at |
+| FestivalEconomicImpact | **文化系统** `008` | 经济系统 `002` | 只包含需求信号(consumption_propensity_boost+additional_demand)—不设价格乘数。价格由订单簿撮合涌现(CHG-022契约) |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 

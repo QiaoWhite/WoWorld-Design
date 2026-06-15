@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/信仰系统/README|信仰系统 v1.0]]（2026-06-15，10篇+README，~3,750行）——实践优先模型+FaithTheology 10连续参数+5传播渠道+4改变路径+Divine授权事件桥接。模块累计 14 个独立系统，~50,000行正式开发规格。
+**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/载具系统/README|载具系统 v1.0]]（2026-06-15，10篇+README，~8,000行）——五种动力类型+MagicEngine魔法系统集成+L1-L3半自动操控+三通道损伤+记忆优先契书可选产权+移动容器货运+VehicleArchetype×文化涌现VehicleDef。模块累计 15 个独立系统，~58,000行正式开发规格。
 
 ## 文档结构
 
@@ -45,6 +45,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `生命/` — **生命系统 12 篇**（Life基类架构、智能种族/动物(v2.0水陆空三域)/灵兽/怪物/亡灵/植物(v2.0·1850行)/神明/玩家、12维积木拼装(含水生/飞行感官+运动子类型)、四层质量防线、繁衍三层社会约束）
   - `历史/` — **历史系统 6 篇**（事件因果链三层模型·趋势→力量→事件、生命痕迹七种情境·双重驱动、Work→PhysicalBook书籍模型、灵元素印记·读树、文物痕迹·关系遗产、大日志——纯功能性外置大脑·全量记录·渐进验证·纠错·关系图谱）
   - `经济系统/` — **经济系统 9 篇 + README**（限价订单簿撮合引擎+分层定价、Market/Storefront市场模型、价格从交易涌现、交易主体四条件涌现、MarketRegulations参数化经济体制、PowerAtom权力原子框架、行为经济学×NPC心智映射、货币三管道+五大自动稳定器、LLM经济增强层）
+  - `载具系统/` — **★ 载具系统 10 篇 + README**（最新完成 2026-06-15。VehicleId+契书双重身份、VehicleArchetype×文化涌现→VehicleDef、五种动力类型+MagicEngine魔法集成、L1-L3半自动操控+VehicleController trait、三通道连续损伤+紧急修补+沉没事件链、记忆优先契书可选产权+伪造/篡改/检测、移动容器货运+运费NPC心智涌现、铁路P9极低概率涌现、10模块素材注入命名、VehicleQuery/VoiceMut跨模块接口。~8,000行）
 
 ### `Change/` — 设计变更追踪
 按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名。当前：

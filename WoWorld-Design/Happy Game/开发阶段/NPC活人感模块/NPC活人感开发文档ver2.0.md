@@ -426,29 +426,26 @@ pub struct SpatialMemory {
 
 ### 1.1.6 v3 新增结构体
 
+/// ★ 以下类型的权威定义已移至载具系统（[[../../参考文档/023-载具系统设计探讨-20260615/设计草稿/001-总纲与核心概念|载具系统]]）
+/// NPC 模块消费载具系统导出的类型——不自行定义
+/// - `VehicleRole` / `CrewRank` / `CrewDuty` / `CrewSlotDef` → 见载具系统 001
+/// - `VehicleId` → 见载具系统 001
+/// 以下代码块保留为消费侧伪代码——实际使用 `use vehicle_system::{...}`
+
 ```rust
 /// 载具状态 — NPC 在载具上时的附加数据
+/// ★ VehicleRole / CrewRank / CrewDuty 的权威定义来自载具系统
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VehicleState {
-    pub vehicle_id: VehicleId,
-    pub role: VehicleRole,       // Crew / Passenger
-    pub position_local: Vec3,    // 载具本地坐标
-    pub current_duty: Option<CrewDuty>,
+pub struct VehicleState {    // ★ 注意：此 VehicleState 是 NPC 的快照缓存，与载具系统的 VehicleState 不同
+    pub vehicle_id: VehicleId,  // ← 载具系统定义
+    pub role: VehicleRole,      // ← 载具系统定义（Crew { rank: CrewRank } / Passenger）
+    pub position_local: Vec3,   // 载具本地坐标
+    pub current_duty: Option<CrewDuty>,  // ← 载具系统定义
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum VehicleRole {
-    Crew { rank: CrewRank },
-    Passenger,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CrewDuty {
-    Navigating,        // 操控航向/轨道
-    Lookout,           // 瞭望
-    Maintenance,       // 维护
-    AssistingPassengers,
-}
+// ★ VehicleRole / CrewRank / CrewDuty / CrewSlotDef 的完整定义移至载具系统
+// NPC 模块通过 use vehicle_system::{VehicleRole, CrewRank, CrewDuty, CrewSlotDef} 引用
+// 旧 CrewDuty 枚举（Navigating/Lookout/Maintenance/AssistingPassengers）→ 替换为载具系统的 CrewDuty
 
 /// 天象感知 — NPC 对天空状态的感知缓存
 #[derive(Debug, Clone, Serialize, Deserialize)]

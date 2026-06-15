@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/载具系统/README|载具系统 v1.0]]（2026-06-15，10篇+README，~8,000行）——五种动力类型+MagicEngine魔法系统集成+L1-L3半自动操控+三通道损伤+记忆优先契书可选产权+移动容器货运+VehicleArchetype×文化涌现VehicleDef。模块累计 15 个独立系统，~58,000行正式开发规格。
+**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/03-基本需求系统|基本需求系统 v1.0]]（2026-06-15）——7维需求统一框架（4旧升级+3新：元素平衡/libido/社交归属）+ urgency=deviation×sensitivity + bottleneck瓶颈模型 + ConsumableEffect数据合同。模块累计 16 个独立系统，~59,500行正式开发规格。
 
 ## 文档结构
 
@@ -35,7 +35,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `游戏概述.md` — **游戏愿景与设计哲学**（创建另一个"人世"、核心竞争力、参考精神）
   - `README.md` — 模块总索引
   - `技术栈方案/` — **★ 正式技术栈方案 v3.0**（Rust+Godot架构、世界生成、性能预算、开发路线——所有技术决策的权威依据）
-  - `NPC活人感模块/` — NPC系统权威规格（**ver2.0**，Rust伪代码）
+  - `NPC活人感模块/` — NPC系统权威规格（**ver2.0**，Rust伪代码。含 `03-基本需求系统` — 7维需求统一框架 v1.0）
   - `文化系统/` — **文化系统 8 篇**（CultureCoreParams 10核心参数+三层派生架构、障碍Voronoi空间模型、CommunicationNorms所有权转移、审美/技术派生、演变四路径、地名系统31种实体类型+命名价值评分、节日与仪式系统 RitualDef统一原子+四类节日生成+权力桥接零耦合。~10,000行）
       - `信仰系统/` -- **★ 信仰系统 10 篇**（最新完成 2026-06-15。实践优先模型 ReligiousPracticeProfile、FaithTheology 10连续参数、NPC→NPC接触传染5渠道+4改变路径、FaithCalendarQuery trait实现、Divine授权事件桥接零耦合。~3,750行）
       - `权力系统/` -- **权力系统 9 篇 + README**（17普适权力原子+PowerTopology有向多重图+8条获取路径+Legitimacy 5因子+Duty制裁塌缩链+Polity涌现+外交6因子。~4,100行）
@@ -61,6 +61,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **[CHG-022](WoWorld-Design/Change/CHG-022-经济系统v1.0创建-20260613.md)**：经济系统 v1.0 创建——9篇开发规格+README，~7,000行。限价订单簿+分层定价+Storefront+四条件涌现+参数化体制+PowerAtom+行为经济学映射+货币稳定器
 - **[CHG-023](WoWorld-Design/Change/CHG-023-权力系统v1.0创建-20260613.md)**：权力系统 v1.0 创建——9篇开发规格+README，~4,100行。17普适权力原子+PowerTopology有向多重图+8条获取路径+Legitimacy 5因子公式+Duty制裁塌缩链+Polity涌现+外交6因子公式
 - **[CHG-024](WoWorld-Design/Change/CHG-024-文化系统v1.0创建-20260614.md)**：文化系统 v1.0 创建——首发6篇~3,400行。后续扩展：007-地名系统(~1,350行)+008-节日与仪式系统(~1,400行)。模块总规模 8 篇~10,000行。CultureCoreParams 10参数三层架构+障碍Voronoi空间模型+CommunicationNorms所有权转移+TechnologyProfile 8领域+RitualDef统一仪式原子+四类节日生成+权力桥接零耦合
+- **[CHG-025](WoWorld-Design/Change/CHG-025-信仰系统v1.0创建-20260615.md)**：信仰系统 v1.0 创建——10篇+README，~3,750行。实践优先模型 ReligiousPracticeProfile+FaithTheology 10连续参数+NPC→NPC接触传染5渠道+4改变路径+FaithCalendarQuery trait实现+Divine授权事件桥接零耦合
+- **[CHG-026](WoWorld-Design/Change/CHG-026-载具系统v1.0设计-20260615.md)**：载具系统 v1.0 创建——10篇+README，~8,000行。五种动力类型+MagicEngine魔法集成+L1-L3半自动操控+三通道损伤+记忆优先契书可选产权+移动容器货运+VehicleArchetype×文化涌现VehicleDef
+- **[CHG-027](WoWorld-Design/Change/CHG-027-基本需求系统v1.0创建-20260615.md)**：基本需求系统 v1.0 创建——1篇主文档+5篇讨论草稿。7维需求统一框架（4旧升级+3新:元素平衡/libido/社交归属）+ urgency=deviation×sensitivity 统一公式 + bottleneck 瓶颈模型 + ConsumableEffect 数据合同。修改 Life/004、NPC ver2.0、Items/001/003
 - 详见 `Change/README.md`
 
 **`Change/hand/`** — 用户直接设计反馈。包含对跨模块冲突的具体裁决意见（如魔力恢复速度以Magic为准、部位伤害以Combat为准、spirit过载方案等）。修改涉及的设计决策时，需检查此目录是否有相关意见。
@@ -74,6 +77,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **020** | [战斗系统文档审查-缺陷不足矛盾与优化](WoWorld-Design/参考文档/020-战斗系统文档审查-缺陷不足矛盾与优化-20260611/) — 战斗系统 14 篇开发文档的综合审查报告 |
 | **019** | [NPC文档重写-问题分析与优化方向](WoWorld-Design/参考文档/019-NPC文档重写-问题分析与优化方向-20260611/) — NPC ver2.0 重写中识别的 7 个潜在问题 + 4 个架构优化方向 |
 | **022** | [节日系统设计探讨](WoWorld-Design/参考文档/022-节日系统设计探讨-20260614/) — 10篇原始设计~2,500行 + 5篇优化审查~1,200行。14大类79议题→正式规格008 |
+| **023** | [载具系统设计探讨](WoWorld-Design/参考文档/023-载具系统设计探讨-20260615/) — 5篇讨论草稿~2,000行。载具身份+契书+动力+操控+损伤+产权+货运+Names+跨模块接口→正式规格 |
+| **024** | [NPC基本需求系统设计探讨](WoWorld-Design/参考文档/024-NPC基本需求系统设计探讨-20260615/) — 5篇讨论草稿。7维需求统一框架+元素平衡+libido+社交/归属+决策器集成+性能预算→正式规格 [[../Happy Game/开发阶段/NPC活人感模块/03-基本需求系统|03-基本需求系统]] |
 | **021** | [设计文档补全总体规划](WoWorld-Design/参考文档/021-WoWorld设计文档补全规划-20260613/) — Phase 13-19 全部缺失模块的总体规划 |
 | **018** | [**正式技术栈方案 v3.0**](WoWorld-Design/Happy Game/开发阶段/技术栈方案/) ← **★ 当前权威方案（已迁移至开发阶段）** |
 | **017** | [开发阶段测试记录](WoWorld-Design/参考文档/017-开发阶段测试记录-20260610/) — 方法论+50份双视角测试报告 |
@@ -320,6 +325,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | "有人的地方才有信仰"原则 | **信仰系统** `001** | 全部模块 | 信仰数据以 NPC 的 ReligiousPracticeProfile 为存储单元，空间分布从 NPC 人口聚合派生。信仰随 NPC 移动/交谈/死亡而传播/演变/消亡 |
 | 信仰塑造社会组织 | **信仰系统** `004** | Group/权力/CulturalNorm/战斗/经济 | 信仰只定义条件与修饰——执行全走现有系统。教众→Group。神职层级→PowerTopology 委托链。禁忌→CulturalNorm(NormScope::SpecificFaith)。神权政体→权力系统 GovernmentForm::Theocracy |
 | ChildFaithProfile 继承 | **信仰系统** `003** | 生命 012（繁衍） | 子女继承双亲的 participation 混合(0.7 因子)+社区温和引力。motivation 初始=Habitual。成年礼后可转变 |
+
+### CHG-027 新增契约（基本需求系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| ConsumableEffect | **Life 模块** `004 §十三` | 物品系统(ItemProperties存储)、NPC(进食决策消费) | Life 定义 schema——物品模块只存储不解析。对齐已有 EnchantmentSchema/AssemblySchema 模式 |
+| element_surplus[8] | **Life.Vitals** | NPC Physiology(派生 element_balance_urgency) | 仅八元素(金木水火土风雷电)——不含血和灵。索引固定。进食累积,主动释放或睡眠被动释放归零 |
+| libido (Vitals) | **Life.Vitals** | NPC Physiology(直通)、概率决策器 | bio-signal——非生存生命值。归零不死亡。周期波动由 LibidoType 决定 |
+| blood_element_ratio[8] | **Life.RaceTraits** | Life(ingest_food 瓶颈模型)、(预留)Magic | 种族血元素的八元素合成配比。种子生成，Σ≈1.0 |
+| libido_type / libido_cycle_days | **Life.RaceTraits** | Life(compute_libido) | 三种周期模式：Continuous(持续型)/Seasonal(季节型)/EventTriggered(触发型) |
+| social_deficit | **NPC.NpcData** | NPC 决策器(need_action_match)、情绪引擎 | 心理状态——不是生物性的,不属于 Physiology。累积+0.02/游戏日,社交互动恢复-0.03~0.15 |
+| NeedSensitivity | **NPC.NpcData** | NPC 决策器(need_action_match) | 大五人格一次性派生——终身不变。6 个 f32 字段覆盖 hunger/thirst/fatigue/element_balance/libido/social |
+| need_action_match | **NPC 决策器** | 概率决策器权重链 | 替代 physiology_modifier——统一 7 维需求的 urgency→行动权重映射。公式: avg_urgency×sensitivity → 权重 1.0~2.0 |
+| element_balance_urgency | **NPC.Physiology** | NPC 决策器、情绪引擎 | 从 Vitals.element_surplus 派生：max(surplus)×0.5 + avg(surplus)×0.5 |
+| GOAP 安全网边界 | **NPC GOAP** | 全部模块 | 基本需求系统**不修改 GOAP** ——只有 survival 需求(hunger/thirst/fatigue/health/combat)进安全网。新增元素平衡/libido/social 不进 |
+| ItemRegistry::get_consumable() | **物品系统** | Life(ingest_food)、NPC(进食选择) | struct 固有方法(非 trait)。查询 ConsumableEffect——None=不可食用 |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 

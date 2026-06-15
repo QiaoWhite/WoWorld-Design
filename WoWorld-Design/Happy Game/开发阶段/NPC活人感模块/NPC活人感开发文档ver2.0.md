@@ -43,9 +43,11 @@
 
 ### 三大决策环
 
-1. **本地概率决策** (~90%) — 文化习俗 × 个人习惯 × 人格偏移 × 情绪修正 → 加权随机采样
-2. **GOAP 安全网** (~9%) — 饥饿 <0.3 / 口渴 <0.25 / 重伤 / 致命威胁 / 重大交易 / 仪式 → 确定性规划
+1. **本地概率决策** (~90%) — 文化习俗 × 个人习惯 × 人格偏移 × 情绪修正 × ★需求-行动匹配 → 加权随机采样
+2. **GOAP 安全网** (~9%) — 仅生存需求（饥饿 <0.3 / 口渴 <0.25 / 疲劳 >0.9 / 重伤 / 致命威胁）进入。★ 新增的元素平衡/libido/社交需求不进安全网
 3. **LLM 增强（可选）** (~1%) — 复杂社交场景。仅从预定义行动库选取。安全网关 + 速率限制
+
+> ★ 基本需求系统 ([[03-基本需求系统]]) 将原有的 4 个扁平生理阈值扩展为统一的 7 维需求框架, 引入 need_action_match 替代 physiology_modifier。详见 §2.3.1。
 
 ---
 
@@ -121,6 +123,19 @@ pub struct NpcData {
     pub appearance: PhysicalAppearance,         // 外貌视觉特征（过渡方案）
     pub attraction_template: AttractionTemplate, // 吸引力偏好模板
     pub norm_internalizations: BTreeMap<NormId, NormInternalization>, // 规范内化（稀疏存储）
+
+    // ── ★ v1.0 基本需求系统 (03-基本需求系统.md) ──
+    /// 社交匮乏 (0.0=社交充足, 1.0=极度孤独)
+    /// 心理状态——不是生物性的, 不属于 Physiology
+    /// 累积: 无社交 +0.02/游戏日, 50天独居才满
+    /// 恢复: 有意义社交互动 -0.03~0.15
+    /// 仅进概率决策器, 不进 GOAP
+    pub social_deficit: f32,
+
+    /// ★ 需求敏感性——从大五人格一次性派生, 终身不变
+    /// 缓存在 NpcData 中以避免每决策周期重新查表
+    /// 仅在人格发生极端冲击(创伤>0.9 或 长期环境冲突>100日)后重新计算
+    pub need_sensitivity: NeedSensitivity,
 }
 ```
 
@@ -179,6 +194,38 @@ impl BigFive {
 }
 ```
 
+### 1.1.2a NeedSensitivity — 需求敏感性 ★ v1.0
+
+> **关联**: [[03-基本需求系统|§3.2]] · 从大五人格一次性派生, 终身不变
+
+```rust
+/// NPC 对各个需求的个体敏感度——从大五人格一次性派生
+/// 存储于 NpcData.need_sensitivity, 仅在人格极端冲击后重新计算
+/// 每决策周期消费——不新增每帧计算
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NeedSensitivity {
+    pub hunger: f32,            // 0.5 + neuroticism × 0.5
+    pub thirst: f32,            // 0.5 + conscientiousness × 0.25 + neuroticism × 0.25
+    pub fatigue: f32,           // 0.5 + (1-extraversion) × 0.3
+    pub element_balance: f32,   // 0.4 + conscientiousness × 0.45 + neuroticism × 0.15
+    pub libido: f32,            // 0.3 + extraversion × 0.4 + openness × 0.3
+    pub social: f32,            // 0.2 + extraversion × 0.8
+}
+
+impl NeedSensitivity {
+    pub fn from_big_five(p: &BigFive) -> Self {
+        Self {
+            hunger:    0.5 + p.neuroticism * 0.5,
+            thirst:    0.5 + p.conscientiousness * 0.25 + p.neuroticism * 0.25,
+            fatigue:   0.5 + (1.0 - p.extraversion) * 0.3,
+            element_balance: 0.4 + p.conscientiousness * 0.45 + p.neuroticism * 0.15,
+            libido:    0.3 + p.extraversion * 0.4 + p.openness * 0.3,
+            social:    0.2 + p.extraversion * 0.8,
+        }
+    }
+}
+```
+
 ### 1.1.3 Physiology
 
 ```rust
@@ -187,14 +234,14 @@ pub struct Physiology {
     // ⚠️ 尺度方向已统一为 Life.Vitals 约定:
     //    hunger/thirst: 0.0=极度缺乏 ~ 1.0=完全满足 (0=bad, 1=good)
     //    fatigue:       0.0=精力充沛 ~ 1.0=极其疲劳 (0=good, 1=bad)
-    //    与生命系统 [[004-身体状态与生命过程]] 完全一致
+    //    与生命系统 [[../生命/004-身体状态与生命过程|生命/004]] 完全一致
     pub hunger: f32,           // 0.0=极度饥饿 ~ 1.0=饱腹, GOAP强制 <0.3
     pub thirst: f32,           // 0.0=脱水 ~ 1.0=不渴, GOAP强制 <0.25
     pub fatigue: f32,          // 0.0=精力充沛 ~ 1.0=极其疲劳, GOAP强制 >0.9
     pub health: f32,           // 0-1 (1=满血, 0=濒死), GOAP强制 <0.3
     pub stamina: f32,          // 瞬时可用体力 (区别于 fatigue)
     // ★ mana 已废弃——改为从 Life.SpiritState + Life.MagicAttributes 读取
-    //    见 [[004-身体状态与生命过程|生命/004-身体状态与生命过程]] §四 (Spirit & Magic)
+    //    见 [[../生命/004-身体状态与生命过程|生命/004-身体状态与生命过程]] §四 (Spirit & Magic)
     //    灵元素含量/十元素亲和/魔力强度/控制/抗性/恢复速度——由 Life 基类统一管理
     pub temperature: f32,      // 体感温度 (受季节/天气/服装修正)
 
@@ -202,6 +249,17 @@ pub struct Physiology {
     //    损伤值来自 Combat [[012-战后过渡与伤势]] 的部位伤害模型
     //    仅影响属性数值，不影响战斗动作模组（不会因手臂受伤而切换单手动画）
     pub body_part_damage: BodyPartDamage,
+
+    // ★ v1.0 基本需求系统 (03-基本需求系统.md) —— 新增字段
+    /// 元素平衡紧迫度——从 Vitals.element_surplus 派生
+    /// 公式: max(surplus)×0.5 + avg(surplus)×0.5
+    /// 0.0=八元素均衡, 1.0=严重偏科——驱动 VentElements 行为
+    pub element_balance_urgency: f32,
+
+    /// 性驱力——从 Vitals.libido 直通
+    /// bio-signal, not survival vital. 0.0=无性欲, 1.0=峰值
+    /// 不进 GOAP——仅概率决策器消费
+    pub libido: f32,
 }
 
 /// 部位损伤数据——持久化到 NPC 数据中
@@ -260,6 +318,16 @@ impl Physiology {
             stamina:    v.stamina / v.max_stamina.max(1.0),                 // 绝对值→归一化
             temperature: Self::perceived_temperature(v.body_temperature, ctx),
             body_part_damage: v.body_part_damage.clone(),                   // 持久化部位损伤
+
+            // ★ v1.0 基本需求系统 (03-基本需求系统.md) — 新增映射
+            // urg = max(surplus)×0.5 + avg(surplus)×0.5
+            // 既捕获"某一个极高"，也捕获"多项都在上涨"
+            element_balance_urgency: {
+                let max_s = v.element_surplus.iter().cloned().fold(0.0f32, f32::max);
+                let avg_s = v.element_surplus.iter().sum::<f32>() / 8.0;
+                max_s * 0.5 + avg_s * 0.5
+            },
+            libido: v.libido,  // 直通——周期性身体信号
         }
     }
 
@@ -859,10 +927,26 @@ impl EmotionState {
     }
 
     /// 生理拉扯 — 身体状态影响情绪轴
-    pub fn apply_physiological_pull(&mut self, phys: &Physiology) {
+    /// v1.0 基本需求系统 (03-基本需求系统.md) — 扩展: 新增 3 个需求维度的情绪影响
+    pub fn apply_physiological_pull(&mut self, phys: &Physiology, social_deficit: f32) {
+        // === 已有, 不改 ===
         if phys.hunger < 0.4 { self.pleasure -= 0.001 * (0.4 - phys.hunger); }
         if phys.fatigue > 0.7 { self.arousal -= 0.001 * phys.fatigue; }
         if phys.health < 0.5 { self.control -= 0.001 * (0.5 - phys.health); }
+
+        // === ★ v1.0 新增: 基本需求系统 —— 极低系数, 长期背景色调 ===
+        // 元素不平衡 → 微弱不适
+        if phys.element_balance_urgency > 0.5 {
+            self.pleasure -= 0.0005 * (phys.element_balance_urgency - 0.5);
+        }
+        // 高 libido → 轻微焦躁 (arousal 上升)
+        if phys.libido > 0.7 {
+            self.arousal += 0.001 * (phys.libido - 0.7);
+        }
+        // 孤独 → 快乐微降
+        if social_deficit > 0.5 {
+            self.pleasure -= 0.001 * social_deficit;
+        }
     }
 
     /// v3: 天象情绪影响 — 温和偏移，非决定
@@ -1136,7 +1220,10 @@ impl DecisionEngine for ProbabilisticDecisionEngine {
                     * self.personality_modifier(&action, &npc.personality) // 人格偏移
                     * self.emotion_modifier(&action, &npc.emotion)         // 情绪修正
                     * self.mood_modifier(&action, &npc.emotion.mood)       // ★ 心境修正（独立于情绪）
-                    * self.physiology_modifier(&action, &npc.physiology)   // 生理需求
+                    // ★ v1.0 基本需求系统 (03-基本需求系统.md):
+                    //   physiology_modifier 已重构为 need_action_match — 参见 [[03-基本需求系统|§7.2]]
+                    //   need_action_match 统一 7 维需求的 urgency → 行动权重映射
+                    * self.need_action_match(&action, &npc.physiology, npc.social_deficit, &npc.need_sensitivity)
                     * self.intrinsic_motivation_weight(&action, npc) // ★ 内在驱动（SelfNarrative）
                     * self.time_modifier(&action, world)   // v3: 昼夜修正
                     * self.weather_modifier(&action, world) // v3: 天气修正
@@ -1193,6 +1280,11 @@ const VEHICLE_ACTION_MODIFIERS: [(VehicleCondition, ActionCategory, f32); 6] = [
 
 ```rust
 /// 触发条件 — 仅当生存/重大危机时激活 (~9% 决策)
+///
+/// ⚠️ v1.0 基本需求系统 (03-基本需求系统.md):
+///   新增的元素平衡/libido/社交需求 **不进入 GOAP** — 它们不致命。
+///   GOAP 安全网仅包含归零会死/崩溃的需求 (hunger/thirst/fatigue/health/combat_threat)。
+///   新增需求仅在概率决策器中作为 need_action_match 的权重因子。
 impl GoapPlanner {
     pub fn should_activate(npc: &NpcData) -> Option<Goal> {
         if npc.physiology.hunger < 0.3  { return Some(Goal::SurvivalEat); }

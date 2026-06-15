@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/03-基本需求系统|基本需求系统 v1.0]]（2026-06-15）——7维需求统一框架（4旧升级+3新：元素平衡/libido/社交归属）+ urgency=deviation×sensitivity + bottleneck瓶颈模型 + ConsumableEffect数据合同。模块累计 16 个独立系统，~59,500行正式开发规格。
+**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/04-进阶需求系统|进阶需求系统 v1.0]]（2026-06-15）——三层需求模型（生存→心理→成长）+2新维度（尊重/认可+胜任挫折）+ IntrinsicGoal形式化（commitment×relevance）+2跨层桥接（sigmoid生存抑制+ERG挫折回归）。模块累计 17 个独立系统，~62,300行正式开发规格。
 
 ## 文档结构
 
@@ -35,7 +35,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `游戏概述.md` — **游戏愿景与设计哲学**（创建另一个"人世"、核心竞争力、参考精神）
   - `README.md` — 模块总索引
   - `技术栈方案/` — **★ 正式技术栈方案 v3.0**（Rust+Godot架构、世界生成、性能预算、开发路线——所有技术决策的权威依据）
-  - `NPC活人感模块/` — NPC系统权威规格（**ver2.0**，Rust伪代码。含 `03-基本需求系统` — 7维需求统一框架 v1.0）
+  - `NPC活人感模块/` — NPC系统权威规格（**ver2.0**，Rust伪代码。含 `03-基本需求系统` — 7维需求统一框架 v1.0、`04-进阶需求系统` — 三层需求模型 v1.0（尊重/认可+胜任挫折+IntrinsicGoal形式化+跨层桥接））
   - `文化系统/` — **文化系统 8 篇**（CultureCoreParams 10核心参数+三层派生架构、障碍Voronoi空间模型、CommunicationNorms所有权转移、审美/技术派生、演变四路径、地名系统31种实体类型+命名价值评分、节日与仪式系统 RitualDef统一原子+四类节日生成+权力桥接零耦合。~10,000行）
       - `信仰系统/` -- **★ 信仰系统 10 篇**（最新完成 2026-06-15。实践优先模型 ReligiousPracticeProfile、FaithTheology 10连续参数、NPC→NPC接触传染5渠道+4改变路径、FaithCalendarQuery trait实现、Divine授权事件桥接零耦合。~3,750行）
       - `权力系统/` -- **权力系统 9 篇 + README**（17普适权力原子+PowerTopology有向多重图+8条获取路径+Legitimacy 5因子+Duty制裁塌缩链+Polity涌现+外交6因子。~4,100行）
@@ -64,6 +64,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **[CHG-025](WoWorld-Design/Change/CHG-025-信仰系统v1.0创建-20260615.md)**：信仰系统 v1.0 创建——10篇+README，~3,750行。实践优先模型 ReligiousPracticeProfile+FaithTheology 10连续参数+NPC→NPC接触传染5渠道+4改变路径+FaithCalendarQuery trait实现+Divine授权事件桥接零耦合
 - **[CHG-026](WoWorld-Design/Change/CHG-026-载具系统v1.0设计-20260615.md)**：载具系统 v1.0 创建——10篇+README，~8,000行。五种动力类型+MagicEngine魔法集成+L1-L3半自动操控+三通道损伤+记忆优先契书可选产权+移动容器货运+VehicleArchetype×文化涌现VehicleDef
 - **[CHG-027](WoWorld-Design/Change/CHG-027-基本需求系统v1.0创建-20260615.md)**：基本需求系统 v1.0 创建——1篇主文档+5篇讨论草稿。7维需求统一框架（4旧升级+3新:元素平衡/libido/社交归属）+ urgency=deviation×sensitivity 统一公式 + bottleneck 瓶颈模型 + ConsumableEffect 数据合同。修改 Life/004、NPC ver2.0、Items/001/003
+- **[CHG-028](WoWorld-Design/Change/CHG-028-进阶需求系统v1.0创建-20260615.md)**：进阶需求系统 v1.0 创建——1篇主文档+8篇讨论草稿。三层需求模型（生存→心理→成长）+2新维度（尊重/认可+胜任挫折）+ IntrinsicGoal形式化（commitment×relevance→偏好偏置）+2跨层桥接（sigmoid生存抑制+ERG挫折回归）。唯一新跨模块方法：CultureQueryExt::honor_weight_for_domain()。修改 03-基本需求系统、NPC ver2.0、文化系统/006
 - 详见 `Change/README.md`
 
 **`Change/hand/`** — 用户直接设计反馈。包含对跨模块冲突的具体裁决意见（如魔力恢复速度以Magic为准、部位伤害以Combat为准、spirit过载方案等）。修改涉及的设计决策时，需检查此目录是否有相关意见。
@@ -79,6 +80,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **022** | [节日系统设计探讨](WoWorld-Design/参考文档/022-节日系统设计探讨-20260614/) — 10篇原始设计~2,500行 + 5篇优化审查~1,200行。14大类79议题→正式规格008 |
 | **023** | [载具系统设计探讨](WoWorld-Design/参考文档/023-载具系统设计探讨-20260615/) — 5篇讨论草稿~2,000行。载具身份+契书+动力+操控+损伤+产权+货运+Names+跨模块接口→正式规格 |
 | **024** | [NPC基本需求系统设计探讨](WoWorld-Design/参考文档/024-NPC基本需求系统设计探讨-20260615/) — 5篇讨论草稿。7维需求统一框架+元素平衡+libido+社交/归属+决策器集成+性能预算→正式规格 [[../Happy Game/开发阶段/NPC活人感模块/03-基本需求系统|03-基本需求系统]] |
+| **025** | [NPC进阶需求系统设计探讨](WoWorld-Design/参考文档/025-NPC进阶需求系统设计探讨-20260615/) — 8篇讨论草稿~4,000行。理论框架（马斯洛/ERG/SDT）+尊重/认可+胜任挫折+IntrinsicGoal形式化+跨层桥接+跨模块接口全面清单+决策器集成+性能预算→正式规格 [[../Happy Game/开发阶段/NPC活人感模块/04-进阶需求系统|04-进阶需求系统]] |
 | **021** | [设计文档补全总体规划](WoWorld-Design/参考文档/021-WoWorld设计文档补全规划-20260613/) — Phase 13-19 全部缺失模块的总体规划 |
 | **018** | [**正式技术栈方案 v3.0**](WoWorld-Design/Happy Game/开发阶段/技术栈方案/) ← **★ 当前权威方案（已迁移至开发阶段）** |
 | **017** | [开发阶段测试记录](WoWorld-Design/参考文档/017-开发阶段测试记录-20260610/) — 方法论+50份双视角测试报告 |
@@ -336,11 +338,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | blood_element_ratio[8] | **Life.RaceTraits** | Life(ingest_food 瓶颈模型)、(预留)Magic | 种族血元素的八元素合成配比。种子生成，Σ≈1.0 |
 | libido_type / libido_cycle_days | **Life.RaceTraits** | Life(compute_libido) | 三种周期模式：Continuous(持续型)/Seasonal(季节型)/EventTriggered(触发型) |
 | social_deficit | **NPC.NpcData** | NPC 决策器(need_action_match)、情绪引擎 | 心理状态——不是生物性的,不属于 Physiology。累积+0.02/游戏日,社交互动恢复-0.03~0.15 |
-| NeedSensitivity | **NPC.NpcData** | NPC 决策器(need_action_match) | 大五人格一次性派生——终身不变。6 个 f32 字段覆盖 hunger/thirst/fatigue/element_balance/libido/social |
+| NeedSensitivity | **NPC.NpcData** | NPC 决策器(need_action_match) | 大五人格一次性派生——终身不变。★ v2.0: 8 个 f32 字段覆盖 hunger/thirst/fatigue/element_balance/libido/social/esteem/competence |
 | need_action_match | **NPC 决策器** | 概率决策器权重链 | 替代 physiology_modifier——统一 7 维需求的 urgency→行动权重映射。公式: avg_urgency×sensitivity → 权重 1.0~2.0 |
 | element_balance_urgency | **NPC.Physiology** | NPC 决策器、情绪引擎 | 从 Vitals.element_surplus 派生：max(surplus)×0.5 + avg(surplus)×0.5 |
 | GOAP 安全网边界 | **NPC GOAP** | 全部模块 | 基本需求系统**不修改 GOAP** ——只有 survival 需求(hunger/thirst/fatigue/health/combat)进安全网。新增元素平衡/libido/social 不进 |
 | ItemRegistry::get_consumable() | **物品系统** | Life(ingest_food)、NPC(进食选择) | struct 固有方法(非 trait)。查询 ConsumableEffect——None=不可食用 |
+
+### CHG-028 新增契约（进阶需求系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| `esteem_deficit` | **NPC.NpcData** | NPC 决策器(need_action_match)、情绪引擎 | 心理状态——不入 Life.Vitals。+0.01/游戏日被动累积，社交钦佩事件恢复。**零新跨模块推送**——钦佩信号从已有社交管道检测 |
+| `competence_frustration` | **NPC.NpcData** | NPC 决策器、情绪引擎、SelfNarrative | Allostatic 模型——设定点 = aspiration skill gap。每游戏日更新。无 SkillMastery aspiration → 恒为 0。通过 `npc.skills` 内部查询 |
+| `honor_weight_for_domain()` | **文化系统**（CultureQueryExt 新增方法） | NPC 模块（esteem 计算） | ★ **唯一新跨模块方法**。`domain_code: u8` 参数——零类型依赖。从已有 CultureCoreParams 派生——零新存储 |
+| `NeedSensitivity::esteem` | **NPC 模块** | NPC 决策器 | `0.2 + E×0.5 + (1-A)×0.3`。终身不变 |
+| `NeedSensitivity::competence` | **NPC 模块** | NPC 决策器 | `0.2 + C×0.5 + N×0.3`。终身不变 |
+| `survival_suppression()` | **NPC 模块**（概率权重链内部） | 仅概率引擎 | sigmoid `1/(1+e^(10(x-0.7)))`——软衰减。**不影响 GOAP** |
+| `frustration_regression()` | **NPC 模块**（决策预处理） | NeedSensitivity 临时调制 | avg_frustration > 0.6 触发——ERG 挫折回归。社交+50%/尊重+40%/饥饿+30%/libido+25%。**不持久化** |
+| `intrinsic_motivation_weight()` | **NPC 模块**（权重链） | 仅概率引擎 | `∏(1 + relevance×commitment×0.5)`, clamp [1,3]。relevance 为纯函数——可编译时优化 |
+| `NeedTag::Esteem` / `NeedTag::Competence` | **NPC 模块** | ActionType 定义 | 新增 2 个需求标签。SeekRecognition/Compete/TrainSkill/SeekMentor 等行为映射 |
+| GOAP 安全网边界 | **NPC GOAP** | 全部模块 | 进阶需求系统**不修改 GOAP**——心理需求不进安全网。只有生存需求+配偶压力进 |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 
@@ -356,3 +373,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **技术决策**：以 `开发阶段/技术栈方案/` 为权威依据。所有 001-016 为历史演进存档，017 为测试方法论，018 已正式迁移至开发阶段
 - **规划文件**：项目根目录的 `task_plan.md`、`findings.md`、`progress.md` 为 planning-with-files 工作流文件，用于追踪任务进度和设计决策。这些文件由 Claude 自动维护，不应手动编辑
 - **修改后必须自检**：完成跨模块修改后，重新审计所涉及的模块间接口——确保没有引入新冲突
+
+## 新模块设计标准工作流程
+
+创建或重大扩展一个模块时，遵循以下流程（参考 CHG-025/026/027/028 的实践）：
+
+1. **参考文档草稿**：在 `参考文档/` 创建 `NNN-模块名设计探讨-YYYYMMDD/设计草稿/` 文件夹
+   - 001-理论框架与维度论证
+   - 002-NNN-维度/子系统深化设计（可拆分为多篇）
+   - 00N-跨模块依赖与接口全面清单 ★（关键——枚举所有涉及本模块的现有+潜在模块）
+   - 00N-决策器/集成方案
+   - 00N-性能预算与存储分析
+   - 草稿阶段可自由创建多层子文件夹和文档——目的是深入讨论、理清思路、反复调整
+2. **跨模块审计**：基于草稿分析，完整列举所有其他模块涉及本模块的内容
+   - 本模块为权威 Owner——其他模块中冲突/遗漏/不合理的部分应以本模块设计为准
+   - 同时列举与潜在未来模块的联系
+3. **正式开发规格**：整合讨论结果，写入 `开发阶段/` 对应目录
+   - 极尽清晰完整——关键概念必须有明确说明
+   - 自审：是否与讨论内容有偏移、遗漏、矛盾冲突
+4. **修改关联文档**：检查本文档与其他文档配合的地方，在原文档需要改动处进行改动
+5. **审查**：对所有改动进行审查——内部一致性 + 跨文档对齐 + 讨论→规格漂移
+6. **CHG 文档**：在 `Change/` 创建 `CHG-XXX-模块名v1.0创建-YYYYMMDD.md`
+7. **更新 CLAUDE.md**：添加新模块条目 + CHG 条目 + 接口契约表

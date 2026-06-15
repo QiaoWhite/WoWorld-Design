@@ -132,6 +132,26 @@ pub struct NpcData {
     /// 仅进概率决策器, 不进 GOAP
     pub social_deficit: f32,
 
+    // ── ★ v2.0 进阶需求系统 (04-进阶需求系统.md) ──
+    /// 尊重/认可匮乏 (0.0=被充分认可, 1.0=极度渴求认可)
+    /// 心理状态——不入 Life.Vitals
+    /// 累积: +0.01/游戏日 (100天充满)
+    /// 恢复: 社交钦佩事件 (通过已有社交管道检测, 零新跨模块推送)
+    /// 仅进概率决策器, 不进 GOAP
+    pub esteem_deficit: f32,
+
+    /// 胜任挫折 (0.0=无挫败, 1.0=严重挫败)
+    /// Allostatic 心理变量——设定点 = aspiration skill gap
+    /// 更新: 每游戏日一次 (非热路径)
+    /// 无 SkillMastery aspiration → 恒为 0
+    /// 仅进概率决策器, 不进 GOAP
+    pub competence_frustration: f32,
+
+    /// 胜任挫折的持续天数 (gap>0.3 的天数累计)
+    /// 用于慢性放大: 30天持续 → ×1.5
+    /// gap 缩小到 0.3 以下 → 每天 -2 快速消退
+    pub competence_frustration_chronic_days: u16,
+
     /// ★ 需求敏感性——从大五人格一次性派生, 终身不变
     /// 缓存在 NpcData 中以避免每决策周期重新查表
     /// 仅在人格发生极端冲击(创伤>0.9 或 长期环境冲突>100日)后重新计算
@@ -210,6 +230,9 @@ pub struct NeedSensitivity {
     pub element_balance: f32,   // 0.4 + conscientiousness × 0.45 + neuroticism × 0.15
     pub libido: f32,            // 0.3 + extraversion × 0.4 + openness × 0.3
     pub social: f32,            // 0.2 + extraversion × 0.8
+    // ★ v2.0 进阶需求系统 (04-进阶需求系统.md)
+    pub esteem: f32,            // 0.2 + E×0.5 + (1-A)×0.3
+    pub competence: f32,        // 0.2 + C×0.5 + N×0.3
 }
 
 impl NeedSensitivity {
@@ -221,6 +244,9 @@ impl NeedSensitivity {
             element_balance: 0.4 + p.conscientiousness * 0.45 + p.neuroticism * 0.15,
             libido:    0.3 + p.extraversion * 0.4 + p.openness * 0.3,
             social:    0.2 + p.extraversion * 0.8,
+            // ★ v2.0 新增
+            esteem:    (0.2 + p.extraversion * 0.5 + (1.0 - p.agreeableness) * 0.3).clamp(0.2, 1.0),
+            competence: (0.2 + p.conscientiousness * 0.5 + p.neuroticism * 0.3).clamp(0.2, 1.0),
         }
     }
 }
@@ -926,26 +952,43 @@ impl EmotionState {
         self.control += (baseline_control - self.control) * factor;
     }
 
-    /// 生理拉扯 — 身体状态影响情绪轴
+    /// 生理+心理拉扯 — 身体状态和心理状态影响情绪轴
     /// v1.0 基本需求系统 (03-基本需求系统.md) — 扩展: 新增 3 个需求维度的情绪影响
-    pub fn apply_physiological_pull(&mut self, phys: &Physiology, social_deficit: f32) {
+    /// ★ v2.0 进阶需求系统 (04-进阶需求系统.md) — 扩展: 新增 esteem+competence 心理牵引
+    pub fn apply_physiological_pull(
+        &mut self,
+        phys: &Physiology,
+        social_deficit: f32,
+        esteem_deficit: f32,              // ★ v2.0
+        competence_frustration: f32,      // ★ v2.0
+    ) {
         // === 已有, 不改 ===
         if phys.hunger < 0.4 { self.pleasure -= 0.001 * (0.4 - phys.hunger); }
         if phys.fatigue > 0.7 { self.arousal -= 0.001 * phys.fatigue; }
         if phys.health < 0.5 { self.control -= 0.001 * (0.5 - phys.health); }
 
         // === ★ v1.0 新增: 基本需求系统 —— 极低系数, 长期背景色调 ===
-        // 元素不平衡 → 微弱不适
         if phys.element_balance_urgency > 0.5 {
             self.pleasure -= 0.0005 * (phys.element_balance_urgency - 0.5);
         }
-        // 高 libido → 轻微焦躁 (arousal 上升)
         if phys.libido > 0.7 {
             self.arousal += 0.001 * (phys.libido - 0.7);
         }
-        // 孤独 → 快乐微降
         if social_deficit > 0.5 {
             self.pleasure -= 0.001 * social_deficit;
+        }
+
+        // === ★ v2.0 新增: 进阶需求系统 —— 心理需求对情绪轴的牵引 ===
+        // 不被认可 → 不愉快 + 失控感 (比社交赤字更强 —— 尊重赤字是尖锐的心理状态)
+        if esteem_deficit > 0.4 {
+            self.pleasure -= 0.002 * (esteem_deficit - 0.4);
+            self.control  -= 0.003 * (esteem_deficit - 0.4);
+        }
+        // 胜任挫折 → 不愉快 + 焦虑 + 失控感 (三者中最强的情绪牵引)
+        if competence_frustration > 0.3 {
+            self.pleasure -= 0.003 * (competence_frustration - 0.3);
+            self.arousal  += 0.002 * (competence_frustration - 0.3);
+            self.control  -= 0.005 * (competence_frustration - 0.3); // 最强失控感
         }
     }
 
@@ -1211,6 +1254,12 @@ impl DecisionEngine for ProbabilisticDecisionEngine {
         world: &SubjectiveWorld,
         rng: &mut impl Rng,
     ) -> Action {
+        // ★ v2.0 进阶需求系统：决策前预处理
+        // 1. 克隆 sensitivity 用于挫折回归的临时调制（不持久化）
+        let mut effective_sensitivity = npc.need_sensitivity.clone();
+        // 2. 应用挫折回归（ERG 桥接）——如果内在目标长期受挫，临时提升基本需求敏感度
+        Self::apply_frustration_regression(&npc.active_intrinsic_goals, &mut effective_sensitivity);
+
         let mut weighted_actions: Vec<(Action, f32)> = self.available_actions(npc, world)
             .into_iter()
             .map(|action| {
@@ -1221,10 +1270,14 @@ impl DecisionEngine for ProbabilisticDecisionEngine {
                     * self.emotion_modifier(&action, &npc.emotion)         // 情绪修正
                     * self.mood_modifier(&action, &npc.emotion.mood)       // ★ 心境修正（独立于情绪）
                     // ★ v1.0 基本需求系统 (03-基本需求系统.md):
-                    //   physiology_modifier 已重构为 need_action_match — 参见 [[03-基本需求系统|§7.2]]
-                    //   need_action_match 统一 7 维需求的 urgency → 行动权重映射
-                    * self.need_action_match(&action, &npc.physiology, npc.social_deficit, &npc.need_sensitivity)
-                    * self.intrinsic_motivation_weight(&action, npc) // ★ 内在驱动（SelfNarrative）
+                    //   physiology_modifier 已重构为 need_action_match
+                    //   need_action_match 统一需求 urgency → 行动权重映射
+                    // ★ v2.0 进阶需求系统 (04-进阶需求系统.md):
+                    //   扩展至 9 维 (+esteem, +competence), 新增 intrinsic 形式化 + survival_suppression
+                    //   使用 effective_sensitivity (可能已被 frustration_regression 临时调制)
+                    * self.need_action_match(&action, &npc.physiology, npc.social_deficit, npc.esteem_deficit, npc.competence_frustration, &effective_sensitivity)
+                    * self.intrinsic_motivation_weight(&action, &npc.active_intrinsic_goals) // ★ v2.0 形式化: commitment×relevance
+                    * self.survival_suppression(&npc.physiology) // ★ v2.0 新增: sigmoid 软衰减
                     * self.time_modifier(&action, world)   // v3: 昼夜修正
                     * self.weather_modifier(&action, world) // v3: 天气修正
                     * self.sky_modifier(&action, &npc.sky_perception) // v3: 天象修正
@@ -1235,6 +1288,83 @@ impl DecisionEngine for ProbabilisticDecisionEngine {
 
         // 加权随机采样
         weighted_sample(&mut weighted_actions, rng)
+    }
+
+    /// ★ v2.0 进阶需求系统 (04-进阶需求系统.md §5.1)
+    /// 生存抑制 — sigmoid 软衰减，仅影响概率引擎权重链
+    /// 当生存需求紧迫时自然降低高层需求权重。不影响 GOAP。
+    /// 公式: 1/(1+e^(10*(max_urgency-0.7)))
+    fn survival_suppression(&self, phys: &Physiology) -> f32 {
+        let max_urgency = [
+            (1.0 - phys.hunger).max(0.0),
+            (1.0 - phys.thirst).max(0.0),
+            phys.fatigue,
+            (1.0 - phys.health).max(0.0),
+        ].iter().cloned().fold(0.0_f32, f32::max);
+
+        // sigmoid: k=10, x0=0.7 [TUNING]
+        // 拐点 x0=0.7 → suppression=0.5
+        // max_urgency=0.3 → 0.982 (几乎无抑制)
+        // max_urgency=0.9 → 0.119 (严重抑制)
+        1.0 / (1.0 + (10.0 * (max_urgency - 0.7)).exp())
+    }
+
+    /// ★ v2.0 进阶需求系统 (04-进阶需求系统.md §4)
+    /// IntrinsicGoal → action_weight 的形式化公式
+    /// commitment × relevance → 偏好偏置, range [1.0, 3.0]
+    /// 详见 04-进阶需求系统 §4.2-4.4
+    fn intrinsic_motivation_weight(
+        &self,
+        action: &ActionType,
+        goals: &[IntrinsicGoal],
+    ) -> f32 {
+        let active_goals: Vec<_> = goals.iter()
+            .filter(|g| g.state == GoalState::Active)
+            .collect();
+
+        if active_goals.is_empty() {
+            return 1.0; // 无目标 → 不产生影响
+        }
+
+        let mut weight = 1.0;
+        for goal in &active_goals {
+            let relevance = action_relevance(&goal.category, action);
+            if relevance < 0.1 { continue; }
+            let commitment = goal.commitment_strength();
+            weight *= 1.0 + relevance * commitment * 0.5;
+        }
+
+        weight.clamp(1.0, 3.0)
+    }
+
+    /// ★ v2.0 进阶需求系统 (04-进阶需求系统.md §5.2)
+    /// ERG 挫折回归 — 决策前预处理
+    /// 当内在目标长期进展缓慢时，临时提升 Layer 2 基本需求敏感度
+    /// 不持久化修改 — 每次决策重新计算
+    /// 详见 04-进阶需求系统 §5.2.2
+    fn apply_frustration_regression(
+        goals: &[IntrinsicGoal],
+        sensitivity: &mut NeedSensitivity,
+    ) {
+        let active_goals: Vec<_> = goals.iter()
+            .filter(|g| g.state == GoalState::Active)
+            .collect();
+
+        if active_goals.is_empty() { return; }
+
+        let avg_frustration: f32 = active_goals.iter()
+            .map(|g| 1.0 - g.progress)
+            .sum::<f32>() / active_goals.len() as f32;
+
+        if avg_frustration < 0.6 { return; } // [TUNING] 阈值
+
+        let r = ((avg_frustration - 0.6) / 0.4).clamp(0.0, 1.0);
+
+        // 临时敏感度调制（仅本次决策）
+        sensitivity.social  *= 1.0 + r * 0.50; // [TUNING]
+        sensitivity.esteem  *= 1.0 + r * 0.40;
+        sensitivity.hunger  *= 1.0 + r * 0.30;
+        sensitivity.libido  *= 1.0 + r * 0.25;
     }
 }
 
@@ -1788,6 +1918,8 @@ impl SelfNarrative {
 ### 2.8.3 内在驱动目标
 
 > 扩展 GOAP——从纯粹匮乏驱动到意义驱动。内在目标进入概率决策器（`intrinsic_motivation_weight` 乘数），**不走** GOAP 安全网——它们是"想要"而非"必须"。
+>
+> ★ v2.0 进阶需求系统 ([[04-进阶需求系统]]) 形式化了 `intrinsic_motivation_weight` 的完整公式（`commitment × relevance → 偏好偏置`），并新增 **挫折回归** 桥接：当内在目标长期进展缓慢时 → 临时提升 Layer 2 基本需求敏感度（社交/尊重/饥饿/libido）。详见 [[04-进阶需求系统#§五|§五 跨层桥接]]。
 
 ```rust
 /// 内在驱动目标——从 SelfNarrative 生成

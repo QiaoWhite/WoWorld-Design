@@ -13,15 +13,30 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md",
+                "file": "Change/hand/0-提示词考量角度.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "NPC活人感开发文档ver2.0"
+              "title": "0-提示词考量角度"
+            }
+          },
+          {
+            "id": "336c68f0098d4aee",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Change/hand/0-提示词考量角度.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "0-提示词考量角度"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -78,7 +93,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 365.5
   },
   "right": {
     "id": "6f0207a97ef0afb2",
@@ -192,13 +207,27 @@
               "icon": "lucide-file",
               "title": "补充内容"
             }
+          },
+          {
+            "id": "79265590e5c117f6",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "参考文档/023-载具系统设计探讨-20260615/设计草稿/003-操控与导航.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "003-操控与导航"
+            }
           }
         ],
-        "currentTab": 6
+        "currentTab": 7
       }
     ],
     "direction": "horizontal",
-    "width": 200
+    "width": 472.5
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -211,44 +240,44 @@
       "bases:新建数据库": false
     }
   },
-  "active": "7ef170f8dfaf12d5",
+  "active": "336c68f0098d4aee",
   "lastOpenFiles": [
-    "Happy Game/开发阶段/NPC活人感模块/03-基本需求系统.md",
-    "Happy Game/开发阶段/NPC活人感模块/02-性别与吸引力系统.md",
-    "参考文档/021-WoWorld设计文档补全规划-20260613/001-设计文档补全总体规划.md",
-    "参考文档/020-战斗系统文档审查-缺陷不足矛盾与优化-20260611/001-缺陷不足矛盾与优化.md",
+    "Happy Game/开发阶段/音频系统/008-跨模块接口与数据合同.md.tmp.8720.26f99af3c92f",
+    "Happy Game/开发阶段/音频系统/001-音频系统总纲.md.tmp.8720.c72febd1c1df",
+    "Happy Game/开发阶段/音频系统/009-性能预算与存储分析.md.tmp.8720.a49077f39893",
+    "Happy Game/开发阶段/音频系统/002-声音足迹与发射模型.md.tmp.8720.7d387f2a3a56",
+    "Happy Game/开发阶段/音频系统/007-提示音系统.md.tmp.8720.f053c0676d29",
+    "Happy Game/开发阶段/音频系统/008-跨模块接口与数据合同.md.tmp.8720.7c11d8da884f",
+    "Change/hand/修改1 20260602.md",
+    "Happy Game/开发阶段/音频系统/008-跨模块接口与数据合同.md.tmp.8720.25b92b8cdb29",
+    "Change/hand/0-提示词考量角度.md",
+    "Happy Game/开发阶段/音频系统/001-音频系统总纲.md.tmp.8720.bd77327b5be0",
+    "Happy Game/开发阶段/音频系统/002-声音足迹与发射模型.md.tmp.8720.585a8bfa5e09",
+    "Happy Game/开发阶段/音频系统/002-声音足迹与发射模型.md.tmp.8720.da3e8b221332",
+    "Happy Game/开发阶段/权力系统/002-普适权力原子.md",
     "Happy Game/开发阶段/权力系统/001-权力系统总纲.md",
-    "Happy Game/开发阶段/家具系统设计.md",
-    "Change/CHG-027-基本需求系统v1.0创建-20260615.md",
-    "Change/CHG-027-基本需求系统v1.0创建-20260615.md.tmp.8720.ead8fa2a9ae4",
-    "Happy Game/开发阶段/物品系统/003-物品属性与品质.md.tmp.8720.7a4b63e6cf15",
-    "Happy Game/开发阶段/生命/004-身体状态与生命过程.md.tmp.8720.fffcc62d0f66",
-    "Happy Game/开发阶段/NPC活人感模块/03-基本需求系统.md.tmp.8720.39adc9257e5b",
-    "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md.tmp.8720.2bc8fcabfbda",
-    "Happy Game/开发阶段/NPC活人感模块/03-基本需求系统.md.tmp.8720.a16d779e587d",
-    "Happy Game/开发阶段/NPC活人感模块/03-基本需求系统.md.tmp.8720.6522dd9da112",
-    "Change/hand/考量角度.md",
-    "Happy Game/开发阶段/物品系统/001-物品系统总纲.md.tmp.8720.bda1472d6546",
-    "Happy Game/开发阶段/物品系统/003-物品属性与品质.md.tmp.8720.39d661378229",
-    "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md.tmp.8720.b2ef6a1965bc",
-    "参考文档/024-NPC基本需求系统设计探讨-20260615/005-性能与存储预算.md",
-    "参考文档/024-NPC基本需求系统设计探讨-20260615/004-决策器集成方案.md",
-    "参考文档/024-NPC基本需求系统设计探讨-20260615/003-跨模块依赖与接口清单.md",
-    "参考文档/024-NPC基本需求系统设计探讨-20260615/002-元素平衡需求深化设计.md",
-    "参考文档/024-NPC基本需求系统设计探讨-20260615/001-需求维度梳理与统一框架.md",
-    "Happy Game/开发阶段/载具系统/001-总纲与核心概念.md",
-    "参考文档/023-载具系统设计探讨-20260615/设计草稿/004-损伤维修与沉没.md",
-    "Happy Game/开发阶段/载具系统/009-命名系统.md",
-    "Happy Game/开发阶段/载具系统/008-载具定义与涌现.md",
-    "Happy Game/开发阶段/载具系统/007-基础设施.md",
-    "Happy Game/开发阶段/载具系统/006-经济与货运.md",
-    "Happy Game/开发阶段/载具系统/005-产权与契书.md",
-    "Happy Game/开发阶段/载具系统/004-损伤维修与沉没.md",
-    "Happy Game/开发阶段/载具系统/003-操控与导航.md",
-    "Happy Game/开发阶段/载具系统/002-推进与动力.md",
-    "Happy Game/开发阶段/载具系统/010-跨模块接口.md",
-    "参考文档/023-载具系统设计探讨-20260615/设计草稿/001-总纲与核心概念.md",
-    "参考文档/023-载具系统设计探讨-20260615/设计草稿/003-操控与导航.md",
+    "Happy Game/开发阶段/世界生成/007-体素设计决策.md",
+    "Happy Game/开发阶段/世界生成/005-建筑与房间生成.md",
+    "Happy Game/开发阶段/世界生成/001-世界生成总流程.md",
+    "Happy Game/开发阶段/物品系统/003-物品属性与品质.md",
+    "Happy Game/开发阶段/物品系统/001-物品系统总纲.md",
+    "Happy Game/开发阶段/音频系统/004-混合与掩蔽引擎.md",
+    "Happy Game/开发阶段/音频系统/README.md",
+    "参考文档/README.md",
+    "参考文档/020-战斗系统文档审查-缺陷不足矛盾与优化-20260611/001-缺陷不足矛盾与优化.md",
+    "参考文档/022-节日系统设计探讨-20260614/001-节日产生与类型.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/002-节日时间与结构.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/001-节日产生与类型.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/README.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/009-玩家体验.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/008-跨模块接口与性能.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/007-节日演变与历史记忆.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/006-语言表达与节日.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/005-权力与空间.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/004-经济与物质文化.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/003-NPC参与与人群行为.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/节日与仪式系统概览.md",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统",
     "Happy Game/想法/WoW World/生命/NPC/角色处理对象时的心理作用.canvas"
   ]
 }

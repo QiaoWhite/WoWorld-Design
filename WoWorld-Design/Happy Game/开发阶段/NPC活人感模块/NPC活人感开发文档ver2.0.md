@@ -159,6 +159,31 @@ pub struct NpcData {
     /// 缓存在 NpcData 中以避免每决策周期重新查表
     /// 仅在人格发生极端冲击(创伤>0.9 或 长期环境冲突>100日)后重新计算
     pub need_sensitivity: NeedSensitivity,
+
+    // ── ★ v1.0 音频系统 ([[../音频系统/001-音频系统总纲|音频系统]]) ──
+    /// 瞬时动作环形记录（最近 64 帧，~1s）
+    /// 各模块写入自己的 ActionAtom——音频模块消费，决策器/记忆/大日志也消费
+    /// 类型: woworld_types::ActionRingBuffer
+    pub action_log: ActionRingBuffer,
+
+    /// 正在说的话——语言表达模块写入，音频模块轮询
+    /// None = 当前不在说话
+    /// 类型: woworld_types::CurrentSpeech
+    pub current_speech: Option<CurrentSpeech>,
+
+    /// 主动沉默意图——潜行/躲藏/装死/憋气
+    /// 其他 NPC 可通过 AudioQuery 感知"太安静了"
+    /// 类型: woworld_types::SilenceIntent
+    pub silence: Option<SilenceIntent>,
+
+    /// 听觉感知参数——从种族+大五人格+年龄派生，对标 Physiology 模式
+    /// 类型: woworld_types::HearingModel
+    pub hearing: HearingModel,
+
+    /// 语音声学身份——从种族×性别×年龄×大五人格生成
+    /// 所有权归属音频模块（v1.0 从语言表达 012 迁入）
+    /// 类型: woworld_types::VoiceProfile
+    pub voice_profile: VoiceProfile,
 }
 ```
 

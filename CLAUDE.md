@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/05-审美与艺术系统|审美与艺术系统 v1.0]]（2026-06-16）——6维AestheticSignal三层管道+4事件原子+HasAestheticSignal trait 12实现者+FineArts独立技能大类。模块累计 18 个独立系统，~63,100行正式开发规格。
+**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/音频系统/001-音频系统总纲|音频系统 v1.0]]（2026-06-16）——双层架构·拉模型·五类声音·SoundFootprint物理模型·传播引擎·掩蔽引擎·语音管道·音乐三层模型·提示音系统·17模块跨模块接口。模块累计 19 个独立系统（含19个子模块），~69,500行正式开发规格。
 
 ## 文档结构
 
@@ -46,6 +46,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `历史/` — **历史系统 6 篇**（事件因果链三层模型·趋势→力量→事件、生命痕迹七种情境·双重驱动、Work→PhysicalBook书籍模型、灵元素印记·读树、文物痕迹·关系遗产、大日志——纯功能性外置大脑·全量记录·渐进验证·纠错·关系图谱）
   - `经济系统/` — **经济系统 9 篇 + README**（限价订单簿撮合引擎+分层定价、Market/Storefront市场模型、价格从交易涌现、交易主体四条件涌现、MarketRegulations参数化经济体制、PowerAtom权力原子框架、行为经济学×NPC心智映射、货币三管道+五大自动稳定器、LLM经济增强层）
   - `载具系统/` — **★ 载具系统 10 篇 + README**（最新完成 2026-06-15。VehicleId+契书双重身份、VehicleArchetype×文化涌现→VehicleDef、五种动力类型+MagicEngine魔法集成、L1-L3半自动操控+VehicleController trait、三通道连续损伤+紧急修补+沉没事件链、记忆优先契书可选产权+伪造/篡改/检测、移动容器货运+运费NPC心智涌现、铁路P9极低概率涌现、10模块素材注入命名、VehicleQuery/VoiceMut跨模块接口。~8,000行）
+  - `音频系统/` — **★ 音频系统 9 篇 + README**（最新完成 2026-06-16。双层架构·拉模型·五类声音分类、SoundFootprint物理模型+ActionRingBuffer+HasSoundEmitter、传播引擎：几何衰减+介质吸收+风调制+温度梯度+障碍遮挡+多普勒+介质边界+传播延迟、混合与掩蔽引擎：频段分割+话语清晰度+广播式声场、语音管道：内容×声音分离+CurrentSpeech时间维度+打断+VoiceProfile所有权迁入、音乐三层模型：系统BGM+世内NPC演奏+玩家自定义、提示音系统：PlayerNotificationEvent+world_core事件总线+规则表+六滑条、17模块完整跨模块接口·AudioQuery 30方法、性能预算 Rust 0.17ms+RAM 10.4MB。~6,400行）
 
 ### `Change/` — 设计变更追踪
 按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名。当前：
@@ -66,6 +67,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **[CHG-027](WoWorld-Design/Change/CHG-027-基本需求系统v1.0创建-20260615.md)**：基本需求系统 v1.0 创建——1篇主文档+5篇讨论草稿。7维需求统一框架（4旧升级+3新:元素平衡/libido/社交归属）+ urgency=deviation×sensitivity 统一公式 + bottleneck 瓶颈模型 + ConsumableEffect 数据合同。修改 Life/004、NPC ver2.0、Items/001/003
 - **[CHG-028](WoWorld-Design/Change/CHG-028-进阶需求系统v1.0创建-20260615.md)**：进阶需求系统 v1.0 创建——1篇主文档+8篇讨论草稿。三层需求模型（生存→心理→成长）+2新维度（尊重/认可+胜任挫折）+ IntrinsicGoal形式化（commitment×relevance→偏好偏置）+2跨层桥接（sigmoid生存抑制+ERG挫折回归）。唯一新跨模块方法：CultureQueryExt::honor_weight_for_domain()。修改 03-基本需求系统、NPC ver2.0、文化系统/006
 - **[CHG-029](WoWorld-Design/Change/CHG-029-审美系统v1.0创建-20260616.md)**：★ 审美与艺术系统 v1.0 创建——1篇正式规格~800行+9篇讨论草稿~7,500行。6维AestheticSignal+4维AestheticJudgment三层管道+4事件原子(React/Articulate/Adopt/Embellish)+HasAestheticSignal trait 12实现者+技能系统FineArts独立第6大类(4子组8技能)。零状态引擎(对标WeatherQuery)+零反向依赖+全部艺术现象从原子涌现。修改 NPC ver2.0、技能系统 002、物品系统 004
+- **[CHG-030](WoWorld-Design/Change/CHG-030-音频系统v1.0创建-20260616.md)**：★ 音频系统 v1.0 创建——9篇正式规格~6,400行+10篇讨论草稿。双层架构·拉模型·五类声音(WorldSound/Voice/Music/Notification/Accessibility)。SoundFootprint物理模型(表面接触+运动+发声→声音涌现)、传播引擎(几何衰减+介质吸收+风调制+温度梯度+障碍遮挡+多普勒+介质边界+传播延迟)、混合与掩蔽引擎(频段分割+话语清晰度五档+广播式声场)、语音管道(CurrentSpeech时间维度+打断+CancelReason+VoiceProfile迁入)。对话内容(语言表达)与声音(音频)分离。17模块零直接依赖音频crate。修改 NPC ver2.0、物品 003、天气 004、战斗 004
 - 详见 `Change/README.md`
 
 **`Change/hand/`** — 用户直接设计反馈。包含对跨模块冲突的具体裁决意见（如魔力恢复速度以Magic为准、部位伤害以Combat为准、spirit过载方案等）。修改涉及的设计决策时，需检查此目录是否有相关意见。
@@ -83,6 +85,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **024** | [NPC基本需求系统设计探讨](WoWorld-Design/参考文档/024-NPC基本需求系统设计探讨-20260615/) — 5篇讨论草稿。7维需求统一框架+元素平衡+libido+社交/归属+决策器集成+性能预算→正式规格 [[../Happy Game/开发阶段/NPC活人感模块/03-基本需求系统|03-基本需求系统]] |
 | **025** | [NPC进阶需求系统设计探讨](WoWorld-Design/参考文档/025-NPC进阶需求系统设计探讨-20260615/) — 8篇讨论草稿~4,000行。理论框架（马斯洛/ERG/SDT）+尊重/认可+胜任挫折+IntrinsicGoal形式化+跨层桥接+跨模块接口全面清单+决策器集成+性能预算→正式规格 [[../Happy Game/开发阶段/NPC活人感模块/04-进阶需求系统|04-进阶需求系统]] |
 | **026** | [审美系统设计探讨](WoWorld-Design/参考文档/026-审美系统设计探讨-20260616/) — 9篇讨论草稿~7,500行。理论框架(神经科学/心理学)+6维信号+4维判断+4事件原子+HasAestheticSignal 12实现者+AestheticTaste派生公式+跨模块接口全面清单+决策器集成+性能预算→正式规格 [[../Happy Game/开发阶段/NPC活人感模块/05-审美与艺术系统|05-审美与艺术系统]] |
+| **027** | [音频系统设计探讨](WoWorld-Design/参考文档/027-音频系统设计探讨-20260616/) — 10篇讨论草稿（大纲）。五类声音·拉模型·SoundFootprint·传播引擎·掩蔽引擎·语音管道·音乐·提示音·跨模块清单·性能预算→正式规格 [[../Happy Game/开发阶段/音频系统/001-音频系统总纲|音频系统]] |
 | **021** | [设计文档补全总体规划](WoWorld-Design/参考文档/021-WoWorld设计文档补全规划-20260613/) — Phase 13-19 全部缺失模块的总体规划 |
 | **018** | [**正式技术栈方案 v3.0**](WoWorld-Design/Happy Game/开发阶段/技术栈方案/) ← **★ 当前权威方案（已迁移至开发阶段）** |
 | **017** | [开发阶段测试记录](WoWorld-Design/参考文档/017-开发阶段测试记录-20260610/) — 方法论+50份双视角测试报告 |
@@ -381,6 +384,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `CulturalBeautyStandard` | **文化系统** `004`（保持所有权） | NPC 02 / AestheticTaste 初始派生 | 审美模块不拥有 CBS——仅通过 derive_taste() 的参数引用 culture_params |
 | `AestheticProps` | **物品系统** `003`（保持所有权） | 物品 HasAestheticSignal impl | 审美模块不引用 StyleTag/AestheticProps——物品系统在自己的 trait impl 中完成 AestheticProps→Signal 映射 |
 | `judge_outfit()` | **物品系统** `004`（保留便捷包装）→ 委托给 **审美系统** `judge()` | NPC | v1.1 重写：内部调用 judge(outfit_signal, taste, ctx)——不再独立实现逻辑 |
+
+### CHG-030 新增契约（音频系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| `SoundFootprint` (物理声学快照) | **音频模块** `002`（定义 struct）→ 各模块（写入实体） | 全部模块 | 描述物理现实（表面接触+运动+发声+物品交互+沉默）——不描述游戏语义。音频模块拥有映射逻辑。定义在 woworld_types |
+| `ActionRingBuffer` (瞬时动作记录) | **音频模块** `002`（定义类型）→ 各模块（写入） | NPC决策器/记忆/大日志/音频 | 64 条×16B 环形记录。各模块本来就要记录"最近做了什么"——音频模块为多个消费者之一 |
+| `AudioMaterial` (装备声学材质) | **音频模块** `002`（定义枚举·15变体）→ **物品系统**（存储） | 音频模块（读取+映射声音） | 对标 ConsumableEffect schema 模式——音频定义，物品只存不解。`Option<AudioMaterial>` 单字段 |
+| `SurfaceMaterial` (地表声学材质) | **音频模块** `002`（定义枚举·21变体）→ **世界生成**（在Chunk上赋值） | 音频模块（脚步+碰撞映射） | 统一地表声学分类——替代各模块自制的"地面类型" |
+| `HasSoundEmitter` trait | **音频模块** `002`（定义）→ 各模块（impl） | 音频模块 | 对标 HasAestheticSignal 模式。active_sounds()→持续声源（引擎/结界/瀑布）。零分配 |
+| `HasSoundFootprint` trait | **音频模块** `002`（定义）→ 各模块（impl） | 音频模块 | 暴露 SoundFootprint + ActionRingBuffer。消费方定义 trait，提供方 impl |
+| `HearingModel` (听觉参数) | **音频模块** `002`（定义 struct）→ Life/NPC（初始化存储） | NPC感知系统/战斗系统 | 听觉阈值+方向性+频率范围+听力损伤偏移。对标 Physiology 从 Vitals 派生模式 |
+| `VoiceProfile` (声学身份) | **★音频模块** `005`（从语言表达 012 迁入） | NPC(存储)/语言表达(TTS消费)/社交系统 | 声学参数(base_pitch/timbre/speed/expressiveness/breathiness/roughness)。生成公式：种族×性别×年龄×大五。TtsEngine trait 保留在语言表达(渲染层) |
+| `VoiceEmotionModulation` | **★音频模块** `005`（从语言表达 012 迁入） | 语言表达(TTS渲染) | 情绪→声学调制(pitch_shift/speed/volume/tremor/breathiness)。音频模块从 EmotionState 派生 |
+| `VoiceManager` (播放队列) | **★音频模块** `005`（从语言表达 012 迁入） | 语言表达(TTS播放) | 五级 VoicePriority 队列+打断仲裁。Critical 打断一切 |
+| `CurrentSpeech` (正在说的话) | **语言表达模块**（写入）→ **音频模块**（轮询） | NPC感知/记忆 | 语言表达写入 NpcData，不知道音频在读。包含 expression_ref+word_count+words_per_second+delivery |
+| `SpeechPerception` / `fraction_heard` | **音频模块** `005` | NPC感知→语言表达 resolve_partial() | 对话时间维度：fraction_heard=传到了多少(传播延迟+语速×时间)，clarity=清晰度(掩蔽)。听者整合→部分文本 |
+| `CancelReason` (打断原因) | **音频模块** `005` | NPC感知/记忆 | 8种打断原因(SourceDied/Unconscious/Teleported/Submerged/CombatImpact/Preempted/MagicallySilenced/VoluntaryStop) |
+| `AudioQuery` trait (30方法) | **音频模块** `008` | 全部模块 | pub trait(Send+Sync)——对标 WeatherQuery。perceived_sounds()/perceived_speech()/ambient_noise_level()/acoustic_space()/speed_of_sound()/audible_radius()等。零分配 |
+| `audible_radius()` / `effective_audible_radius()` | **★音频模块**（从语言表达 011 迁入） | 语言表达/战斗/NPC | 六因子公式(距离×环境噪声×地形×天气×文化×个性)迁至音频模块——这是声音传播物理 |
+| `AudioRenderPacket` | **音频模块** | Godot 渲染层 | 对标 WeatherVisualPacket。每帧 ~3KB——包含 SoundRenderCommand[]+VoicePacket+MusicState+Notification+AmbientMix |
+| 声音五分类 | **音频模块** `001` | 全部模块 | WorldSound(模拟层·3D·NPC可闻)/Voice(模拟+渲染·3D)/Music(渲染层·2D)/Notification(渲染层·2D)/Accessibility(渲染层·2D) |
+| 传播引擎（衰减/吸收/风/温度/遮挡/介质边界） | **音频模块** `003` | — | 全部物理公式由音频模块 OWN。三种衰减/掩蔽/混响模型可选(TOML)。风矢量调制所有传播——不是仅背景风声 |
+| 掩蔽引擎（频段分割/清晰度/环境噪声） | **音频模块** `004` | NPC记忆(话语清晰度→文本模糊化)/战斗 | 话语清晰度五档(Perfect/Clear/Garbled/Fragment/Inaudible)→决定语言表达 resolve_partial() 返回什么质量 |
+| `PlayerNotificationEvent` (提示音·~45变体) | **音频模块** `007`（订阅 world_core 事件总线） | 全部模块（发射事件） | 各模块通过 world_core 发射枚举——不知道音频存在。音频订阅→查 notification_sounds.toml→播放 |
+| 音乐三层模型 | **音频模块** `006` | 文化模块(FestivalMusicPreset)/技能(FineArts) | Layer1:系统BGM(情境×分层)/Layer2:世内NPC演奏(覆盖BGM)/Layer3:玩家自定义。文化模块定义节日预设——映射/过渡/分层在音频 |
+| `AcousticTag` / `AcousticSpace` / `ReverbProfile` | **音频模块** `004`（定义+展开）→ **世界生成**（建筑上设置AcousticTag） | Godot混响渲染 | 世界生成只设标签(SmallRoom/StoneCathedral)——音频展开为AcousticSpace(叠加人数/天气) |
+| `AudioAssetId` (u32) | **音频模块**（分配） | Godot渲染层 | 对标 ItemDefId。集中式 `audio/` 目录 + `audio_asset_map.toml` 映射表。Mod替换=换TOML+文件 |
+| `SoundAestheticMetadata` | **音频模块**（填充）→ **审美模块**（消费） | 审美系统 | PerceivedSound 中附带 harmonic_complexity/rhythmic_regularity/frequency_centroid/temporal_variation |
+| 身体声音（心跳/呼吸/肚子叫） | **音频模块**（内部）→ 消费 Vitals | — | 直接读 Life 已有 Vitals 查询——不新增接口。心跳:health<0.3加强+fear+exertion。呼吸:stamina<0.3。肚子叫:hunger>0.6概率 |
+| 对话内容(语言表达) vs 声音(音频)分离 | **语言表达**（内容层）+ **音频模块**（声音层） | NPC感知 | 对标"书的内容(语言表达) vs 书的物理属性(物品系统)"。语言表达不知音频在读CurrentSpeech |
+| 跨L层声音传播 | **音频模块** `001` | 全部 | L1全入缓冲/L2强度门控(can_reach_l1)/L3≥120dB+传播延迟/L2感知用聚落聚合(SettlementAudioAggregate对标SettlementFaithSnapshot) |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 

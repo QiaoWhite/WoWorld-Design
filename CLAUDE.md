@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/04-进阶需求系统|进阶需求系统 v1.0]]（2026-06-15）——三层需求模型（生存→心理→成长）+2新维度（尊重/认可+胜任挫折）+ IntrinsicGoal形式化（commitment×relevance）+2跨层桥接（sigmoid生存抑制+ERG挫折回归）。模块累计 17 个独立系统，~62,300行正式开发规格。
+**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/05-审美与艺术系统|审美与艺术系统 v1.0]]（2026-06-16）——6维AestheticSignal三层管道+4事件原子+HasAestheticSignal trait 12实现者+FineArts独立技能大类。模块累计 18 个独立系统，~63,100行正式开发规格。
 
 ## 文档结构
 
@@ -35,7 +35,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `游戏概述.md` — **游戏愿景与设计哲学**（创建另一个"人世"、核心竞争力、参考精神）
   - `README.md` — 模块总索引
   - `技术栈方案/` — **★ 正式技术栈方案 v3.0**（Rust+Godot架构、世界生成、性能预算、开发路线——所有技术决策的权威依据）
-  - `NPC活人感模块/` — NPC系统权威规格（**ver2.0**，Rust伪代码。含 `03-基本需求系统` — 7维需求统一框架 v1.0、`04-进阶需求系统` — 三层需求模型 v1.0（尊重/认可+胜任挫折+IntrinsicGoal形式化+跨层桥接））
+  - `NPC活人感模块/` — NPC系统权威规格（**ver2.0**，Rust伪代码。含 `03-基本需求系统` — 7维需求统一框架 v1.0、`04-进阶需求系统` — 三层需求模型 v1.0（尊重/认可+胜任挫折+IntrinsicGoal形式化+跨层桥接）、**`05-审美与艺术系统`** — 6维AestheticSignal三层管道+4事件原子+HasAestheticSignal trait 12实现者+FineArts独立技能大类 v1.0）
   - `文化系统/` — **文化系统 8 篇**（CultureCoreParams 10核心参数+三层派生架构、障碍Voronoi空间模型、CommunicationNorms所有权转移、审美/技术派生、演变四路径、地名系统31种实体类型+命名价值评分、节日与仪式系统 RitualDef统一原子+四类节日生成+权力桥接零耦合。~10,000行）
       - `信仰系统/` -- **★ 信仰系统 10 篇**（最新完成 2026-06-15。实践优先模型 ReligiousPracticeProfile、FaithTheology 10连续参数、NPC→NPC接触传染5渠道+4改变路径、FaithCalendarQuery trait实现、Divine授权事件桥接零耦合。~3,750行）
       - `权力系统/` -- **权力系统 9 篇 + README**（17普适权力原子+PowerTopology有向多重图+8条获取路径+Legitimacy 5因子+Duty制裁塌缩链+Polity涌现+外交6因子。~4,100行）
@@ -65,6 +65,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **[CHG-026](WoWorld-Design/Change/CHG-026-载具系统v1.0设计-20260615.md)**：载具系统 v1.0 创建——10篇+README，~8,000行。五种动力类型+MagicEngine魔法集成+L1-L3半自动操控+三通道损伤+记忆优先契书可选产权+移动容器货运+VehicleArchetype×文化涌现VehicleDef
 - **[CHG-027](WoWorld-Design/Change/CHG-027-基本需求系统v1.0创建-20260615.md)**：基本需求系统 v1.0 创建——1篇主文档+5篇讨论草稿。7维需求统一框架（4旧升级+3新:元素平衡/libido/社交归属）+ urgency=deviation×sensitivity 统一公式 + bottleneck 瓶颈模型 + ConsumableEffect 数据合同。修改 Life/004、NPC ver2.0、Items/001/003
 - **[CHG-028](WoWorld-Design/Change/CHG-028-进阶需求系统v1.0创建-20260615.md)**：进阶需求系统 v1.0 创建——1篇主文档+8篇讨论草稿。三层需求模型（生存→心理→成长）+2新维度（尊重/认可+胜任挫折）+ IntrinsicGoal形式化（commitment×relevance→偏好偏置）+2跨层桥接（sigmoid生存抑制+ERG挫折回归）。唯一新跨模块方法：CultureQueryExt::honor_weight_for_domain()。修改 03-基本需求系统、NPC ver2.0、文化系统/006
+- **[CHG-029](WoWorld-Design/Change/CHG-029-审美系统v1.0创建-20260616.md)**：★ 审美与艺术系统 v1.0 创建——1篇正式规格~800行+9篇讨论草稿~7,500行。6维AestheticSignal+4维AestheticJudgment三层管道+4事件原子(React/Articulate/Adopt/Embellish)+HasAestheticSignal trait 12实现者+技能系统FineArts独立第6大类(4子组8技能)。零状态引擎(对标WeatherQuery)+零反向依赖+全部艺术现象从原子涌现。修改 NPC ver2.0、技能系统 002、物品系统 004
 - 详见 `Change/README.md`
 
 **`Change/hand/`** — 用户直接设计反馈。包含对跨模块冲突的具体裁决意见（如魔力恢复速度以Magic为准、部位伤害以Combat为准、spirit过载方案等）。修改涉及的设计决策时，需检查此目录是否有相关意见。
@@ -81,6 +82,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **023** | [载具系统设计探讨](WoWorld-Design/参考文档/023-载具系统设计探讨-20260615/) — 5篇讨论草稿~2,000行。载具身份+契书+动力+操控+损伤+产权+货运+Names+跨模块接口→正式规格 |
 | **024** | [NPC基本需求系统设计探讨](WoWorld-Design/参考文档/024-NPC基本需求系统设计探讨-20260615/) — 5篇讨论草稿。7维需求统一框架+元素平衡+libido+社交/归属+决策器集成+性能预算→正式规格 [[../Happy Game/开发阶段/NPC活人感模块/03-基本需求系统|03-基本需求系统]] |
 | **025** | [NPC进阶需求系统设计探讨](WoWorld-Design/参考文档/025-NPC进阶需求系统设计探讨-20260615/) — 8篇讨论草稿~4,000行。理论框架（马斯洛/ERG/SDT）+尊重/认可+胜任挫折+IntrinsicGoal形式化+跨层桥接+跨模块接口全面清单+决策器集成+性能预算→正式规格 [[../Happy Game/开发阶段/NPC活人感模块/04-进阶需求系统|04-进阶需求系统]] |
+| **026** | [审美系统设计探讨](WoWorld-Design/参考文档/026-审美系统设计探讨-20260616/) — 9篇讨论草稿~7,500行。理论框架(神经科学/心理学)+6维信号+4维判断+4事件原子+HasAestheticSignal 12实现者+AestheticTaste派生公式+跨模块接口全面清单+决策器集成+性能预算→正式规格 [[../Happy Game/开发阶段/NPC活人感模块/05-审美与艺术系统|05-审美与艺术系统]] |
 | **021** | [设计文档补全总体规划](WoWorld-Design/参考文档/021-WoWorld设计文档补全规划-20260613/) — Phase 13-19 全部缺失模块的总体规划 |
 | **018** | [**正式技术栈方案 v3.0**](WoWorld-Design/Happy Game/开发阶段/技术栈方案/) ← **★ 当前权威方案（已迁移至开发阶段）** |
 | **017** | [开发阶段测试记录](WoWorld-Design/参考文档/017-开发阶段测试记录-20260610/) — 方法论+50份双视角测试报告 |
@@ -358,6 +360,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `intrinsic_motivation_weight()` | **NPC 模块**（权重链） | 仅概率引擎 | `∏(1 + relevance×commitment×0.5)`, clamp [1,3]。relevance 为纯函数——可编译时优化 |
 | `NeedTag::Esteem` / `NeedTag::Competence` | **NPC 模块** | ActionType 定义 | 新增 2 个需求标签。SeekRecognition/Compete/TrainSkill/SeekMentor 等行为映射 |
 | GOAP 安全网边界 | **NPC GOAP** | 全部模块 | 进阶需求系统**不修改 GOAP**——心理需求不进安全网。只有生存需求+配偶压力进 |
+
+### CHG-029 新增契约（审美与艺术系统 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| `AestheticSignal` (6维) | **审美系统** `05` | 全部模块（通过 HasAestheticSignal trait） | 审美模块只定义 struct——各实体模块在 trait impl 中计算。6维: fluency/novelty/complexity/harmony/expressiveness/virtuosity |
+| `AestheticJudgment` (4维) | **审美系统** `05` | NPC/经济/战斗/情绪 | judge() 纯函数输出——零副作用。4维: valence/arousal/interest/respect |
+| `AestheticTaste` | **审美系统** `05`（定义+派生公式）→ **NPC 模块**（存储于 NpcData） | NPC 决策器/情绪引擎 | 对标 ReligiousPracticeProfile 模式。32B Copy 类型。青春期 derive_taste()，年更新 mature_taste()，Adopt 事件传播 |
+| `HasAestheticSignal` trait | **审美系统** `05`（定义）→ 各模块（实现） | 全部 | 12 个实现者覆盖 ItemEntId/BuildingId/CreatureId/NpcId/VehicleId/ScenePosition/PerformanceRef/SkillActionRef/CombatExchangeRef/SpellCastRef/MagicConstructRef/RitualRef。对标 ConsumableEffect schema 模式 |
+| `judge()` 纯函数 | **审美系统** `05` | 任何模块 | 零副作用、零 I/O、零分配。确定性 jitter（seed=hash 三元组，存档可复现）。三层门控：注意力层→judge()层(全精度)→效应层(React/Articulate 调制) |
+| `AestheticContext` | **审美系统** `05`（定义）→ 调用方（NPC 感知系统组装） | judge() | familiarity/prior_expectation 由调用方从记忆/文化/物品系统查询后填入——审美模块不查询任何模块 |
+| React 原子 | **审美系统** `05**（处理） | 情绪引擎/记忆系统/行为树 | 判断→内部状态：情绪 delta + 记忆写入 + somatic_impact + 行为倾向。每次 judge() 后自动执行 |
+| Articulate 原子 | **审美系统** `05**（处理） | 语言表达系统/经济系统/行为树 | 判断→外化：5通道(Silent/Exclamation/Social/Critique/Behavioral)。生存压力几乎完全压制语言通道 |
+| Adopt 原子 | **审美系统** `05**（处理） | NPC AestheticTaste | 品味传播唯一机制。有效力=credibility×intensity×(1-aesthetic_confidence)。时尚/共识/流派全部从大量 Adopt 统计涌现 |
+| Embellish 原子 | **审美系统** `05**（处理）→ **物品系统**（create_item） | 物品/经济/历史 | 审美意图→持久产出：Embellish(NewItem)→ItemRegistry::create_item()。novelty 对技能依赖 0.2（创意≠技术），virtuosity 0.95 |
+| 注意力门控 | **NPC 感知系统** | — | 审美模块不管理注意力——调用方决定 judge() 是否被调用。饥饿者不注意到墙上的画 |
+| 情欲吸引力 | **NPC 02-性别与吸引力系统** | — | 情欲=审美判断×吸引力×libido×社会——四系统交叉涌现。不归入审美模块 |
+| `FineArts` 技能大类 (0x06) | **技能系统** `002` | NPC/Embellish | 与 Artisan(0x03) 分离——工艺≠艺术。4子组(Visual/Musical/Literary/Performing)8技能。跨类交叉训练最高 0.08（低于 Artisan 内部） |
+| `CulturalBeautyStandard` | **文化系统** `004`（保持所有权） | NPC 02 / AestheticTaste 初始派生 | 审美模块不拥有 CBS——仅通过 derive_taste() 的参数引用 culture_params |
+| `AestheticProps` | **物品系统** `003`（保持所有权） | 物品 HasAestheticSignal impl | 审美模块不引用 StyleTag/AestheticProps——物品系统在自己的 trait impl 中完成 AestheticProps→Signal 映射 |
+| `judge_outfit()` | **物品系统** `004`（保留便捷包装）→ 委托给 **审美系统** `judge()` | NPC | v1.1 重写：内部调用 judge(outfit_signal, taste, ctx)——不再独立实现逻辑 |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层（如 Physiology vs Vitals）时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 

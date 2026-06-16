@@ -122,6 +122,9 @@ pub struct NpcData {
     pub physical: PhysicalAttributes,           // 身体属性（已融合至 LifeEntity.physical，此处为计算视图引用）
     pub appearance: PhysicalAppearance,         // 外貌视觉特征（过渡方案）
     pub attraction_template: AttractionTemplate, // 吸引力偏好模板
+
+    // ── 审美系统（05-审美与艺术系统.md v1.0）──
+    pub aesthetic_taste: AestheticTaste,          // 审美品味（32B，青春期初始化，年更新+Adopt演化）
     pub norm_internalizations: BTreeMap<NormId, NormInternalization>, // 规范内化（稀疏存储）
 
     // ── ★ v1.0 基本需求系统 (03-基本需求系统.md) ──

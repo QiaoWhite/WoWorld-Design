@@ -88,9 +88,6 @@ pub struct NpcData {
     // ── 战斗属性 ──
     pub combat: CombatAttributes,
 
-    // ── 知识 ──
-    pub knowledge: Knowledge,
-
     // ── 自我叙事（替代原 LongTermPlanning 占位符）──
     pub self_narrative: SelfNarrative,
 
@@ -160,32 +157,63 @@ pub struct NpcData {
     /// 仅在人格发生极端冲击(创伤>0.9 或 长期环境冲突>100日)后重新计算
     pub need_sensitivity: NeedSensitivity,
 
-    // ── ★ v1.0 音频系统 ([[../音频系统/001-音频系统总纲|音频系统]]) ──
-    /// 瞬时动作环形记录（最近 64 帧，~1s）
-    /// 各模块写入自己的 ActionAtom——音频模块消费，决策器/记忆/大日志也消费
-    /// 类型: woworld_types::ActionRingBuffer
-    pub action_log: ActionRingBuffer,
+    // ── ★ v1.0 感官与知觉系统 ([[../感官与知觉系统/001-感官系统总纲|感官系统]]) ──
+    /// 感官状态——组合各子模块定义的感官参数
+    /// NPC crate 定义结构做组合，各子模块拥有字段定义权
+    /// 对标已有的 NpcData 组合模式
+    pub sensory: SensoryState,
 
-    /// 正在说的话——语言表达模块写入，音频模块轮询
-    /// None = 当前不在说话
-    /// 类型: woworld_types::CurrentSpeech
-    pub current_speech: Option<CurrentSpeech>,
+    // ── ★ v1.0 感官与知觉系统 — 个人知识 ([[../感官与知觉系统/001-感官系统总纲|感官系统]]) ──
+    /// 仅存超出文化基线的个人知识(~64条)
+    /// 文化基线通过 CulturalKnowledgeBase trait 查询——不重复存储
+    /// 来源: LearnedFromExperience / Taught / Discovered
+    pub knowledge: Knowledge,
 
-    /// 主动沉默意图——潜行/躲藏/装死/憋气
-    /// 其他 NPC 可通过 AudioQuery 感知"太安静了"
-    /// 类型: woworld_types::SilenceIntent
-    pub silence: Option<SilenceIntent>,
+    // ── ★ v1.0 感官与知觉系统 — 审美框架 ([[../感官与知觉系统/001-感官系统总纲|感官系统]]) ──
+    /// 审美框架集——native(文化初始)+personal(个人发展)+adopted(跨文化接触)
+    /// 四独立过程: 获取(intelligence+openness门槛)/深化/衰减(永不完全归零)/激活
+    /// 无硬上限——adopted数量 = learn_rate/decay_rate的自然均衡
+    pub aesthetic_frameworks: AestheticFrameworks,
 
-    /// 听觉感知参数——从种族+大五人格+年龄派生，对标 Physiology 模式
-    /// 类型: woworld_types::HearingModel
-    pub hearing: HearingModel,
+    // ── ★ v1.0 认知与智慧系统 ([[06-认知与智慧系统/001-认知与智慧系统总纲|认知与智慧系统]]) ──
+    /// 认知风格——NPC"如何思考"（4维：直觉-分析/冲动-反思/具象-抽象/顽固-灵活）
+    /// 对标 AestheticTaste（青春期派生→年度成熟）。从BigFive+wisdom+经历派生，随人生变化
+    pub cognitive_style: CognitiveStyle,
 
-    /// 语音声学身份——从种族×性别×年龄×大五人格生成
-    /// 所有权归属音频模块（v1.0 从语言表达 012 迁入）
-    /// 类型: woworld_types::VoiceProfile
-    pub voice_profile: VoiceProfile,
+    /// 认知潮汐——心智此刻的状态（3维：认知负载/反刍压力/心智安静度）
+    /// 对标 Physiology（从已有数据每决策周期派生）
+    pub cognitive_tide: CognitiveTide,
+
+    /// 世界运作模型——NPC持有的信念（≤20条，约1.6KB）
+    /// 对标 Knowledge（~64条个人知识）。MentalModel是粗粒度"信念"，Knowledge是细粒度"事实"
+    pub mental_models: ArrayVec<MentalModel, 20>,
+
+    /// 他人心智归因——Theory of Mind（≤16条，约960B）
+    /// 对标 MentalModel：关于"另一个NPC在想什么"的归因
+    pub mind_attributions: ArrayVec<MindAttribution, 16>,
+
+    /// 信念演变里程碑——回顾性叙事的基础（≤16条，约768B）
+    /// 对标 SelfNarrative.life_chapters
+    pub belief_history: BeliefHistory,
+
+    /// 认知压力指数——0=认知健康，1=认知崩溃边缘
+    /// 对标 self_narrative.stagnation_sense。完全派生，每游戏日更新
+    pub cognitive_distress: f32,
 }
 ```
+
+> ★ v1.0 感官与知觉系统 — 以下类型定义详见 [[../感官与知觉系统/001-感官系统总纲|感官系统总纲]]：
+> - `SensoryState` — 感官状态（组合 HearingModel + VisionParams + PerceptualCache + DarkAdaptation + 音频字段）
+> - `Knowledge` — 个人知识（仅存超出文化基线的部分，~64条）
+> - `AestheticFrameworks` — 审美框架集（native+personal+adopted，四过程模型，无硬上限）
+>
+> ★ v1.0 认知与智慧系统 — 以下类型定义详见 [[06-认知与智慧系统/001-认知与智慧系统总纲|认知与智慧系统总纲]]：
+> - `CognitiveStyle` — 4维认知风格（直觉-分析/冲动-反思/具象-抽象/顽固-灵活），从BigFive+wisdom+经历派生
+> - `CognitiveTide` — 3维认知潮汐（负载/反刍压力/安静度），每决策周期更新
+> - `MentalModel` — 世界运作信念（≤20条），pattern+confidence+emotional_charge+shareability
+> - `MindAttribution` — Theory of Mind（≤16条），NPC对另一个NPC心智的归因
+> - `BeliefHistory` — 信念演变里程碑（≤16条），回顾性叙事的数据基础
+> - `cognitive_distress` — 认知压力指数（0-1），综合派生指标
 
 ### 1.1.1 Identity
 
@@ -805,14 +833,40 @@ pub trait EventSubscriber: Send + Sync {
     fn subscribed_event_types(&self) -> Vec<EventCategory>;
 }
 
-/// 感官提供者 — 将客观世界翻译为主观感知
+/// 感官提供者 — 将客观世界翻译为主观感知（★ v1.0 重构: 统一入口替代旧的分模态方法）
+/// 感官系统 = 无状态纯函数管线。感知节律 = 决策节律。
+/// 详细设计见 [[../感官与知觉系统/001-感官系统总纲|感官与知觉系统]]
 pub trait SensoryProvider: Send + Sync {
-    fn perceive_visual(&self, npc: &NpcData, world: &WorldState) -> SubjectiveVisual;
-    fn perceive_auditory(&self, npc: &NpcData, world: &WorldState) -> SubjectiveAuditory;
-    fn perceive_emotion(&self, observer: &NpcData, target: &NpcData) -> PerceivedEmotion;
+    /// 统一感知——替代旧的分模态方法
+    /// 返回 PerceptBatch——同一份产出供日常决策、战斗情报、审美判断、大日志消费
+    fn perceive(
+        &self,
+        sensory: &SensoryState,
+        position: Vec3,
+        facing: Vec3,
+        spatial: &dyn SpatialQuery,
+        audio: &dyn AudioQuery,
+        weather: &dyn WeatherQuery,
+        culture_kb: &dyn CulturalKnowledgeBase,
+        attention: &AttentionState,
+        modifiers: &PerceptualModifiers,
+        goal_relevance: impl Fn(CategoryTag) -> f32,
+        time: GameInstant,
+        rng: &mut impl Rng,
+    ) -> PerceptBatch;
 
-    /// v3: 天象感知
-    fn perceive_sky(&self, npc: &NpcData, weather: &WeatherState) -> SkyPerception;
+    /// 轻量版——仅供大日志使用。不做注意筛选、噪声注入、内感受
+    fn perceive_lightweight(
+        &self,
+        position: Vec3,
+        facing: Vec3,
+        vision: &VisionParams,
+        hearing: &HearingModel,
+        spatial: &dyn SpatialQuery,
+        audio: &dyn AudioQuery,
+        weather: &dyn WeatherQuery,
+        time: GameInstant,
+    ) -> LightweightPerceptBatch;
 }
 
 /// NPC 记忆编码器 — 决定什么值得记住
@@ -1309,7 +1363,8 @@ impl DecisionEngine for ProbabilisticDecisionEngine {
                     * self.time_modifier(&action, world)   // v3: 昼夜修正
                     * self.weather_modifier(&action, world) // v3: 天气修正
                     * self.sky_modifier(&action, &npc.sky_perception) // v3: 天象修正
-                    * self.vehicle_modifier(&action, &npc.vehicle_state); // v3: 载具修正
+                    * self.vehicle_modifier(&action, &npc.vehicle_state) // v3: 载具修正
+                    * self.mental_model_modulation(&action, &npc.mental_models); // ★ v1.0 认知与智慧系统：信念→行动调制
                 (action, weight)
             })
             .collect();
@@ -2188,6 +2243,139 @@ pub struct AnticipationEffect {
     pub near_future_valence: f32, // -1(恐惧) ~ 1(期待)
 }
 ```
+
+---
+
+### 2.8.7 Meta-Cognition 步骤（★ v1.0 认知与智慧系统）
+
+> 嵌入 `SelfNarrative::reflect()` 的第七步。详细规格见 [[06-认知与智慧系统/002-CognitiveStyle与认知偏误详细设计#七meta-cognition反思性自指|认知与智慧系统 §2.7]]。
+
+```rust
+// SelfNarrative::reflect() 新增——在已有6步之后
+// 7. Meta-Cognition：反思型NPC检查自己的思考质量
+self.meta_cognitive_review(recent_thoughts, recent_decisions, cognitive_style, biases, mental_models);
+```
+
+**触发门槛**：`cognitive_style.reflective_impulsive > 0.6`。冲动型NPC几乎从不meta-cognize。
+
+---
+
+## 2.9 ★ v1.0 认知风格与认知潮汐
+
+> 📘 **完整规格见** [[06-认知与智慧系统/002-CognitiveStyle与认知偏误详细设计|002-CognitiveStyle与认知偏误详细设计]]
+
+**核心职责**：表征NPC"如何思考"的基础层——从已有维度（BigFive/wisdom/经历）派生，零新调参旋钮。
+
+| 组件 | 对标模式 | 简要说明 |
+|------|---------|---------|
+| `CognitiveStyle` | AestheticTaste | 4维认知风格（直觉-分析/冲动-反思/具象-抽象/顽固-灵活），从BigFive+wisdom+经历派生，含阻尼年度更新 |
+| `CognitiveTide` | Physiology | 3维认知潮汐（认知负载/反刍压力/心智安静度），每决策周期从已有数据更新 |
+| `CognitiveBiases` | CommunicationNorms | 7种认知偏误（确认/负面/近因/自我服务/可得性/失调/反刍），纯函数惰性派生，不存储 |
+| `EmbodiedCognition` | Physiology→Vitals | 身体状态→认知调制（疼痛→负载↑，饥饿→短期偏误↑，醉酒→关联松弛↑） |
+| `CognitiveNorms` | CommunicationNorms | 文化→认知风格（辩论风格/不确定性容忍/认识论立场），从CultureCoreParams惰性查询 |
+
+**关键设计决策**：CognitiveStyle不是终身固定的——对标AestheticTaste模式（青春期派生→年度成熟→事件调制），随人生经历缓慢变化，含阻尼防止反馈回路爆炸。
+
+---
+
+## 2.10 ★ v1.0 MentalModel与智慧积累
+
+> 📘 **完整规格见** [[06-认知与智慧系统/003-MentalModel与智慧积累|003-MentalModel与智慧积累]]
+
+**核心职责**：表征NPC"相信什么"的信念层——MentalModel从记忆中归纳，通过双阶段消化（微消化+宏消化）将外来信念内化，通过已有通道传递给其他NPC。
+
+**MentalModel生命周期**：
+```
+归纳(try_induce) → 微消化(micro_digest·每记忆) → 宏消化(macro_digest·每7天)
+    → source转移(外来→SelfRefined) / 融合 / 边界扩展 / 放弃
+    → 跨代传递(6条路径) → 其他NPC assess_and_integrate
+```
+
+**跨代传递6条路径（全部通过已有通道）**：
+| 路径 | 通道 | 机制 |
+|------|------|------|
+| 对话传递 | DialogueIntent::WisdomSharing | 对标已有语言表达对话系统 |
+| 书写传递 | LifeTrace→PhysicalBook | 对标已有历史系统 |
+| 绘画/音乐传递 | ItemCreation/AestheticEvent | 对标已有物品/审美系统 |
+| 长期师徒 | DeepMentorship（Apprenticeship>365天升级） | 对标已有技能系统 |
+| 观察归纳 | PerceptEntry→try_induce | 对标已有感官→记忆管线 |
+| 死亡遗留 | ThoughtImprint（AetherImprint子类型） | 对标已有历史系统灵元素印记 |
+
+**种子继承**：NPC出生/创建时对标`ChildFaithProfile`模式——从父母（confidence×继承因子）、聚落常识（SettlementWisdomAggregate）、文化基线获取初始MentalModel。
+
+**创造性飞跃**：跨界结构模板匹配→低confidence MentalModel(hypothesis=true)→验证→形式化→领域产物。
+
+---
+
+## 2.11 ★ v1.0 思考涌现与浮现
+
+> 📘 **完整规格见** [[06-认知与智慧系统/004-思考涌现与浮现机制|004-思考涌现与浮现机制]]
+
+**核心职责**：表征NPC"在想什么"的涌现层——思考是背景层，与外部行动并行，不专门占用时间/地点。
+
+**6类ThoughtTrigger（惰性事件驱动，不主动轮询）**：
+| 触发 | 携带系统 | 触发条件 |
+|------|---------|---------|
+| 感知关联 | 感官PerceptEntry | 实体→记忆参与者匹配 |
+| 地点触发 | 空间位置更新 | 当前位置→记忆location_id |
+| 情绪波动 | 情绪引擎 | emotion_delta>0.3→同情绪记忆检索 |
+| 认知失调 | 信息传播 | 新信息vs已有模型/core_values冲突 |
+| 空闲漫游 | CognitiveTide | mind_wander_drive>0.7+概率 |
+| Zeigarnik | MentalModel | 不确定模型+未消化反例→反刍触发 |
+
+**3级ThoughtFragment清晰度**：VagueFeeling（模糊感觉）→ HalfFormedThought（半成形）→ ClearThought（清晰命题）。
+
+**6种SurfacingType浮现方式**：InternalOnly（微表情）→ MicroExpression（表情）→ Muttering（自语）→ ActionPause（动作暂停）→ WritingImpulse（书写/绘画/音乐冲动）→ SpeakingImpulse（说话冲动）。
+
+**文本生成**：对标已有语言表达片段组合模型（~200-300条ThoughtTemplate）。CognitiveStyle选择表达模式（分析型："如果A那么B..."；直觉型："总觉得..."）。
+
+**对话中微思考**：micro_think_during_dialogue()——听→想→答的0.3-1.0秒中间步骤，仅5-15%概率触发。
+
+**伤春悲秋机制**：已有链条的自动桥接——场景情绪→记忆共鸣→SelfNarrative激活→思考浮现。本模块只加了桥接函数`aesthetic_contemplation_chain()`。
+
+---
+
+## 2.12 ★ v1.0 MindAttribution与Theory of Mind
+
+> 📘 **完整规格见** [[06-认知与智慧系统/003-MentalModel与智慧积累#九mindattribution-theory-of-mind|003-MentalModel §九]]
+
+**核心职责**：NPC关于"另一个NPC在想什么"的归因。对标MentalModel但domain是"他人的心智"。
+
+- 上限16条，约960B
+- 来源：TargetStatedDirectly / ObservedBehavior / ToldByThirdParty / Inferred
+- 影响：对话策略、欺骗可能、社交联盟形成、诅咒知识（"这不是常识吗？"）
+
+---
+
+## 2.13 ★ v1.0 睡眠认知加工与正则化
+
+> 📘 **完整规格见** [[06-认知与智慧系统/005-睡眠认知加工与正则化|005-睡眠认知加工与正则化]]
+
+**核心职责**：睡眠不是停机——是NPC心智的定期维护窗口。对标过拟合大脑假说（梦境=认知正则化）。
+
+**四阶段数学抽象**：入睡期（标签）→浅睡期（记忆巩固）→深睡期（L1正则化·突触修剪）→REM（Dropout正则化·梦境生成）。
+
+**关键机制**：
+- 经验窄度→自适应梦境荒诞度（铁匠日复一日打铁→需要更荒诞的梦来正则化）
+- 记忆三阶段处理（标签→巩固→筛选）
+- 情绪复位（睡眠质量×回归速度→次日情绪基线）
+- MentalModel正则化（深睡→过拟合模型削弱，REM→跨界关联）
+- 梦境：确定性种子+惰性文本生成（仅在被询问时）
+- 睡眠质量：6因子派生（已有系统全部提供——零新trait）
+
+---
+
+## 2.14 ★ v1.0 Meta-Cognition与创新管线
+
+> 📘 **完整规格见** [[06-认知与智慧系统/006-创新管线与跨领域对接|006-创新管线与跨领域对接]] + [[06-认知与智慧系统/002-CognitiveStyle与认知偏误详细设计#六cognitivebreak认知功能的失效模式|002 §六-八]]
+
+**Meta-Cognition**：`CognitiveStyle.reflective_impulsive`的自指应用。反思型NPC能"反思自己的反思"，可能识别自己的偏误。
+
+**CognitiveBreak**：认知功能的4种失效模式——Paranoia/MelancholicLoop/GrandioseDistortion/Dissociation。不是"精神疾病标签"，是已有认知偏差在极端条件下的极端表现（对标PostCombatTrauma）。
+
+**CognitiveExceptionality**：天才涌现——罕见参数组合（技能>85+support_diversity>0.7+抽象>0.7+反思>0.7）的偶然相遇。不是"天才属性"，是数学涌现。
+
+**统一创新管线6阶段**：前驱条件→CreativeLeap→主动验证→形式化→传播→采用/演化。创新的机制在NPC crate，创新的产物在领域crate（战斗/魔法/艺术/建筑/工艺/社会）。
 
 ---
 

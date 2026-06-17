@@ -338,3 +338,55 @@
 ### 设计原则
 
 零新trait·零新调参旋钮·全部已有维度派生·全部惰性求值·全部可见行为涌现。
+
+---
+
+## CHG-033 模型动作与物理系统 v1.0
+
+### 空间查询契约
+
+| 概念 | Owner | 消费方 | 关键约定 |
+|------|-------|--------|---------|
+| TerrainQuery | **world_gen** (密度场) | 感官/导航/动画/战斗 | height_at/normal_at/terrain_raycast/density_at/is_walkable/surface_material_at/medium_at/light_level_at/sample_horizon。纯函数。DDA 射线在密度场上步进，~10µs/射线 |
+| EntityIndex | **woworld_spatial** | 所有模块 | register/unregister/update_transform/entities_in_aabb/entity_aabb/acoustic_tag_at。稀疏哈希网格 O(1)。layer_mask 过滤 |
+| SpatialEventBus | **woworld_spatial** | 所有模块 | recent_events_in/push_event/scent_sources_in。Chunk ring buffer(64 entry,LRU)。事件自动过期 max(intensity×10s, 5s) |
+| VisibilityQuery | **woworld_spatial** (Arc<TerrainQuery> + &EntityIndex) | 感官/战斗/大日志 | line_of_sight/line_of_sight_hit。DDA 同时检查密度场+实体AABB。命中返回 TerrainHit/EntityHit/WaterSurface |
+
+### 动画数据契约
+
+| 概念 | Owner | 消费方 | 关键约定 |
+|------|-------|--------|---------|
+| SkeletonDef/BodyPlan/PhysicalAppearance | **woworld_core** | 动画/生命/战斗/物品 | BodyPlan 从 Life crate 提升到 woworld_core——跨模块基线。33骨(L1)/35骨(L0)。AnimationModules 四分区 |
+| ModulePose/PoseDatabase | **woworld_model** (TOML加载) | woworld_animation | 38模块姿态+15基元轨迹。总~40KB。Keyframe 仅存关节角度——不同体型共用 |
+| AnimationBodyState | **woworld_animation** | 动画层栈/GDExt | 每NPC 3.8KB。L1→L2降级丢弃不持久化。相位偏移每帧~83全更新 |
+| GaitStyle(9连续参数) | **woworld_animation** (从BigFive×EmotionState派生) | NPC/动画 | 零手写数据。纯数学涌现 |
+| FacialExpression(6B) | **woworld_animation** (从EmotionState映射) | GPU shader | 512²共享图集。文化默认+个人偏离。6B塞入INSTANCE_CUSTOM |
+| WeaponPhysicalParams | **物品系统** → woworld_animation消费 | 战斗轨迹适配器 | 长度/重量/重心/握持位置→reach_scale/speed_scale/body_commitment |
+
+### 物理契约
+
+| 概念 | Owner | 消费方 | 关键约定 |
+|------|-------|--------|---------|
+| 玩家 CharacterBody3D | **Godot PhysicsServer3D** | 玩家输入 | 唯一保留 PhysicsServer3D 的东西。其余全部 Rust 侧空间查询 |
+| COM 抛物体飞行 | **woworld_animation** | 战斗/环境/物品 | 重力+g·dt。DDA射线投射检测障碍。三级着地响应(致命>20m/s,重伤>8m/s,硬着陆<8m/s) |
+| 骨架松弛死亡 | **woworld_animation** | 战斗/环境/生命 | 肌肉刚度 1.0→0.02 指数衰减。关节限制强制。不做布娃娃 |
+| 双人交互约束 | **woworld_animation** (TOML模板) | NPC社交/战斗 | 锚点Coincident/Distance/Facing。被动方IK跟随。推搡=顺序中断(非双人IK) |
+| 水下/骑乘模式 | **woworld_animation** | 环境/载具 | medium_at()驱动模式切换。骑手骨盆锚定马鞍transform |
+
+### 渲染契约
+
+| 概念 | Owner | 消费方 | 关键约定 |
+|------|-------|--------|---------|
+| MultiMesh + GPU skinning | **Godot** | woworld_animation输出 | 双骨蒙皮。INSTANCE_CUSTOM 16B vec4。双缓冲共享内存 |
+| 面部纹理图集 | **Godot shader** | woworld_animation输出 | 512² RGBA8。16嘴×16眉×8眼×8虹膜。UV偏移暗向视线方向 |
+| TABS式cel渲染 | **Godot shader** | 全部角色 | 单diffuse pass。无PBR。vertex color肤色。所有角色纹理VRAM<5MB |
+
+### 跨模块变更
+
+| 优先级 | 文件 | 变更 |
+|--------|------|------|
+| CRITICAL | 感官与知觉系统/001 | SpatialQuery→拆分为四个trait。wind_at→WeatherQuery |
+| CRITICAL | 技术栈方案 v3.0 | 物理方案改为"仅玩家PhysicsServer3D"。性能预算更新 |
+| HIGH | NPC ver2.0 §4 | "物理表达"替换为本模块引用 |
+| MEDIUM | 生命/001 | BodyPlan定义→woworld_core |
+| MEDIUM | 物品系统/001 | +WeaponPhysicalParams映射表 |

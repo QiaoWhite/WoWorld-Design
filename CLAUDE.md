@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/06-认知与智慧系统/001-认知与智慧系统总纲|NPC认知与智慧系统 v1.0]]（2026-06-17）。模块累计 21 个独立系统（含21个子模块），~85,000行正式开发规格。
+**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/001-模型动作与物理系统总纲|模型动作与物理系统 v1.0]]（2026-06-17）。模块累计 22 个独立系统（含22个子模块），~90,000行正式开发规格。
 
 ## 文档结构
 
@@ -33,17 +33,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `开发阶段/` — 正式开发规格（权威规格）。关键子目录：
   - `游戏概述.md` / `README.md` / **`技术栈方案/`**（★ v3.0 权威技术方案）
   - `NPC活人感模块/` — NPC ver2.0 + 基本需求(7维) + 进阶需求(三层) + 审美与艺术 + **认知与智慧**
+  - `模型动作与物理系统/` — 模型定义(骨架/面部图集) + 动画(38姿态/15轨迹/9层栈) + 空间查询(4 trait) + 物理响应
   - `文化系统/` — 8篇~10,000行（含 `信仰系统/` 10篇 + `权力系统/` 9篇）
   - `战斗/` 14篇 | `魔法/` 19篇 | `世界生成/` 9篇 | `生命/` 12篇 | `历史/` 6篇
   - `经济系统/` 9篇 | `载具系统/` 10篇 | `音频系统/` 9篇 | `感官与知觉系统/` 8篇
 
 ### `Change/` — 设计变更追踪
-按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名。CHG-001~006 早期变更，CHG-007~013 审计与重构，CHG-014~019 地基模块，CHG-022~032 业务系统（经济→认知）。详见 `Change/README.md`。
+按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名。CHG-001~006 早期变更，CHG-007~013 审计与重构，CHG-014~019 地基模块，CHG-022~033 业务系统（经济→模型动作物理）。详见 `Change/README.md`。
 
 **`Change/hand/`** — 用户直接设计反馈。修改涉及的设计决策时，需检查此目录是否有相关意见。
 
 ### `参考文档/` — 参考性设计文档
-按 `NNN-简短描述-YYYYMMDD` 格式组织。001-015 已归档。活跃文档 017-029 覆盖测试记录、技术栈、各系统设计探讨。详见 `参考文档/README.md`。
+按 `NNN-简短描述-YYYYMMDD` 格式组织。001-015 已归档。活跃文档 017-030 覆盖测试记录、技术栈、各系统设计探讨。详见 `参考文档/README.md`。
 
 ## 技术栈（v3.0 权威方案）
 
@@ -53,16 +54,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **体素**: 自建 Transvoxel（Rust 侧）→ Godot ArrayMesh。垂直稀疏Chunk + Clipmap LOD。分层密度场11层。海拔~1500m（700m+山），8级LOD，3km切换Signed Heightfield
 - **海洋**: Gerstner程序化波，`OceanProvider` trait 预留FFT升级。海:陆≈7:3
 - **天空**: 混合体积云——2D impostor + 3D体积密度场 + 噪声高云。随天气/季节变化
-- **画面**: 3D低多边形 + 像素纹理
+- **画面**: 3D低多边形 + flat/cel渲染（TABS风格——单diffuse pass，无PBR）。512²面部图集驱动表情
 - **NPC AI**: GOAP规划（安全网，9%）+ 概率行为树（日常，90%）+ 可选LLM增强（1%）。SoA + rayon并行。分层模拟 L1/L2/L3/L4
 - **战斗**: 半自动——玩家AI = NPC AI = 同一套Rust代码。三层模型（本能→节奏→战略）。招式积木+流派涌现+信息不对称。详见 `开发阶段/战斗/`
-- **动画**: UAF启发的模块化GPU动画——Rust CPU批量骨骼矩阵 → Godot GPU skinning shader
+- **动画**: 9层可叠加动画栈——Rust CPU批量骨骼矩阵(≤0.5ms) → Godot GPU skinning(双骨蒙皮)。38模块姿态+15基元轨迹。涌现式步态(9参数从BigFive派生)。面部表情512²图集驱动
 - **世界生成**: 全球噪声→区域骨架→局部细节。11阶段管线。种子确定性+增量存档
 - **载具**: 魔力驱动火车/帆船。移动参考系。NPC集体建造
 - **建造/蓝图**: 三途径——编辑器/TOML导入/委托NPC。NPC团体集体施工
 - **数据库**: LMDB — 流式Chunk存储。双层记忆架构
 - **时间/天气**: Rust侧TimeManager + WeatherManager；Godot Sky shader天体渲染
 - **Mod**: TOML数据驱动——调节涌现乘数，不编写行为脚本。无脚本引擎
+- **模型/动画/物理**: 33骨(L1)/35骨(L0)人形骨架。9层动画栈+38模块姿态+15基元轨迹。面部512²图集驱动。Rust侧空间查询(4 trait)。仅玩家保留PhysicsServer3D。TABS式cel渲染
 - **架构**: Rust模拟核心 → GDExtension → Godot客户端（渲染/UI/音频/输入/玩家物理）
 - **硬件目标**: GTX 1660 SUPER 6GB VRAM。VRAM~4.2GB/6GB，内存~1.4GB/32GB，帧预算16.7ms（60fps）
 - **美术**: AI生成(Stable Diffusion) + 手动调整(Blender)
@@ -132,6 +134,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 030 | 音频系统 | SoundFootprint物理模型、AudioQuery 30方法、VoiceProfile迁入音频、五类声音、传播引擎(衰减/吸收/风/温度/遮挡/多普勒)、话语清晰度五档 |
 | 031 | 感官系统 | PerceptBatch统一产出、VisionQuery/ScentQuery/SpatialQuery trait(woworld_core)、PerceptualCache LRU、DarkAdaptation指数松弛、AestheticFrameworks四过程、感官噪声确定性种子 |
 | 032 | 认知与智慧系统 | CognitiveStyle 4维认知风格(含阻尼)、CognitiveTide 3维潮汐、MentalModel(≤20条·6路径跨代传递)、ThoughtTrigger 6类触发+ThoughtFragment 3级清晰度、睡眠正则化(过拟合大脑假说)、创新管线6阶段→6领域对接、MindAttribution Theory of Mind、零新trait·零新调参旋钮·全部已有维度派生 |
+| 033 | 模型动作与物理 | TerrainQuery/EntityIndex/SpatialEventBus/VisibilityQuery四trait空间查询、33骨(L1)/35骨(L0)人形骨架、双骨蒙皮、512²面部图集(16嘴×16眉×8眼)、38模块姿态+15基元轨迹、9层动画栈、步态9参数从BigFive派生、CombatStyleParams8参数流派涌现、COM抛物体飞行、骨架松弛死亡(替代布娃娃)、仅玩家保留PhysicsServer3D |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 

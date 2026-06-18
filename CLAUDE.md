@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/001-模型动作与物理系统总纲|模型动作与物理系统 v1.0]]（2026-06-17）。模块累计 22 个独立系统（含22个子模块），~90,000行正式开发规格。
+**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/模块接头总览/README|模块接头总览]]（2026-06-18 全部填充）+ 技术栈 v3→v4.0 全量审计（CHG-034~039）。模块累计 22 个独立系统（含22个子模块），~90,000行正式开发规格。
 
 ## 文档结构
 
@@ -48,7 +48,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 技术栈（v4.0 权威方案）
 
-> 📘 **权威技术方案见 `开发阶段/技术栈方案/001-WoWorld正式技术栈方案v3.md`**。v4.0 经 [[参考文档/031-技术栈全量审计-20260618/|技术栈全量审计]] 升级。以下为概要。
+> 📘 **权威技术方案见 `开发阶段/技术栈方案/001-WoWorld正式技术栈方案v3.md`（文件名为v3，内容已升级为v4.0）**。v4.0 经 [[参考文档/031-技术栈全量审计-20260618/|技术栈全量审计]]（CHG-034~039）升级。以下为概要。
 
 - **引擎**: Godot 4.6 LTS | **模拟语言**: Rust (stable 1.80+) — GDExtension 集成
 - **体素**: 自建 Transvoxel（Rust 侧）→ Godot ArrayMesh。垂直稀疏Chunk + Clipmap LOD。分层密度场11层。海拔~1500m（700m+山），8级LOD，3km切换Signed Heightfield
@@ -64,7 +64,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **数据库**: LMDB — 流式Chunk存储。双层记忆架构
 - **时间/天气**: Rust侧TimeManager + WeatherManager；Godot Sky shader天体渲染
 - **Mod**: TOML数据驱动——调节涌现乘数，不编写行为脚本。无脚本引擎
-- **模型/动画/物理**: 33骨(L1)/35骨(L0)人形骨架。9层动画栈+38模块姿态+15基元轨迹。面部512²图集驱动。Rust侧空间查询(4 trait)。仅玩家保留PhysicsServer3D。TABS式cel渲染
+- **模型/动画/物理**: 33骨(L1)/35骨(L0)人形骨架。9层动画栈+38模块姿态+15基元轨迹。面部512²图集驱动。Rust侧空间查询(4 trait)。**仅玩家保留PhysicsServer3D**。TABS式cel渲染
+- **物理架构**: ⚠️ CHG-033 重大变更 — 不再"PhysicsServer3D管理所有物理"。**仅玩家CharacterBody3D保留PhysicsServer3D**。其余全部Rust侧空间查询(TerrainQuery/EntityIndex/SpatialEventBus/VisibilityQuery四trait)
+- **LOD架构**: v4.0 §二十一 LOD统一架构 — 场景LOD与角色LOD分离双层体系 + LODCoordinator统一调度。7维LodPrescription跨维约束
 - **架构**: Rust模拟核心 → GDExtension → Godot客户端（渲染/UI/音频/输入/玩家物理）
 - **硬件目标**: GTX 1660 SUPER 6GB VRAM。VRAM~4.2GB/6GB，内存~1.4GB/32GB，帧预算16.7ms（60fps）
 - **美术**: AI生成(Stable Diffusion) + 手动调整(Blender)
@@ -95,6 +97,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Obsidian**: `.obsidian/` 目录包含工作区配置，无需手动编辑
 - **.gitignore**: `.claude/` 目录已加入 gitignore
 - **Git远程**: `git@github.com:QiaoWhite/WoWorld-Design.git` (SSH)
+- **可复用 Skill**: `/woworld-tech-stack-audit` — 技术栈全量审计 8 阶段方法论。仅手动调用，不自动触发
 
 ## 跨模块接口契约（关键——避免冲突复发）
 
@@ -135,8 +138,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 031 | 感官系统 | PerceptBatch统一产出、VisionQuery/ScentQuery/SpatialQuery trait(woworld_core)、PerceptualCache LRU、DarkAdaptation指数松弛、AestheticFrameworks四过程、感官噪声确定性种子 |
 | 032 | 认知与智慧系统 | CognitiveStyle 4维认知风格(含阻尼)、CognitiveTide 3维潮汐、MentalModel(≤20条·6路径跨代传递)、ThoughtTrigger 6类触发+ThoughtFragment 3级清晰度、睡眠正则化(过拟合大脑假说)、创新管线6阶段→6领域对接、MindAttribution Theory of Mind、零新trait·零新调参旋钮·全部已有维度派生 |
 | 033 | 模型动作与物理 | TerrainQuery/EntityIndex/SpatialEventBus/VisibilityQuery四trait空间查询、33骨(L1)/35骨(L0)人形骨架、双骨蒙皮、512²面部图集(16嘴×16眉×8眼)、38模块姿态+15基元轨迹、9层动画栈、步态9参数从BigFive派生、CombatStyleParams8参数流派涌现、COM抛物体飞行、骨架松弛死亡(替代布娃娃)、仅玩家保留PhysicsServer3D |
+| 034~037 | 技术栈全量审计 | 8阶段三层审计(C→B→A) Wave1~4。技术栈 v3→v4.0(物理迁移+7模块条目+峰值互斥预算+LOD统一架构)。CHG-026 补入 CLAUDE-INTERFACES。感官SpatialQuery→4trait签名。L1/L2/L3三级验证通过 |
+| 038~039 | TDI扩展+接头总览 | ~126条新TDI从8模块提取(音频/感官/经济/权力/文化/信仰/模型物理)。模块接头总览全部22模块×4文件填充(~300KB接口文档) |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
+
+## 模块接头总览（Module Interface Hub）
+
+> 📘 **位置**: `开发阶段/模块接头总览/` | **最后填充**: 2026-06-18 (CHG-039)
+
+**定位**: 介于 CLAUDE-INTERFACES.md（契约宪法）和具体模块文档之间的"生活地图"——按模块和概念组织的接口地图。
+
+- **设计新模块时** → 先查接头总览，知道有哪些现成接口可消费
+- **修改旧模块时** → 查 `003-变更影响链.md`，立即知道改动会波及谁
+- **发现模块间矛盾时** → 入口消费清单 vs 出口提供清单不一致 = 冲突
+
+### 结构
+```
+模块接头总览/
+  00-全局基础设施/    — woworld_core 核心类型 + 空间查询四trait签名 + 40+通用trait索引
+  01~22/              — 每模块4文件: 001-接口出口 / 002-接口入口 / 003-变更影响链 / 000-变更日志
+  变更追踪/           — 待处理变更队列 + 已解决变更日志
+```
+
+### 保鲜协议（关键——防止接口地图腐化）
+1. **原子变更**: 修改模块文档 → 必须同步更新接头条目（同一条变更令内完成）
+2. **时间戳**: 每条条目有"最后验证"和"最后修改"时间戳
+3. **变更日志**: 每模块维护 `000-变更日志.md`
+4. **反向链接**: 模块文档的"外部接口"段落应 `[[ ]]` 反向链接接头总览
+5. **CHG强制段落**: 新 CHG 必须包含"接头总览更新"章节
+6. **定期保鲜**: 每 5 个 CHG 后检查时间戳和待处理队列
+
+---
 
 ## 工作约定
 
@@ -172,3 +205,4 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 5. **审查**：对所有改动进行审查——内部一致性 + 跨文档对齐 + 讨论→规格漂移
 6. **CHG 文档**：在 `Change/` 创建 `CHG-XXX-模块名v1.0创建-YYYYMMDD.md`
 7. **更新 CLAUDE.md**：添加新模块条目 + CHG 条目 + 接口契约表。同步更新 [[CLAUDE-INTERFACES.md]] 契约表
+8. **更新模块接头总览 ★**：为新模块创建接头文件夹（001-接口出口/002-接口入口/003-变更影响链/000-变更日志）。同步更新受影响的现有模块的接头条目

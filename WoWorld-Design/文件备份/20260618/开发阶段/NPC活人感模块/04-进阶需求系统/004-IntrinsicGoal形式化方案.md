@@ -2,7 +2,7 @@
 > **文档类型**: 参考文档 / 设计探讨草稿
 > **主题**: IntrinsicGoal 形式化 —— commitment × relevance → action_weight
 > **日期**: 2026-06-15
-> **关联**: [[参考文档/025-NPC进阶需求系统设计探讨-20260615/001-理论框架与维度论证]] | [[../Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0|NPC ver2.0 §2.8 SelfNarrative]]
+> **关联**: [[参考文档/第二部分-模块系统基础扩张存档-20260618/025-NPC进阶需求系统设计探讨-20260615/001-理论框架与维度论证]] | [[../Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0|NPC ver2.0 §2.8 SelfNarrative]]
 
 ---
 
@@ -27,7 +27,7 @@ TotalWeight = ... × intrinsic_motivation_weight × ...
 
 ### 1.2 不对 IntrinsicGoal 做 deficit 化
 
-重申原则（来自 [[参考文档/025-NPC进阶需求系统设计探讨-20260615/001-理论框架与维度论证]]）：
+重申原则（来自 [[参考文档/第二部分-模块系统基础扩张存档-20260618/025-NPC进阶需求系统设计探讨-20260615/001-理论框架与维度论证]]）：
 - IntrinsicGoal 是**志向型驱力**——不是匮乏信号
 - 保持数学独立性：deficit（标量 urgency）vs aspiration（向量 preference bias）
 - 不定义"自主 deficit"或"超越 deficit"——这些概念在数学上不适合 deficit 模型
@@ -208,4 +208,4 @@ survival_suppression                       → range [0.08, 1.0]
 
 ---
 
-> **下一步**: [[005-跨层桥接机制]] — 生存抑制(sigmoid) + 挫折回归(ERG) 的完整数学设计
+> **下一步**: [[文件备份/20260618/开发阶段/NPC活人感模块/04-进阶需求系统/005-跨层桥接机制]] — 生存抑制(sigmoid) + 挫折回归(ERG) 的完整数学设计

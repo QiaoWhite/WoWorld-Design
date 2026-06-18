@@ -48,6 +48,6 @@
 
 - **想理解整体架构** → [[001-音频系统总纲|总纲]]
 - **想知道某个模块如何对接音频** → [[008-跨模块接口与数据合同|跨模块接口]]
-- **想查性能预算** → [[009-性能预算与存储分析|性能预算]]
+- **想查性能预算** → [[文件备份/20260618/开发阶段/音频系统/009-性能预算与存储分析|性能预算]]
 - **想修改声音规则** → TOML 文件（audio_config.toml / material_sound_map.toml / notification_sounds.toml / music_config.toml）
 - **想替换音频资产** → `woworld/assets/audio/` 目录 + audio_asset_map.toml

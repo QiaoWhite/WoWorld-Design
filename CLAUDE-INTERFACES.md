@@ -500,3 +500,39 @@
 | **动画是物理的输出** | IK从武器轨迹生成所有动画。零预设战斗动画 |
 | **材料属性是数据** | "铁受热变软"不是规则——是MaterialProperties热软化自动计算 |
 | **玩家=NPC** | 同一套原子引擎、同一套AgentSnapshot
+
+## CHG-043 新增契约（建筑模块 v1.0）
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| ComponentFamily / ComponentRegistry | **建筑模块** `001` | 全部生成器、Mod 扩展 | 参数化组件族——关联类型 `Params`。Mod 通过 TOML 注册，非运行时 register()。非全局单例——依赖注入 |
+| ComponentInstance / Building | **建筑模块** `002` | World Gen, NPC, Combat, Senses | Building=组件图+空间索引+所有权。无 `building_type` 标签——建成后消失。热冷数据分离 |
+| BuildingQuery trait | **建筑模块** `003` | Weather, Senses, NPC, Combat, Audio, Economy, Aesthetic, History, Culture（10 消费方） | 建筑世界数据唯一只读接口。Send+Sync。15+方法。热路径 ≤1.8ms/帧 |
+| Surface trait | **建筑模块** `003` | Items（PlacedItem 放置消费） | 可放置表面——Floor/Wall/Ceiling/Counter。建筑模块不碰家具管理 |
+| BuildContext | **建筑模块** `008`（定义） | World Gen 胶水代码（聚合各模块参数后传入） | 六维参数聚合（RaceBodyProfile+ClimateBuildProfile+MaterialAvailability+CultureBuildProfile+FaithBuildProfile+OwnerBuildPrefs）。建筑模块不 import Culture/Faith/Weather/Life |
+| BuildingGenerator trait | **建筑模块** `007` | World Gen P5/P6, 玩家编辑器 | 8 种生成器实现——WfcRectangular(80%)+WfcRadial+Cathedral+Complex+Wall+Bridge+Underground+Shelter |
+| WfcBuildingSolver | **建筑模块** `004` | World Gen P5/P6, 玩家编辑器预览 | 2.5D 三阶段（BSP→2D WFC→3D 组装）。≤5ms/栋。城市级 WFC 留在 World Gen |
+| ConstructionScheduler / ConstructionTask | **建筑模块** `005` | NPC 行动（CONSTRUCT 原子）、玩家 | 声明式施工——逐组件 Task，阶段级渲染。≤0.2ms/tick |
+| MaterialRequirementList | **建筑模块** `005`（产出） | NPC EconomicBehavior（自行规划获取方式） | 声明式——不碰 Market trait。施工负责人（NPC/玩家）自行决定如何获取材料 |
+| ConstructionModifier trait | **建筑模块** `005`（定义）→ Magic（实现） | ConstructionScheduler | 魔法辅助建造预留——modifier 从外部传入，Scheduler 不持有实例 |
+| Blueprint（TOML 格式） | **建筑模块** `006` | 玩家 DIY, Items（Blueprint 0x52） | 玩家设计文件，跨存档可分享。连接关系几何自推导。`cultural_hint` 偏好提示——跨文化移植自动本地化 |
+| BuildingHistory | **建筑模块** `002` | History（AetherImprint 爬取）, NPC 认知 | 双层时间窗口存储——活跃层（10 年完整）+归档层（50 年快照聚合） |
+| StructureValueFactors | **建筑模块** `003`（产出） | Economy（房产估值） | 估值因子——不含价格。价格由经济系统自行计算 |
+| BuildingMaterialProps | **建筑模块** `003`（定义） | 胶水代码（从 MaterialProperties 转换） | 建筑模块不 import NPC 物理原子层的类型。胶水代码做 `.into()` 转换 |
+| BuildingStylePreferences → 建筑模块 | **文化系统** `004`（权威）→ 建筑模块（消费） | 建筑模块（通过 BuildContext） | 文化系统为权威 Owner。建筑模块不重复定义 RoofStyle/WallMaterial——废弃 005 中的 BuildingStyle struct |
+| SacredArchitectureParams → 建筑模块 | **信仰系统** `002`（权威）→ 建筑模块 CathedraGenerator（消费） | 建筑模块（通过 BuildContext） | 信仰系统为权威 Owner。7 维（几何/朝向/高度/光线/图像/材质/布局）驱动 CathedralGenerator |
+| ClimateParams → 建筑模块 | **天气系统**（权威）→ 建筑模块（消费） | 建筑模块（通过 BuildContext） | 雪荷载→屋顶坡度，温度→墙厚，风速→建筑高度上限，洪水→地基类型 |
+| RaceBodyPlan → 建筑模块 | **生命系统**（权威）→ 建筑模块（消费） | 建筑模块（通过 BuildContext） | avg_height→天花板高度/门高/楼梯步高，avg_width→走廊宽 |
+| World Gen 005 迁移 | **World Gen 005** → **建筑模块** | BuildingData/RoomData/BuildingStyle/WFC 两阶段等全部 struct/enum/trait——所有权转移至建筑模块 | World Gen P5/P6 保留编排调用，城市级 WFC 保留在 World Gen |
+| CONSTRUCT 原子 → 建筑模块 | NPC 行动涌现 `003`（CONSTRUCT）→ 建筑模块（Blueprint 约束+load-bearing 计算） | 建筑模块提供 Blueprint 类型和 load-bearing 验证，CONSTRUCT 的 domain checks 消费 | |
+
+### 建筑模块设计原则
+
+| 原则 | 含义 |
+|------|------|
+| **建筑模块不碰市场** | MaterialRequirementList 是声明式的——NPC 自行规划材料获取。建筑模块不 import Economy |
+| **建筑模块不定义风格** | BuildContext 从外部接收文化/信仰参数——建筑模块只做参数到组件的映射 |
+| **房间功能不存储** | 房间功能是涌现标签——从家具分布+NPC 使用行为实时派生，存储于 NPC MentalModel |
+| **家具不属于建筑模块** | 家具定义在 Items 模块，放置实例由 Items 管理——建筑模块只提供 Surface trait |
+| **Blueprint 是玩家格式** | Blueprint 仅供玩家 DIY——世界生成走 WFC，NPC 翻修走 LocalIncrementalSolver |
+| **连接关系几何自推导** | Blueprint 不存储连接关系——从组件位置+ConnectionFace 兼容性自动计算 |

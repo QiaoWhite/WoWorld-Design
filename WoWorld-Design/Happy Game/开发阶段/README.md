@@ -27,6 +27,7 @@
 | **★ 权力系统** | [权力系统/](权力系统/) | 9 篇开发规格 + README。17普适权力原子+PowerTopology有向多重图+8条获取路径+Legitimacy 5因子公式+Duty制裁塌缩链+Polity涌现+外交6因子公式。**所有权力/合法性/政治实体数据的权威依据。** | ✅ v1.0 |
 | **★ 信仰系统** | [信仰系统/](信仰系统/) | 10 篇开发规格 + README。实践优先模型(ReligiousPracticeProfile)、FaithTheology 10连续参数、NPC→NPC接触传染、5传播渠道+4改变路径、FaithCalendarQuery trait实现、Divine授权事件桥接(零耦合)、MagicReligionRelation per-faith、SacredArchitectureParams→世界生成、神遗物生成+DivineBlessing附魔。**所有信仰/宗教/崇拜实践的权威依据。** | ✅ v1.0 |
 | **★ 载具系统** | [载具系统/](载具系统/) | 10 篇开发规格 + README。VehicleId+契书双重身份、VehicleArchetype×文化涌现→VehicleDef、五种动力类型+MagicEngine魔法集成、L1-L3半自动操控+VehicleController trait、三通道连续损伤+沉没事件链、记忆优先契书可选产权+伪造/篡改/检测、移动容器货运+运费NPC心智涌现、铁路P9极低概率涌现、VehicleQuery/VoiceMut跨模块接口。**所有载具数据的权威依据。** | ✅ v1.0 |
+| **★ 建筑模块** | [建筑模块/](建筑模块/) | 组件族(9核心族+Mod扩展)。WFC 2.5D三阶段+8种生成器。BuildingQuery—10消费方。Blueprint TOML玩家DIY。ConstructionScheduler声明式施工。BuildingHistory建筑考古。三扇门: BuildContext入/BuildingQuery出/ConstructionTask出。 | ✅ v1.0 |
 | **家具系统** | [家具系统设计.md](家具系统设计-旧.md) | 家具分类/功能/质量/文化变体 | ⚠️ v0.1 |
 | **性能优化** | [性能优化分析 20260603.md](性能优化分析 20260603.md) | 性能瓶颈与缓解策略 | ⚠️ v0.1 |
 
@@ -39,7 +40,6 @@
 | 法律与秩序 | ⬜ | 犯罪/侦查/审判/惩罚/法外之地 |
 | 政治与派系 | ⬜ | 政治实体/派系动力/外交/战争 |
 | 名声系统 | ⬜ | 多维度名声/传播/头衔 |
-| 蓝图与建造 | ⬜ | 三途径/集体施工/建筑参数化 |
 | UI/UX | ⬜ | HUD规范/菜单/对话界面 |
 
 ---

@@ -39,6 +39,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `经济系统/` 9篇 | `物品系统/` 9篇 | `技能系统/` 3篇 | `语言表达/` 8篇
   - `战斗/` 14篇 | `魔法/` 19篇 | `世界生成/` 9篇 | `生命/` 12篇 | `历史/` 6篇
   - `天气与季节系统/` 4篇 | `载具系统/` 10篇 | `音频系统/` 9篇 | `感官与知觉系统/` 8篇
+  - **`建筑模块/` — 9篇 ★新增** | 组件族+数据模型+WFC求解+施工调度+Blueprint+生成器族谱+跨模块接口+性能预算
 
 ### `Change/` — 设计变更追踪
 按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名。CHG-001~006 早期变更，CHG-007~013 审计与重构，CHG-014~019 地基模块，CHG-022~033 业务系统（经济→模型动作物理）。详见 `Change/README.md`。
@@ -145,6 +146,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 034~037 | 技术栈全量审计 | 8阶段三层审计(C→B→A) Wave1~4。技术栈 v3→v4.0(物理迁移+7模块条目+峰值互斥预算+LOD统一架构)。CHG-026 补入 CLAUDE-INTERFACES。感官SpatialQuery→4trait签名。L1/L2/L3三级验证通过 |
 | 038~039 | TDI扩展+接头总览 | ~126条新TDI从8模块提取(音频/感官/经济/权力/文化/信仰/模型物理)。模块接头总览全部22模块×4文件填充(~300KB接口文档) |
 | 042 | NPC物理原子层 ★新增 | 三层原子架构(35物理基元+~40领域复合原子+~25社会抽象原子)。AgentSnapshot连续能力快照。MaterialProperties数据驱动涌现。IK+碰撞箱战斗管线。KnowledgeSeed知识种子。execution_noise技能精度。零年龄门控·零硬编码禁止·零预设战斗动画。详见 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/001-NPC行动涌现总纲|NPC行动涌现总纲]] |
+| 043 | 建筑模块 ★新增 | 组件化建筑物理与建造规则v1.0。ComponentFamily参数化族+9核心族。BuildContext六维参数聚合(种族/气候/材料/文化/信仰/业主)。BuildingQuery唯一对外接口。2.5D WFC三阶段求解(BSP→2D WFC→3D组装)。BuildingGenerator trait—8种生成器(WfcRectangular/WfcRadial/Cathedral/Complex等)。Blueprint TOML玩家DIY格式。ConstructionScheduler声明式施工调度。BuildingHistory双层时间窗口存储。Surface trait→物品系统家具放置。详见 [[WoWorld-Design/Happy Game/开发阶段/建筑模块/README|建筑模块总纲]]。关联: [[参考文档/035-建筑模块设计探讨-20260619/001-建筑模块大纲|建筑模块大纲]] |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 

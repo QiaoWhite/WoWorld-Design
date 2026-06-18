@@ -11,10 +11,14 @@
             "id": "7ef170f8dfaf12d5",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "Happy Game/开发阶段/模块接头总览/README.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "新标签页"
+              "title": "README"
             }
           }
         ]
@@ -221,8 +225,17 @@
       "bases:新建数据库": false
     }
   },
-  "active": "9fd2dd038a914461",
+  "active": "7ef170f8dfaf12d5",
   "lastOpenFiles": [
+    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/003-变更影响链.md",
+    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/002-接口入口.md",
+    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/001-接口出口.md",
+    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/000-变更日志.md",
+    "Happy Game/开发阶段/模块接头总览/01-生命/003-变更影响链.md",
+    "Happy Game/开发阶段/模块接头总览/01-生命/002-接口入口.md",
+    "Happy Game/开发阶段/模块接头总览/01-生命/001-接口出口.md",
+    "Happy Game/开发阶段/模块接头总览/01-生命/000-变更日志.md",
+    "参考文档/031-技术栈全量审计-20260618/模块接头总览/06-战斗/003-变更影响链.md",
     "Happy Game/开发阶段/模块接头总览/README.md",
     "Happy Game/开发阶段/模块接头总览/README.md.tmp.3156.e15689957e58",
     "Happy Game/开发阶段/感官与知觉系统/跨模块接口与数据合同.md.tmp.3156.bd2ba54ff591",
@@ -250,15 +263,6 @@
     "Happy Game/开发阶段/模块接头总览/04-天气与季节/001-接口出口.md",
     "Happy Game/开发阶段/模块接头总览/04-天气与季节/000-变更日志.md",
     "Happy Game/开发阶段/模块接头总览/04-天气与季节",
-    "Happy Game/开发阶段/模块接头总览/03-世界生成/003-变更影响链.md",
-    "Happy Game/开发阶段/模块接头总览/03-世界生成/002-接口入口.md",
-    "Happy Game/开发阶段/模块接头总览/03-世界生成/001-接口出口.md",
-    "Happy Game/开发阶段/模块接头总览/03-世界生成/000-变更日志.md",
-    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/003-变更影响链.md",
-    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/002-接口入口.md",
-    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/001-接口出口.md",
-    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/000-变更日志.md",
-    "Happy Game/开发阶段/模块接头总览/01-生命/003-变更影响链.md",
     "Happy Game/想法/WoW World/生命/NPC/角色处理对象时的心理作用.canvas"
   ]
 }

@@ -13,15 +13,30 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Change/hand/0-提示词考量角度.md",
+                "file": "Change/hand/010 NPC行为动作.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "0-提示词考量角度"
+              "title": "010 NPC行为动作"
+            }
+          },
+          {
+            "id": "48daea382c93d042",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/001-NPC行动涌现总纲.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "001-NPC行动涌现总纲"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -225,44 +240,44 @@
       "bases:新建数据库": false
     }
   },
-  "active": "7ef170f8dfaf12d5",
+  "active": "48daea382c93d042",
   "lastOpenFiles": [
+    "Happy Game/开发阶段/模块接头总览/18-物品/000-变更日志.md.tmp.19848.a25685708e59",
+    "Happy Game/开发阶段/模块接头总览/17-模型动作与物理/000-变更日志.md.tmp.19848.7741cfef393e",
+    "Happy Game/开发阶段/模块接头总览/08-技能/000-变更日志.md.tmp.19848.5705821e5dc7",
+    "Happy Game/开发阶段/模块接头总览/07-魔法/000-变更日志.md.tmp.19848.66508256c74b",
+    "Happy Game/开发阶段/模块接头总览/06-战斗/000-变更日志.md.tmp.19848.19b1f0e3b1de",
+    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/000-变更日志.md.tmp.19848.985e1df9315e",
+    "Happy Game/开发阶段/README.md.tmp.19848.12f64f907e3a",
+    "Happy Game/开发阶段/战斗/005-招式积木与流派生成.md.tmp.19848.cb88e0cfc29a",
+    "Happy Game/开发阶段/战斗/014-碰撞检测与动画管线.md",
+    "Happy Game/开发阶段/战斗/014-碰撞检测与动画管线.md.tmp.19848.ef158953a0d6",
+    "Happy Game/开发阶段/技能系统/004-知识种子与历史传承.md",
+    "Happy Game/开发阶段/技能系统/004-知识种子与历史传承.md.tmp.19848.661771070a53",
+    "Happy Game/开发阶段/物品系统/010-材料属性与物理模拟.md",
+    "Happy Game/开发阶段/物品系统/010-材料属性与物理模拟.md.tmp.19848.181c144159c0",
+    "Happy Game/开发阶段/模型动作与物理系统/动画系统/001-动画系统总纲.md",
+    "Change/hand/0-提示词考量角度.md",
+    "Change/CHG-042-NPC物理原子层v1.0创建-20260618.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/003-领域复合原子与模块注册.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/009-性能预算与LOD联动.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/006-技能精度与原子执行噪声.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/005-知识种子与历史引擎集成.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/004-AgentSnapshot与连续参数涌现.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/008-MaterialProperties与物品系统对接.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/007-碰撞箱战斗与IK动画管线.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/002-物理原子层定义与签名.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/011-关键问题回应与设计论证.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/001-NPC行动涌现总纲.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/010-跨模块接口与数据合同.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/README.md",
+    "参考文档/034-NPC行动涌现与物理原子层大纲-20260618/README.md",
+    "Happy Game/想法/WoW World/补充内容.md",
+    "Change/hand/010 NPC行为动作.md",
+    "Happy Game/开发阶段/模型动作与物理系统/模型定义与骨架/001-模型定义与骨架系统.md",
     "Change/hand/003.md",
     "Happy Game/开发阶段/语言表达/004-内容解析接口.md",
     "Happy Game/开发阶段/语言表达/001-语言表达系统总纲.md",
-    "Change/CHG-041-NPC生命周期系统v1.0创建-20260618.md",
-    "Change/CHG-041-NPC生命周期系统v1.0创建-20260618.md.tmp.22516.3a20356384f8",
-    "Happy Game/开发阶段/模块接头总览/01-生命/001-接口出口.md.tmp.22516.c81f4c832ebf",
-    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/002-接口入口.md.tmp.22516.db1669e764be",
-    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/001-接口出口.md.tmp.22516.962fa710aae0",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/011-边界情况与Mod扩展.md",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/011-边界情况与Mod扩展.md.tmp.22516.acf3e76fa589",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/010-性能架构与LOD分层.md",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/010-性能架构与LOD分层.md.tmp.22516.bdc9fcc4d37a",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/009-跨模块接口与事件协议.md",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/009-跨模块接口与事件协议.md.tmp.22516.78837e231522",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/008-玩家生命周期.md",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/008-玩家生命周期.md.tmp.22516.d03a079e6029",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/007-死亡与死后.md",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/007-死亡与死后.md.tmp.22516.33f172c1ae57",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/006-青壮年与老年.md",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/006-青壮年与老年.md.tmp.22516.fcec35e3ff71",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/005-童年与教育.md",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/004-婴幼儿与养育.md",
-    "Happy Game/开发阶段/语言表达/006-对话系统-社交层.md",
-    "Happy Game/开发阶段/语言表达/009-信息传播系统.md",
-    "Happy Game/开发阶段/语言表达/012-语音输出接口.md",
-    "Happy Game/开发阶段/语言表达/011-LLM增强层.md",
-    "Happy Game/开发阶段/语言表达/010-非语言表达与语言联动.md",
-    "Happy Game/开发阶段/语言表达/007-自然语言理解与输入.md",
-    "Change/hand/0-提示词考量角度.md",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/003-受孕、孕期与出生.md",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/002-年龄时钟与阶段转换.md",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/001-生命周期系统总纲.md",
-    "Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/跨模块审计/001-跨模块依赖与接口全面清单.md",
-    "参考文档/033-NPC生命周期模块大纲-20260618/001-NPC生命周期模块大纲.md",
-    "Change/hand/009 玩家角色本质.md",
-    "Happy Game/想法/WoW World/补充内容.md",
     "Happy Game/想法/WoW World/生命/NPC/角色处理对象时的心理作用.canvas"
   ]
 }

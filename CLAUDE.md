@@ -144,6 +144,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 041 | 生命周期系统 ★新增 | NPC从受孕到死亡+死后痕迹的完整生命历程。6核心原则：零年龄门控/零系统开关/连续模型/中性事件/平等性/统一时间流速。AgeClock纯函数+Gompertz衰老+InfantDependency状态机+FertilityPotential曲线+DeathCause 30种6类+玩家双角色死亡继承。详见 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/001-生命周期系统总纲|生命周期系统总纲]] |
 | 034~037 | 技术栈全量审计 | 8阶段三层审计(C→B→A) Wave1~4。技术栈 v3→v4.0(物理迁移+7模块条目+峰值互斥预算+LOD统一架构)。CHG-026 补入 CLAUDE-INTERFACES。感官SpatialQuery→4trait签名。L1/L2/L3三级验证通过 |
 | 038~039 | TDI扩展+接头总览 | ~126条新TDI从8模块提取(音频/感官/经济/权力/文化/信仰/模型物理)。模块接头总览全部22模块×4文件填充(~300KB接口文档) |
+| 042 | NPC物理原子层 ★新增 | 三层原子架构(35物理基元+~40领域复合原子+~25社会抽象原子)。AgentSnapshot连续能力快照。MaterialProperties数据驱动涌现。IK+碰撞箱战斗管线。KnowledgeSeed知识种子。execution_noise技能精度。零年龄门控·零硬编码禁止·零预设战斗动画。详见 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/001-NPC行动涌现总纲|NPC行动涌现总纲]] |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 

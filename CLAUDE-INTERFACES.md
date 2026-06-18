@@ -460,3 +460,43 @@
 | FertilityDrivers struct + fertility_desire() | 生命 012 | FertilityPotential连续曲线 + 通用认知管线 |
 | DeathCause逐条亡灵资格枚举 | 生命 004 | 类别级规则（I-V类默认可，IV/VI有例外） |
 | competence_frustration=0（儿童硬编码） | NPC 04-进阶需求 | 从认知参数自然派生 |
+
+## CHG-042 NPC 物理原子层 v1.0
+
+> **完整设计**：[[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/001-NPC行动涌现总纲|NPC行动涌现总纲]]
+
+### 基座契约
+
+| 概念 | 权威 Owner | 消费方 | 关键约定 |
+|------|-----------|--------|---------|
+| **物理基元 (35个)** | **NPC行动涌现** `002` | 全部模块 | 定义在 `woworld_core::atoms`。MOVE/GRASP/STRIKE/ATTACH/IGNITE/OBSERVE... 零领域知识，仅做物理计算。各领域模块的execute()内部消费。不设门控 |
+| **AgentSnapshot** | **NPC行动涌现** `004` | 全部模块 | ~96B SoA连续能力快照。23字段(身体7/认知5/社交4/生命周期4/环境3)。从Life/Skill/Cognition/Lifecycle/Weather瞬时派生。零年龄门控。不持久化 |
+| **MaterialProperties** | **NPC行动涌现** `008` | 物品系统/Combat/Magic/Physics | MaterialDef TOML注册表(~30字段)。物品系统存储(`Option<MaterialDefId>`)+查询，不解释含义。消费模块各自读取。遵循ConsumableEffect委托模式 |
+| **execution_noise()** | **NPC行动涌现** `006` | 全部消费物理原子的模块 | `execution_noise_std(level) = BASE_NOISE × (1-level/100)²`。技能→原子执行精度连续映射。不新增SkillEntry字段。不修改proficiency() |
+| **KnowledgeSeed** | **NPC行动涌现** `005` → 技能系统/历史系统 | World Gen P8/P9 | TOML技术时代时间线。时代框架手工设计，传播路径自动生成。generate_starting_skills()消费。不修改TeachingSession/XP公式 |
+| **碰撞扫掠** | **NPC行动涌现** `007` | 战斗系统 | 武器capsule×身体15capsule→轨迹扫掠求交→命中判定。替换O(1)几何查表。capsule-capsule~5ns/test。非Rigid武器PBD约束求解 |
+| **IK动画管线** | **NPC行动涌现** `007` | 模型/动画系统 | 零预设战斗动画。2-bone analytical IK从武器轨迹生成。躯干/腿/脚/头的完整IK链。比预设动画混合快~9倍。在骨骼≤0.5ms预算内 |
+| **三层原子架构** | **NPC行动涌现** `001` | 全部模块 | L1物理基元(35)→L2领域复合(~40)→L3 GOAP候选(~25)。各模块注册ActionCandidate。NPC模块不拥有列表。新模块=新注册=GOAP自动可见 |
+| **AtomEvent** | **NPC行动涌现** `002` | 感官/音频/历史 | 所有物理原子自动推送至SpatialEventBus。音频模块轮询SoundFootprint。感官模块消费PerceptEntry。历史模块检查AetherImprint触发 |
+
+### 性能契约
+
+| 度量 | 数值 |
+|------|------|
+| 碰撞扫掠 / 帧 | ≤0.1ms |
+| IK 解算 / 帧 | ≤0.5ms（在现有骨骼预算内，零增量） |
+| MaterialProperties 查询 / 帧 | <0.05ms（24KB L2常驻） |
+| 非Rigid武器 PBD / 帧 | ≤0.3ms（动态降级） |
+| 总 CPU 增量 | ≤0.45ms（6.4% Rust预算） |
+| 总内存增量 | ~10.2MB（0.7% NPC数据） |
+| VRAM 影响 | 零（碰撞全部CPU侧） |
+
+### 设计原则
+
+| 原则 | 含义 |
+|------|------|
+| **零年龄门控** | 不设 `if age < X { cannot_do(Y) }`。所有差异从AgentSnapshot连续参数涌现 |
+| **零硬编码禁止** | 不写"中毒→不能劳动"。health_penalty→全原子效用↓→GOAP自然选择 |
+| **动画是物理的输出** | IK从武器轨迹生成所有动画。零预设战斗动画 |
+| **材料属性是数据** | "铁受热变软"不是规则——是MaterialProperties热软化自动计算 |
+| **玩家=NPC** | 同一套原子引擎、同一套AgentSnapshot

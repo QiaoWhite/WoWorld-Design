@@ -195,6 +195,24 @@
 | 信仰塑造社会组织 | **信仰系统** `004** | Group/权力/CulturalNorm/战斗/经济 | 信仰只定义条件与修饰——执行全走现有系统。教众→Group。神职层级→PowerTopology 委托链。禁忌→CulturalNorm(NormScope::SpecificFaith)。神权政体→权力系统 GovernmentForm::Theocracy |
 | ChildFaithProfile 继承 | **信仰系统** `003** | 生命 012（繁衍） | 子女继承双亲的 participation 混合(0.7 因子)+社区温和引力。motivation 初始=Habitual。成年礼后可转变 |
 
+## CHG-026 新增契约（载具系统 v1.0）
+
+| # | 概念 | Owner | 消费者 | 关键约定 |
+|---|------|-------|--------|---------|
+| 1 | VehicleId / VehicleDef | 载具系统 001 | Items, NPC, World Gen | VehicleId=世界实体+可选ItemEntId契书. 载具永不进入库存 |
+| 2 | 5种动力类型 | 载具系统 002 | Life, Magic | MusclePowered/AnimalTowed/WindPowered/MagicEngine/Hybrid. 日常航行不受自然力影响, 仅灾害级天气施加硬约束 |
+| 3 | 移动参考系 (T_V) | 载具系统 005 | NPC, Godot渲染 | world_pos = T_V × P_local. 载具局部空间查询由 Rust EntityIndex 提供 |
+| 4 | Crew GOAP 目标 | 载具系统 003 | NPC | NavigateVehicle/Lookout/MaintainVehicle/AssistPassengers |
+| 5 | 载具损伤模型 | 载具系统 004 | Combat, Items | 3通道连续损伤 (Hull/Propulsion/Steering). 镜像战斗损伤模型 |
+| 6 | 所有权与契书 | 载具系统 005 | Items, Power | 5获取路径 (口头/契书/征服/建造/继承). 契书可伪造. 争议裁决→权力系统 |
+| 7 | 载具货舱 | 载具系统 006 | Items, Economy | ContainerId 通过物品系统标准 Container 接口 |
+| 8 | VehicleQuery trait | 载具系统 010 | Combat, NPC, Godot | 30+只读方法, Send+Sync, 零分配. VehicleMut pub(crate) |
+| 9 | CrewSlotDef | 载具系统 001 | Skill, Culture | required_skill→SkillId, label_key→文化系统本地化 |
+| 10 | 命名系统 | 载具系统 009 | Culture, Language | 载具命名由文化参数+语言表达共同决定 |
+| 11 | 载具涌现 | 载具系统 008 | World Gen, Culture | VehicleArchetype×文化参数→载具变体. 非 enum 涌现 |
+| 12 | 铁路系统 | 载具系统 007 | World Gen, History | P9 稀有涌现, 非世界生成. NPC 集体建造 |
+| 13 | 日常自动导航 | 载具系统 003 | NPC, Weather | L1-L3 半自动控制. NPC+Player 实现同一 VehicleController trait |
+
 ## CHG-027 新增契约（基本需求系统 v1.0）
 
 | 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |

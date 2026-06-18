@@ -2607,6 +2607,8 @@ pub struct FrameSliceConfig {
 # Part 4: 物理表达
 
 > **设计意图**：心智在 Rust 侧运行。物理表达是 Rust → Godot 的数据通道——骨骼矩阵、渲染实例数据、感官反馈。Godot 侧不处理 NPC 逻辑。
+>
+> ⚠️ **[CHG-033 架构变更 — 2026-06-18 审计更新]**: NPC 物理交互已从 Godot CharacterBody3D/PhysicsServer3D 迁移至 Rust 空间查询 (TerrainQuery/EntityIndex/SpatialEventBus/VisibilityQuery)。仅玩家保留 PhysicsServer3D。NPC 碰撞/导航/物理表达由 Rust 侧空间查询四 trait 处理。详见 [[../模型动作与物理系统/空间查询与物理/001-空间查询与物理系统|空间查询四 trait]]。
 
 ---
 

@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/模块接头总览/README|模块接头总览]]（2026-06-18 全部填充）+ 技术栈 v3→v4.0 全量审计（CHG-034~039）+ [[WoWorld-Design/参考文档/032-Bevy引擎切换可行性分析-20260618/README|Bevy引擎切换可行性分析]]（2026-06-18）。模块累计 22 个独立系统（含22个子模块），~90,000行正式开发规格。
+**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/001-生命周期系统总纲|NPC 生命周期系统 v1.0]]（2026-06-18，CHG-041）+ [[WoWorld-Design/Happy Game/开发阶段/模块接头总览/README|模块接头总览]]（全部填充）+ 技术栈 v3→v4.0 全量审计（CHG-034~039）+ [[WoWorld-Design/参考文档/032-Bevy引擎切换可行性分析-20260618/README|Bevy引擎切换可行性分析]]。模块累计 22 个独立系统（含 23 个子模块），~100,000行正式开发规格。
 
 ## 文档结构
 
@@ -33,7 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `开发阶段/` — 正式开发规格（权威规格）。20 个子模块目录：
   - `游戏概述.md` / `README.md` / **`技术栈方案/`**（★ v4.0 权威技术方案）
   - **`模块接头总览/`** — 22模块×4文件的接口地图（见下方专门章节）
-  - `NPC活人感模块/` — NPC ver2.0 + 基本需求(7维) + 进阶需求(三层) + 审美与艺术 + **认知与智慧**
+  - `NPC活人感模块/` — NPC ver2.0 + 基本需求(7维) + 进阶需求(三层) + 审美与艺术 + 认知与智慧 + **生命周期系统（07-新增）**
   - `模型动作与物理系统/` — 模型定义(骨架/面部图集) + 动画(38姿态/15轨迹/9层栈) + 空间查询(4 trait) + 物理响应
   - `文化系统/` 8篇 | `信仰系统/` 10篇 | `权力系统/` 9篇
   - `经济系统/` 9篇 | `物品系统/` 9篇 | `技能系统/` 3篇 | `语言表达/` 8篇
@@ -118,7 +118,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | AetherImprint | **History** 004 | Life | 查询统一为History 006的AetherQuery trait |
 | Spirit消耗 | **Life** 004 §四 | Combat | 常规=Mana(安全), 过载=raw spirit(渐进症状→不可逆死亡) |
 | 海洋深度 | **Life** 003/005 | World Gen | 深渊=4000m。透光0-200/中200-1000/深1000-4000/深渊4000+ |
-| 死亡原因 | **Life** 004 §九 | History | 25种5大类: 物理7/环境6/生物5/魔法4/时间与特殊3 |
+| 死亡原因 | **Life** 004 §九 | History | ⚠️ CHG-041: 从25种5类扩展为30种6类。类别级亡灵规则。DeathCauseRegistry trait支持mod扩展 |
 
 ### 后续 CHG 契约摘要
 
@@ -141,6 +141,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 031 | 感官系统 | PerceptBatch统一产出、VisionQuery/ScentQuery/SpatialQuery trait(woworld_core)、PerceptualCache LRU、DarkAdaptation指数松弛、AestheticFrameworks四过程、感官噪声确定性种子 |
 | 032 | 认知与智慧系统 | CognitiveStyle 4维认知风格(含阻尼)、CognitiveTide 3维潮汐、MentalModel(≤20条·6路径跨代传递)、ThoughtTrigger 6类触发+ThoughtFragment 3级清晰度、睡眠正则化(过拟合大脑假说)、创新管线6阶段→6领域对接、MindAttribution Theory of Mind、零新trait·零新调参旋钮·全部已有维度派生 |
 | 033 | 模型动作与物理 | TerrainQuery/EntityIndex/SpatialEventBus/VisibilityQuery四trait空间查询、33骨(L1)/35骨(L0)人形骨架、双骨蒙皮、512²面部图集(16嘴×16眉×8眼)、38模块姿态+15基元轨迹、9层动画栈、步态9参数从BigFive派生、CombatStyleParams8参数流派涌现、COM抛物体飞行、骨架松弛死亡(替代布娃娃)、仅玩家保留PhysicsServer3D |
+| 041 | 生命周期系统 ★新增 | NPC从受孕到死亡+死后痕迹的完整生命历程。6核心原则：零年龄门控/零系统开关/连续模型/中性事件/平等性/统一时间流速。AgeClock纯函数+Gompertz衰老+InfantDependency状态机+FertilityPotential曲线+DeathCause 30种6类+玩家双角色死亡继承。详见 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/001-生命周期系统总纲|生命周期系统总纲]] |
 | 034~037 | 技术栈全量审计 | 8阶段三层审计(C→B→A) Wave1~4。技术栈 v3→v4.0(物理迁移+7模块条目+峰值互斥预算+LOD统一架构)。CHG-026 补入 CLAUDE-INTERFACES。感官SpatialQuery→4trait签名。L1/L2/L3三级验证通过 |
 | 038~039 | TDI扩展+接头总览 | ~126条新TDI从8模块提取(音频/感官/经济/权力/文化/信仰/模型物理)。模块接头总览全部22模块×4文件填充(~300KB接口文档) |
 

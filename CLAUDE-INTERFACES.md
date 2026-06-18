@@ -410,3 +410,53 @@
 | HIGH | NPC ver2.0 §4 | "物理表达"替换为本模块引用 |
 | MEDIUM | 生命/001 | BodyPlan定义→woworld_core |
 | MEDIUM | 物品系统/001 | +WeaponPhysicalParams映射表 |
+
+---
+
+## CHG-041 NPC 生命周期系统 v1.0
+
+> **完整设计**：[[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/001-生命周期系统总纲|生命周期系统总纲]]
+
+### 基座契约
+
+| 概念 | 权威 Owner | 消费方 | 关键约定 |
+|------|-----------|--------|---------|
+| LifeStage (6阶段) | **Life** `004-身体状态与生命过程` | NPC生命周期 / 模型物理 / 技能 / 信仰（葬式） | Juvenile/Adolescent/YoungAdult/Adult/MiddleAge/Elder。属性乘数由LifeStage决定。不同物种有独立阶段百分比分布 |
+| AgeClock | **Life** `013-生命周期时钟与事件`（新增） | LOD调度器 | 纯函数 advance_age(entity, delta_days, rng) → (LifeEntity, Vec<LifeEvent>)。同输入+同种子→同输出。与调用频率无关 |
+| DeathCause (30种6类) | **Life** `004 §九` | 历史 / 信仰 / 战斗 / 权力 | 30种：创伤8/匮乏5/侵入5/奥术5/衰亡3/意志4。类别级亡灵规则。DeathCauseRegistry trait支持mod扩展 |
+| DeathEvent / BirthEvent / LifeStageTransition | **Life** `013` | 所有模块独立订阅 | 中性事实——不携带情感建议/行为期望/人际通知。EventBus分发 |
+| GestationState + FetusBlueprint | **Life** `004` | NPC生命周期（产前影响） | 受孕时确定种子——外观通过age_factor插值派生。FetusBlueprint编码青壮年标准模型 |
+| FertilityPotential | **Life** `004` | 受孕概率计算 | 连续sigmoid曲线。替代旧FertilityDrivers（退役）。libido和fertility是分离信号 |
+| InfantDependency | **Life** `004` | NPC GOAP / 世界生成 | Nursing→Weaning→Weaned三状态。L1由母亲GOAP驱动；L3/L4统计近似 |
+| DeathSummary | **Life** `004` | 历史（LifeTrace） | 三阶段压缩：T+0全量→T+7 1-3KB→T+30 LMDB冷存档 |
+
+### 行为层契约
+
+| 概念 | 权威 Owner | 消费方 | 关键约定 |
+|------|-----------|--------|---------|
+| 生育欲望 | **NPC GOAP 通用管线** | 无处——和其他欲望同质 | 无专用通道。libido是身体信号（和hunger同质）。欲望形成走感知→认知→MentalModel→Aspiration→GOAP竞争 |
+| 教育 | 技能模块（教学路径）+ NPC GOAP | 无处——涌现模式 | 三层涌现：家庭→社区→专职教师。4条教学路径覆盖。无"教育系统" |
+| ControlMode | **NPC 生命周期** `008` | UI层 / GOAP引擎 | Auto/Manual/DomainDelegated。GOAP持续运转。被控角色无感知 |
+| CognitiveAgingPath | **NPC 认知** `006` | 认知年度更新 | Healthy/Pathological/SuperAging。从CognitiveStyle+终生认知活跃度派生 |
+| Widowhood | **NPC 关系** | NPC认知/情绪管线 | 中性事实{deceased_partner_id, date, death_cause}。不携带情感预设 |
+| PrenatalAccumulator | **NPC 生命周期** `003` | 新生儿初始化 | 可开关(enabled: bool)。出生时转移至新生儿→初始记忆偏差 |
+
+### 核心设计原则（不可违反）
+
+| 原则 | 内容 |
+|------|------|
+| **零年龄门控** | 没有任何 `if age < X { return CantDoThis }` |
+| **零系统开关** | GOAP/审美/语言/认知从出生起持续运行 |
+| **连续模型** | 所有能力是连续渐变，无阈值开关 |
+| **中性事件** | LifeEvent不携带情感建议/行为期望 |
+| **统一时间流速** | 所有LOD层共用相同时间流速——不可L3/L4加速老化 |
+| **平等性** | 生育欲望和吃饭欲望走同一条通用认知管线 |
+| **玩家=NPC+控制层** | ControlMode覆盖GOAP输出，非独立实体类型 |
+
+### 已退役
+
+| 退役项 | 原位置 | 替代 |
+|--------|--------|------|
+| FertilityDrivers struct + fertility_desire() | 生命 012 | FertilityPotential连续曲线 + 通用认知管线 |
+| DeathCause逐条亡灵资格枚举 | 生命 004 | 类别级规则（I-V类默认可，IV/VI有例外） |
+| competence_frustration=0（儿童硬编码） | NPC 04-进阶需求 | 从认知参数自然派生 |

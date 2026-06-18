@@ -147,7 +147,7 @@
 |------|-----------|-------------------|---------|
 | CultureId | **文化系统** `001` | 全部模块 | CultureId=u32 扁平全局标识——替代所有幽灵类型(CultureSeed/CultureStyleId/CultureClusterId)。CultureGenealogy 独立存储谱系关系——不编码在 ID 中 |
 | CultureCoreParams | **文化系统** `002` | 全部模块 | 10 个 f32 核心参数(individualism/power_distance/uncertainty_avoidance/competition_orientation/long_term_orientation/indulgence/openness_to_outsiders/religiosity/militarism/artistry)——0-1 连续值。种子生成，代际漂移(σ=0.003/年)。不可再分原子——所有文化特征从此派生 |
-| CommunicationNorms | **文化系统** `003`（★ v1.0 从语言表达 010 正式转移） | 语言表达 `005`/`010`、NPC | 8 字段(interruption_tolerance/eye_contact_norm/personal_space_radius_m/directness/silence_tolerance/emotional_expressiveness/honorifics/touch_norms)——从 CultureCoreParams 确定性派生。语言表达保留 norms 的消费逻辑（如何调制对话行为） |
+| CommunicationNorms | 文化系统 003 | 语言表达, NPC | 8字段 (interruption_tolerance/eye_contact_norm/personal_space_radius_m/directness/silence_tolerance/formality/status_deference/turn_taking_style). CHG-024 从语言表达迁移所有权至文化系统 |
 | GestureCultureMapping | **文化系统** `003` | 语言表达 `010` | 与 CommunicationNorms 同步转移——文化系统定义手势含义，语言表达消费跨文化误解检测逻辑 |
 | BuildingStylePreferences | **文化系统** `004` | 世界生成 `005`（建筑 WFC）、家具系统 | 屋顶样式×墙体材质×装饰水平×色彩调色板×对称性×尺度×邻接修正——从核心参数×群系派生，不独立存储 |
 | CulturalBeautyStandard | **文化系统** `004` | NPC `02-性别与吸引力系统` | 审美标准从核心参数+统治阶层外观派生——所有权从 NPC 模块迁至文化系统。NPC 保留消费逻辑 |
@@ -183,7 +183,7 @@
 | FaithMut trait | **信仰系统** `010` | 世界生成管线、历史模拟引擎 | pub(crate)——信仰修改的唯一入口。消费模块不可调用 |
 | FaithAgent trait | **信仰系统** `004`（定义）→ NPC/Player（实现） | 信仰系统 | 信仰系统不区分调用者是 NPC 还是玩家。热路径本地字段读取 |
 | MagicReligionRelation | **信仰系统** `008` | 文化 005（技术派生） | 四种关系(Gift/Blasphemy/Independent/Unified)——per-faith 属性，覆盖文化 005 的 `religiosity × 0.5` 假设 |
-| ReligiousReproductionNorms | **信仰系统** `002**（从 Life 012 迁移所有权） | Life 012（繁衍——消费） | 所有权从生命模块迁至信仰系统。Life 012 通过 FaithQuery 消费 |
+| ReligiousReproductionNorms | 信仰系统 002 | 生命, NPC | 宗教婚姻规则/出生仪式/死亡仪式/信仰继承. CHG-025 从 Life 012 迁移所有权至信仰系统 |
 | DivineAuthorizationEvent | **信仰系统** `007`（发出） | 权力系统 004（消费） | 事件驱动——信仰系统不操作 PowerTopology。权力系统订阅 DivineAuthorization 事件→创建 PowerSource::Divine 的 PowerEdge |
 | SacredArchitectureParams | **信仰系统** `002` | 世界生成 P5-P6（建筑） | 神殿建筑参数——从 FaithTheology 派生。几何/方向/高度/光线/图像/材质/布局 7 维度 |
 | FuneralCustoms | **信仰系统** `006` | 生命 DeathCustom、历史墓碑 | 葬仪类型(土葬/火葬/天葬等 7 种)+陪葬品规则+哀悼期+对亡灵态度 |
@@ -360,6 +360,8 @@
 ---
 
 ## CHG-033 模型动作与物理系统 v1.0
+
+| TDI-032/045/202 | — | — | ⚠️ CHG-033 已取代: PhysicsServer3D→仅玩家。TDI 保留为历史参考 |
 
 ### 空间查询契约
 

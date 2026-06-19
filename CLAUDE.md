@@ -154,7 +154,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 模块接头总览（Module Interface Hub）
 
-> 📘 **位置**: `开发阶段/模块接头总览/` | **最后填充**: 2026-06-18 (CHG-039)
+> 📘 **位置**: `开发阶段/模块接头总览/` | **最后填充**: 2026-06-19 (CHG-044) — 23个模块已全部填充
 
 **定位**: 介于 CLAUDE-INTERFACES.md（契约宪法）和具体模块文档之间的"生活地图"——按模块和概念组织的接口地图。
 
@@ -166,7 +166,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 模块接头总览/
   00-全局基础设施/    — woworld_core 核心类型 + 空间查询四trait签名 + 40+通用trait索引
-  01~22/              — 每模块4文件: 001-接口出口 / 002-接口入口 / 003-变更影响链 / 000-变更日志
+  01~23/              — 每模块4文件: 001-接口出口 / 002-接口入口 / 003-变更影响链 / 000-变更日志
   变更追踪/           — 待处理变更队列 + 已解决变更日志
 ```
 

@@ -536,3 +536,64 @@
 | **家具不属于建筑模块** | 家具定义在 Items 模块，放置实例由 Items 管理——建筑模块只提供 Surface trait |
 | **Blueprint 是玩家格式** | Blueprint 仅供玩家 DIY——世界生成走 WFC，NPC 翻修走 LocalIncrementalSolver |
 | **连接关系几何自推导** | Blueprint 不存储连接关系——从组件位置+ConnectionFace 兼容性自动计算 |
+
+---
+
+## CHG-044 概念与语言地基系统 v1.0
+
+> **完整设计**: [[WoWorld-Design/Happy Game/开发阶段/概念与语言地基/001-概念与语言地基总纲|概念与语言地基总纲]]
+> **参考大纲**: [[WoWorld-Design/参考文档/036-概念与语言地基设计探讨-20260619/001-概念与语言地基大纲|036-大纲]]
+
+### 基座契约
+
+| 概念 | 权威 Owner | 消费方 | 关键约定 |
+|------|-----------|--------|---------|
+| PatternSignature (u64) | **概念与语言地基** `002` | 集成层、信息传播、NPC | 从权力拓扑/经济/关系中确定性哈希的模式指纹——全球客观。compute_pattern_signature()是woworld_core纯函数 |
+| ConceptLocalId (u16) | **概念与语言地基** `002` | NPC、语言表达、信息传播 | 文化内的概念标识——必须搭配CultureId才有意义。高4位命名空间(0=核心,1-15=Mod)，低12位文化内序号 |
+| CultureConceptDef | **概念与语言地基** `002` | 集成层、woworld_lang | 文化概念空间中的一条概念：coverage(覆盖的模式空间)+granularity(粒度)。TOML数据驱动 |
+| CompactConceptEncoding ([u8;64]) | **概念与语言地基** `002` | NPC(EventMemory)、历史(PhysicalBook)、信息传播(InformationPayload) | 64B压缩概念编码：pattern_sig+3个最佳概念ID+置信度+detail_level+flags。自包含展开——不需要外部概念空间 |
+| Utterance | **概念与语言地基** `003` | 语言表达、音频、LLM增强 | 结构化话语{concepts,speech_act,language,delivery}——替代裸String作为NPC语言产出的统一格式 |
+| UtteranceId (u64) | **概念与语言地基** `003` | 音频(CurrentSpeech) | 瞬时话语标识——与ExpressionRef(持久可读物句柄)分离。仅当次对话有效 |
+| TextGenerator 三模式 | **概念与语言地基** `003` → 语言表达模块 | 语言表达、音频 | render_utterance()(对话)+generate()(书籍·已有)+render_thought()(自语)——三入口共享FragmentLibrary |
+| translate_concepts() | **概念与语言地基** `003`(woworld_lang) | 集成层 | 跨文化概念翻译——源概念模式覆盖投影到目标文化概念空间，找最大重叠。三种情况：直接翻译(overlap>0.8)/近似翻译+描述补全(>0.3)/描述性短语(无匹配) |
+| effective_concept_space() | **概念与语言地基** `002`(woworld_lang) | 集成层 | 纯函数——从birth_culture+residences加权派生混合概念空间。母文化0.6+居住每年0.05(上限0.3) |
+| language proficiency | **概念与语言地基** `004` | NPC、语言表达、音频 | 从原子日志LISTEN/SPEAK/READ/WRITE/EXAMINE涌现——S曲线增长。衰减：童年习得地板0.4/青少年0.25/成人0.05。零枚举路径 |
+| script proficiency | **概念与语言地基** `004` | NPC、语言表达 | 独立于language proficiency——从READ/WRITE/EXAMINE原子涌现。书籍理解=lang_prof × script_prof × concept_overlap |
+| 概念习得 | **概念与语言地基** `004` | NPC | 暴露累积>阈值→习得，初始低置信(0.3)。阈值受认知风格调制(分析型更高，灵活型更低) |
+| 演绎推理 deductive_chain() | **概念与语言地基** `005`(woworld_core) | NPC | MentalModel链式应用到事实。浅层(depth≤2)在memory_encode时自动执行。深层在expand_inference时惰性重构 |
+| 推理三模式 | **概念与语言地基** `005` | NPC/认知 | 归纳(try_induce_pattern·特殊→一般)+类比(creative_leap·特殊→特殊)+演绎(deductive_chain·一般→特殊)——完整覆盖 |
+| wisdom_effective() | **概念与语言地基** `005`(NPC crate) | NPC决策 | 纯函数派生——自省(0.30)+经验内化(0.25)+认知平衡(0.25)+灵活性(0.10)+年龄(0.10)。不存储 |
+| life_event_cognitive_shift() | **概念与语言地基** `005`(NPC crate) | NPC认知更新 | 重大事件→CognitiveStyle方向性偏移。冲动失败→反思+，教育→抽象+，创伤→直觉+固执 |
+| transmission_fidelity() | **概念与语言地基** `006`(woworld_core) | 集成层 | 六条路径独立保真度衰减率。书面k=0.02(100代后0.13)、口传k=0.15(10代后0.11)、师徒k=0.05-0.08 |
+| knowledge_preservation_impulse() | **概念与语言地基** `006`(NPC crate) | NPC WritingImpulse | 从wisdom×年龄×有价值知识×紧迫感派生——知识保存从个体行为涌现为制度 |
+| settlement_knowledge_health() | **概念与语言地基** `006`(NPC crate) | 世界生成 | 书籍(0.40)+师徒(0.35)+口传(0.25)加权。检测唯一持有者风险、书籍退化风险 |
+| concept_space_drift() | **概念与语言地基** `006`(woworld_lang) | 集成层 | 使用频率→边缘化/强化。外部文化接触→概念覆盖漂移。每代评估 |
+| LLM增强位置 | **概念与语言地基** `007` | LLM增强层 | LLM在概念层操作Utterance.concepts——不直接产出字符串。TextGenerator负责所有渲染。失败→回退确定性概念 |
+| 概念识别位置 | **概念与语言地基** `002` | 集成层 | classify_pattern()在集成层调用——各业务模块不知道"概念"的存在。NPC只接收已识别的CompactConceptEncoding |
+| NpcData新增字段 | **概念与语言地基** `001` | NPC | birth_culture/native_language/native_script/known_scripts/acquired_concepts/residences/atom_execution_log/concept_space_version。L1 NPC ~4.3KB |
+| AgentSnapshot新增字段 | **概念与语言地基** `001` | NPC行动涌现 | language_proficiencies(8B)/script_proficiencies(4B)/dominant_concept_culture(2B)/concept_space_version(2B)/literacy_best(4B)。总计20B |
+| EntityIndex::close_relations() | **概念与语言地基** `008`(woworld_types trait扩展) | 集成层 | 已有EntityIndex trait新增方法——返回关系强度>threshold的实体。用于社会事件间接感知路由 |
+| 文化≠语言(多对多) | **概念与语言地基** `004` | 文化系统、语言表达 | 一种文化可有多语言，一种语言可服务多文化。概念空间附属于文化，词汇附属于语言 |
+| 名字渲染 | **概念与语言地基** (woworld_lang) | 全部显示层 | PersonalName{ given_name, family_name, patronymic, epithet }——结构化名字。render_name()根据observer_culture+familiarity渲染 |
+
+### 核心设计原则
+
+| 原则 | 内容 |
+|------|------|
+| **思维是结构化数据，语言是惰性渲染** | NPC内心以概念思考，自然语言仅在需要外显时生成 |
+| **概念先于词语** | 概念是语言无关的，词语是概念在特定语言中的投影 |
+| **文化相对概念空间** | 同一客观模式，不同文化可能识别为零个或多个不同概念 |
+| **翻译=模式重叠搜索** | 源概念的模式覆盖投影到目标文化概念空间，找最大重叠 |
+| **零新门控，零硬编码路径** | 语言学习/概念习得/认知风格演变全部从连续参数数学交互涌现 |
+| **概念识别在集成层** | 各业务模块不知道"概念"的存在——它们只产出客观数据 |
+| **玩家=NPC（贯彻到语言层）** | 同一套Utterance/proficiency/概念空间。UI语言是独立渲染目标 |
+
+### 数据预算
+
+| 类别 | 数值 |
+|------|------|
+| TOML数据（启动加载） | ~1.2MB |
+| NpcData新增（1000 L1 + 100K L2） | ~34MB |
+| EventMemory新增（1000 L1 × 2000条） | ~144MB |
+| 总新增（含AgentSnapshot/AtomLog） | ~180MB（占1.4GB预算13%） |
+| 帧CPU增量 | <0.5ms（<3%帧预算） |

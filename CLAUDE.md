@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/001-生命周期系统总纲|NPC 生命周期系统 v1.0]]（2026-06-18，CHG-041）+ [[WoWorld-Design/Happy Game/开发阶段/模块接头总览/README|模块接头总览]]（全部填充）+ 技术栈 v3→v4.0 全量审计（CHG-034~039）+ [[WoWorld-Design/参考文档/032-Bevy引擎切换可行性分析-20260618/README|Bevy引擎切换可行性分析]]。模块累计 22 个独立系统（含 23 个子模块），~100,000行正式开发规格。
+**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/概念与语言地基/001-概念与语言地基总纲|概念与语言地基系统 v1.0]]（2026-06-19，CHG-044）+ [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/001-生命周期系统总纲|NPC 生命周期系统 v1.0]]（2026-06-18，CHG-041）+ [[WoWorld-Design/Happy Game/开发阶段/模块接头总览/README|模块接头总览]]（全部填充）+ 技术栈 v3→v4.0 全量审计（CHG-034~039）+ [[WoWorld-Design/参考文档/032-Bevy引擎切换可行性分析-20260618/README|Bevy引擎切换可行性分析]]。模块累计 23 个独立系统，~110,000行正式开发规格。
 
 ## 文档结构
 
@@ -30,15 +30,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### `Happy Game/` — 核心设计文档
 - `欢迎.md` — 项目总览 | `想法/WoW World/总设计草稿.md` — 总设计文档
 - `想法/` — 概念设计/脑暴（`#草稿` = 早期文档，允许矛盾模糊未决）
-- `开发阶段/` — 正式开发规格（权威规格）。20 个子模块目录：
+- `开发阶段/` — 正式开发规格（权威规格）。23 个子模块目录：
   - `游戏概述.md` / `README.md` / **`技术栈方案/`**（★ v4.0 权威技术方案）
-  - **`模块接头总览/`** — 22模块×4文件的接口地图（见下方专门章节）
+  - **`模块接头总览/`** — 23模块×4文件的接口地图（见下方专门章节）
   - `NPC活人感模块/` — NPC ver2.0 + 基本需求(7维) + 进阶需求(三层) + 审美与艺术 + 认知与智慧 + **生命周期系统（07-新增）**
   - `模型动作与物理系统/` — 模型定义(骨架/面部图集) + 动画(38姿态/15轨迹/9层栈) + 空间查询(4 trait) + 物理响应
   - `文化系统/` 8篇 | `信仰系统/` 10篇 | `权力系统/` 9篇
   - `经济系统/` 9篇 | `物品系统/` 9篇 | `技能系统/` 3篇 | `语言表达/` 8篇
   - `战斗/` 14篇 | `魔法/` 19篇 | `世界生成/` 9篇 | `生命/` 12篇 | `历史/` 6篇
   - `天气与季节系统/` 4篇 | `载具系统/` 10篇 | `音频系统/` 9篇 | `感官与知觉系统/` 8篇
+  - **`概念与语言地基/` — 12篇 ★新增** | 概念空间与模式识别+Utterance渲染管道+词汇库与构词系统(原子词库·复合构词·涌现命名)+语言/文字proficiency+推理系统(归纳/类比/演绎)+代际知识传递(六路径+保真度模型)+LLM概念层对接
   - **`建筑模块/` — 9篇 ★新增** | 组件族+数据模型+WFC求解+施工调度+Blueprint+生成器族谱+跨模块接口+性能预算
 
 ### `Change/` — 设计变更追踪
@@ -147,6 +148,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 038~039 | TDI扩展+接头总览 | ~126条新TDI从8模块提取(音频/感官/经济/权力/文化/信仰/模型物理)。模块接头总览全部22模块×4文件填充(~300KB接口文档) |
 | 042 | NPC物理原子层 ★新增 | 三层原子架构(35物理基元+~40领域复合原子+~25社会抽象原子)。AgentSnapshot连续能力快照。MaterialProperties数据驱动涌现。IK+碰撞箱战斗管线。KnowledgeSeed知识种子。execution_noise技能精度。零年龄门控·零硬编码禁止·零预设战斗动画。详见 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/001-NPC行动涌现总纲|NPC行动涌现总纲]] |
 | 043 | 建筑模块 ★新增 | 组件化建筑物理与建造规则v1.0。ComponentFamily参数化族+9核心族。BuildContext六维参数聚合(种族/气候/材料/文化/信仰/业主)。BuildingQuery唯一对外接口。2.5D WFC三阶段求解(BSP→2D WFC→3D组装)。BuildingGenerator trait—8种生成器(WfcRectangular/WfcRadial/Cathedral/Complex等)。Blueprint TOML玩家DIY格式。ConstructionScheduler声明式施工调度。BuildingHistory双层时间窗口存储。Surface trait→物品系统家具放置。详见 [[WoWorld-Design/Happy Game/开发阶段/建筑模块/README|建筑模块总纲]]。关联: [[参考文档/035-建筑模块设计探讨-20260619/001-建筑模块大纲|建筑模块大纲]] |
+| 044 | 概念与语言地基系统 ★新增 | NPC概念思维与语言表达的底层地基v1.0。三层模型：PatternSignature(全球客观模式指纹)→文化概念空间(文化相对概念切分)→语言词汇(概念×语言投影)。新增woworld_core纯数学crate。11篇正式规格。核心: classify_pattern()概念识别、Utterance结构化话语、TextGenerator三模式统一、language/script proficiency从原子日志涌现、归纳/类比/演绎三推理模式、六条代际传递路径+保真度数学模型、LLM在概念层操作。NpcData新增~4.3KB字段、EventMemory新增CompactConceptEncoding([u8;64])、AgentSnapshot新增20B语言/文字proficiency。总新增~180MB在预算内。详见 [[WoWorld-Design/Happy Game/开发阶段/概念与语言地基/README|概念与语言地基总纲]]。关联: [[参考文档/036-概念与语言地基设计探讨-20260619/001-概念与语言地基大纲|概念与语言地基大纲]] |
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 

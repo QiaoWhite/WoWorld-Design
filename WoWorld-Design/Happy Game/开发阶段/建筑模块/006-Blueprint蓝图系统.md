@@ -161,7 +161,7 @@ pub struct BlueprintMeta {
 let bp = Blueprint::from_toml(&toml_string)?;
 
 // 2. 验证
-let validator = BlueprintValidator { registry: &REGISTRY };
+let validator = BlueprintValidator { registry: &registry };
 let validated = validator.validate(&bp, &build_context)?;
 
 // 3. 生成施工项目

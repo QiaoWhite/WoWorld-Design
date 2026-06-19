@@ -3837,3 +3837,27 @@ pub struct MemoryPartition {
 > 原 ver1.01 (GDScript 版) 已废弃。ver1.01short 已删除。
 >
 > **关联**: [[018-正式技术栈方案v3-20260610|技术栈 v3.0]] · [[CHG-007]] · [[CHG-008]]
+
+---
+
+## 6.7 世界生成初始化接口 ★ CHG-045 新增
+
+> **详细规格**: [[../../参考文档/037-世界生成重构跨模块补充需求-20260620/002-NPC模块补充需求|037-002 NPC 模块补充需求]]
+
+NPC 模块暴露以下世界生成可调用的类型和接口：
+
+### FamilyTree（新增类型）
+有向无环图(DAG)——FatherOf/MotherOf/MarriedTo/SiblingOf 边。世界生成 P8 Phase B 构造，运行时 NPC 出生/婚姻追加。
+- `parents_of()/children_of()/blood_distance()/can_marry()/household_members()`
+
+### NpcAnchors（新增类型）
+NPC 与物理空间的锚定——`{ home: HomeAnchor, workplace: WorkplaceAnchor, owned_buildings: Vec<BuildingId> }`。WorkplaceAnchor 涵盖 Building/农田/牧场/矿井/渔场/巡逻路线。
+
+### NpcData 批量构造
+`new_generated(...)` — 世界生成 P8 Phase D 批量调用的构造签名。MemoryStore 生成时为空（运行时增量追加），EmotionState 首帧 EmotionEngine 计算。
+
+### 初始动作状态（冷启动）
+`initial_action_state(npc, profession_tags, time_of_day, anchors, rng) → InitialNpcState` — 从 ProfessionTag TOML `daily_schedule` 推导首帧位置和动作。非预模拟——规则推导。
+
+### query_personal_history()（替代废弃的 SelfNarrative）
+无状态查询——从 FamilyTree+EventLog+BuildingData 实时推导 NPC 个人史。不预存文本。

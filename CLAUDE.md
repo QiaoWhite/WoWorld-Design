@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/概念与语言地基/001-概念与语言地基总纲|概念与语言地基系统 v1.0]]（2026-06-19，CHG-044）+ [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/001-生命周期系统总纲|NPC 生命周期系统 v1.0]]（2026-06-18，CHG-041）+ [[WoWorld-Design/Happy Game/开发阶段/模块接头总览/README|模块接头总览]]（全部填充）+ 技术栈 v3→v4.0 全量审计（CHG-034~039）+ [[WoWorld-Design/参考文档/032-Bevy引擎切换可行性分析-20260618/README|Bevy引擎切换可行性分析]]。模块累计 23 个独立系统，~110,000行正式开发规格。
+**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Happy Game/开发阶段/世界生成/README|世界生成 v2.0 完全重构]]（2026-06-20，CHG-045）——编排器模式·14阶段管线·结构/细节双层分离·Bootstrap哲学·协同生成 + [[WoWorld-Design/Happy Game/开发阶段/概念与语言地基/001-概念与语言地基总纲|概念与语言地基系统 v1.0]]（2026-06-19，CHG-044）+ [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/001-生命周期系统总纲|NPC 生命周期系统 v1.0]]（2026-06-18，CHG-041）。跨模块补充需求 12 篇输出至 [[WoWorld-Design/参考文档/037-世界生成重构跨模块补充需求-20260620/README|037]]。模块累计 23 个独立系统，~116,000行正式开发规格。
 
 ## 文档结构
 
@@ -37,18 +37,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `模型动作与物理系统/` — 模型定义(骨架/面部图集) + 动画(38姿态/15轨迹/9层栈) + 空间查询(4 trait) + 物理响应
   - `文化系统/` 8篇 | `信仰系统/` 10篇 | `权力系统/` 9篇
   - `经济系统/` 9篇 | `物品系统/` 9篇 | `技能系统/` 3篇 | `语言表达/` 8篇
-  - `战斗/` 14篇 | `魔法/` 19篇 | `世界生成/` 9篇 | `生命/` 12篇 | `历史/` 6篇
+  - `战斗/` 14篇 | `魔法/` 19篇 | `世界生成/` 13篇（7 v2.0新+4保留+2归档） | `生命/` 12篇 | `历史/` 6篇
   - `天气与季节系统/` 4篇 | `载具系统/` 10篇 | `音频系统/` 9篇 | `感官与知觉系统/` 8篇
   - **`概念与语言地基/` — 12篇 ★新增** | 概念空间与模式识别+Utterance渲染管道+词汇库与构词系统(原子词库·复合构词·涌现命名)+语言/文字proficiency+推理系统(归纳/类比/演绎)+代际知识传递(六路径+保真度模型)+LLM概念层对接
   - **`建筑模块/` — 9篇 ★新增** | 组件族+数据模型+WFC求解+施工调度+Blueprint+生成器族谱+跨模块接口+性能预算
 
 ### `Change/` — 设计变更追踪
-按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名。CHG-001~006 早期变更，CHG-007~013 审计与重构，CHG-014~019 地基模块，CHG-022~033 业务系统（经济→模型动作物理）。详见 `Change/README.md`。
+按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名。CHG-001~006 早期变更，CHG-007~013 审计与重构，CHG-014~019 地基模块，CHG-022~033 业务系统（经济→模型动作物理），CHG-034~044 技术栈审计+新模块，**CHG-045 世界生成 v2.0 重构**。详见 `Change/README.md`。
 
 **`Change/hand/`** — 用户直接设计反馈。修改涉及的设计决策时，需检查此目录是否有相关意见。
 
 ### `参考文档/` — 参考性设计文档
-按 `NNN-简短描述-YYYYMMDD` 格式组织。001-015 已归档至 `第一部分-设计演进存档-20260610/`。活跃文档 017-021 + 031-032 覆盖测试记录、技术栈、各系统设计探讨、引擎分析。详见 `参考文档/README.md`。
+按 `NNN-简短描述-YYYYMMDD` 格式组织。001-015 已归档至 `第一部分-设计演进存档-20260610/`。活跃文档 017-021 + 031-037 覆盖测试记录、技术栈、各系统设计探讨、引擎分析、**世界生成重构跨模块补充需求(037)**。详见 `参考文档/README.md`。
 
 ## 技术栈（v4.0 权威方案）
 
@@ -63,7 +63,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **NPC AI**: GOAP规划（安全网，9%）+ 概率行为树（日常，90%）+ 可选LLM增强（1%）。SoA + rayon并行。分层模拟 L1/L2/L3/L4
 - **战斗**: 半自动——玩家AI = NPC AI = 同一套Rust代码。三层模型（本能→节奏→战略）。招式积木+流派涌现+信息不对称。详见 `开发阶段/战斗/`
 - **动画**: 9层可叠加动画栈——Rust CPU批量骨骼矩阵(≤0.5ms) → Godot GPU skinning(双骨蒙皮)。38模块姿态+15基元轨迹。涌现式步态(9参数从BigFive派生)。面部表情512²图集驱动
-- **世界生成**: 全球噪声→区域骨架→局部细节。11阶段管线。种子确定性+增量存档
+- **世界生成**: 编排器模式——14阶段管线(P0-P13)。结构层全量预生成(NPC/权力/经济/历史)，细节层按Chunk渐进(内饰/植物/动物)。Bootstrap哲学——初始订单簿/初始权力边=已运行千年世界的当前快照，非破坏涌现。协同生成——NPC+家族+历史事件同时产生。逆向人口投影(四阶段)·NpcAnchors(家/工作/产权)·整数规划职业世系·KnowledgeSeed技术传播·因果事件图·P13生成后完整性校验。种子确定性+增量存档。详见 `开发阶段/世界生成/`（13篇·v2.0）
 - **载具**: 魔力驱动火车/帆船。移动参考系。NPC集体建造
 - **建造/蓝图**: 三途径——编辑器/TOML导入/委托NPC。NPC团体集体施工
 - **数据库**: LMDB — 流式Chunk存储。双层记忆架构
@@ -103,6 +103,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **.gitignore**: `.claude/` 目录已加入 gitignore
 - **Git远程**: `git@github.com:QiaoWhite/WoWorld-Design.git` (SSH)
 - **可复用 Skill**: `/woworld-tech-stack-audit` — 技术栈全量审计 8 阶段方法论。仅手动调用，不自动触发
+- **可复用 Skill**: `/woworldidea-design` — 设计文档同步引擎（铁匠学徒）。sync(改后同步)/impact(改前预览)/gate(新模块闸门)/audit(旧文件修复)。详见 `.claude/skills/woworldidea-design/SKILL.md`
 
 ## 跨模块接口契约（关键——避免冲突复发）
 
@@ -149,12 +150,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 042 | NPC物理原子层 ★新增 | 三层原子架构(35物理基元+~40领域复合原子+~25社会抽象原子)。AgentSnapshot连续能力快照。MaterialProperties数据驱动涌现。IK+碰撞箱战斗管线。KnowledgeSeed知识种子。execution_noise技能精度。零年龄门控·零硬编码禁止·零预设战斗动画。详见 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/001-NPC行动涌现总纲|NPC行动涌现总纲]] |
 | 043 | 建筑模块 ★新增 | 组件化建筑物理与建造规则v1.0。ComponentFamily参数化族+9核心族。BuildContext六维参数聚合(种族/气候/材料/文化/信仰/业主)。BuildingQuery唯一对外接口。2.5D WFC三阶段求解(BSP→2D WFC→3D组装)。BuildingGenerator trait—8种生成器(WfcRectangular/WfcRadial/Cathedral/Complex等)。Blueprint TOML玩家DIY格式。ConstructionScheduler声明式施工调度。BuildingHistory双层时间窗口存储。Surface trait→物品系统家具放置。详见 [[WoWorld-Design/Happy Game/开发阶段/建筑模块/README|建筑模块总纲]]。关联: [[参考文档/035-建筑模块设计探讨-20260619/001-建筑模块大纲|建筑模块大纲]] |
 | 044 | 概念与语言地基系统 ★新增 | NPC概念思维与语言表达的底层地基v1.0。三层模型：PatternSignature(全球客观模式指纹)→文化概念空间(文化相对概念切分)→语言词汇(概念×语言投影)。新增woworld_core纯数学crate。11篇正式规格。核心: classify_pattern()概念识别、Utterance结构化话语、TextGenerator三模式统一、language/script proficiency从原子日志涌现、归纳/类比/演绎三推理模式、六条代际传递路径+保真度数学模型、LLM在概念层操作。NpcData新增~4.3KB字段、EventMemory新增CompactConceptEncoding([u8;64])、AgentSnapshot新增20B语言/文字proficiency。总新增~180MB在预算内。详见 [[WoWorld-Design/Happy Game/开发阶段/概念与语言地基/README|概念与语言地基总纲]]。关联: [[参考文档/036-概念与语言地基设计探讨-20260619/001-概念与语言地基大纲|概念与语言地基大纲]] |
+| 045 | 世界生成 v2.0 ★重大重构 | 编排器模式——14阶段管线(P0-P13)。结构层全量预生成(NPC/权力/经济/历史)，细节层渐进(内饰/植物/动物)。Bootstrap哲学——初始订单簿/初始权力边=已运行千年世界的当前快照。协同生成——NPC+家族+历史同时产生。P5 社会结构推导(BuildingSpec·RoleTemplate·PowerSkeleton·户外工作场所)。P8 逆向人口投影(四阶段:骨架→家族→职业世系整数规划→实例化·NpcAnchors·FamilyTree DAG)。P9 KnowledgeSeed传播链+因果事件图。P10 权力Bootstrap·P11 经济Bootstrap(ProfessionTag TOML consumes/produces→供需自动聚合)。P3.5 生命世界初始化(种群模板+食物链顺序)。P13 生成后完整性校验。跨模块补充需求11篇输出至[[参考文档/037-世界生成重构跨模块补充需求-20260620/README|037]]。世界生成文档从9篇扩展至13篇(7新+4保留+2归档)。详见 [[WoWorld-Design/Happy Game/开发阶段/世界生成/README|世界生成总览]]。
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 
 ## 模块接头总览（Module Interface Hub）
 
-> 📘 **位置**: `开发阶段/模块接头总览/` | **最后填充**: 2026-06-19 (CHG-044) — 23个模块已全部填充
+> 📘 **位置**: `开发阶段/模块接头总览/` | **最后填充**: 2026-06-20 (CHG-045) — 23个模块已全部填充，世界生成 v2.0 出口/入口/影响链已刷新
 
 **定位**: 介于 CLAUDE-INTERFACES.md（契约宪法）和具体模块文档之间的"生活地图"——按模块和概念组织的接口地图。
 
@@ -192,6 +194,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **技术决策**：以 `开发阶段/技术栈方案/` 为权威依据。所有 001-016 为历史演进存档，017 为测试方法论，018 已正式迁移至开发阶段
 - **规划文件**：项目根目录的 `task_plan.md`、`findings.md`、`progress.md` 为 planning-with-files 工作流文件，用于追踪任务进度和设计决策。这些文件由 Claude 自动维护，不应手动编辑
 - **修改后必须自检**：完成跨模块修改后，重新审计所涉及的模块间接口——确保没有引入新冲突
+- **设计文档同步提醒（hook兜底）**：当本轮对话中修改了 `开发阶段/` 下的任何 `.md` 文件后，必须在下一轮对话开始前主动询问用户："检测到设计文档修改，需要运行 `/woworldidea-design sync` 进行同步吗？"。这是 hook 失效时的兜底规则，不得跳过
+- **Skill 调用约定**：`/woworldidea-design` 为纯手动调用 skill。用户需显式输入命令。被动提醒仅通过 hook 或本规则触发，不自动执行任何 skill 命令
 
 ## 新模块设计标准工作流程
 

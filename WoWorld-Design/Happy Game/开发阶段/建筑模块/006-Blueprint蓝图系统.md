@@ -182,7 +182,19 @@ scheduler.submit(project);
 
 ---
 
-## 五、跨文化移植机制
+## 五、场地适配
+
+Blueprint 放置时自动适配地形：
+
+1. 查询 `TerrainQuery` 获取 `SiteConstraints`（坡度、土壤、洪水风险）
+2. 检查 `meta.terrain_tolerance`——若实际坡度超出容差 → 拒绝放置或提示需要平整场地
+3. 自动调整地基高度以适配坡度（`FoundationFamily` 选择 Strip/Stilts/Pile）
+4. 放置前在编辑器中显示半透明 ghost 预览（编辑器职责——建筑模块只提供适配数据）
+5. `SiteConstraints.water_depth > 0` → 自动选择 `FoundationType::Stilts` 或 `Pile`
+
+---
+
+## 六、跨文化移植机制
 
 ```rust
 impl Blueprint {
@@ -212,7 +224,7 @@ impl Blueprint {
 
 ---
 
-## 六、Blueprint 版本演进
+## 七、Blueprint 版本演进
 
 Blueprint TOML 带有 `version` 字段。格式迭代时通过迁移器链式升级：
 
@@ -229,7 +241,7 @@ trait BlueprintMigrator {
 
 ---
 
-## 七、关联文档
+## 八、关联文档
 
 - [[建筑模块/001-组件族定义与注册|组件族定义与注册]]
 - [[建筑模块/004-约束求解系统|约束求解系统]] — BlueprintValidator

@@ -5,7 +5,7 @@
 
 ## §一、当前状态
 
-**MaterialProperties 在物品系统中不存在。** 虽然 NPC 认知系统文档（006-创新管线与跨领域对接.md）前向引用了 MaterialProperties 为"已有基础"——但从未被设计。
+**MaterialProperties 在物品系统中不存在。** 虽然 NPC 认知系统文档（006-创新管线与跨领域对接.md）前向引用了 MaterialProperties 为"已有基础"——现已由 CHG-042（本模块 008 + 物品系统 010）正式设计。下文描述 CHG-042 之前的现状以供参考。
 
 当前材料相关属性分散在 4 个结构体中:
 - `ItemProperties`: weight_grams, bulk_factor, volume_liters, element_affinity, magic_capacity_ke, max_durability, audio_material
@@ -31,25 +31,25 @@
 id = "Iron"
 category = "Metal"
 
-[mechanics]
+[material.mechanics]    # 嵌套在 [[material]] 下的子表
 density_kgm3 = 7870
 hardness = 0.45          # Mohs归一化 0-1
 toughness = 0.55
 elasticity = 0.3
 friction = 0.6
 
-[thermal]
+[material.thermal]
 specific_heat = 450       # J/(kg·K)
 thermal_conductivity = 80 # W/(m·K)
 melting_point_k = 1811
 ignition_point_k = 9999   # 不燃
 combustibility = 0.0
 
-[electrical]
+[material.electrical]
 electrical_conductivity = 0.15
 mana_conductivity = 0.3
 
-[chemical]
+[material.chemical]
 flammability = 0.0
 solubility = 0.0
 acidity = 0.0
@@ -57,12 +57,12 @@ toxicity = 0.0
 porosity = 0.05
 oxidizes_when_heated = true
 
-[sensory]
+[material.sensory]
 reflectivity = 0.6       # 抛光金属
 sound_damping = 0.1      # 金属传声好
 scent_intensity = 0.0
 
-[magic]
+[material.magic]
 elemental_affinity = [0.6, 0.0, 0.1, 0.0, 0.2, 0.0, 0.1, 0.0, 0.05, 0.0]
 # 金木水火土风雷电血灵 — iron has strong Metal affinity
 enchantment_capacity = 0.5
@@ -119,7 +119,7 @@ skill = "Blacksmith"
 
 [[recipe.input]]
 role = "BladeMaterial"
-acceptable = { 
+acceptable_material = { 
     category = "Metal", 
     hardness_min = 0.3, 
     melting_point_max = 2000 
@@ -145,7 +145,7 @@ quantity = 4
 |---------|------|------|
 | MaterialDef TOML 注册表 | `woworld_core::materials` 或物品系统数据目录 | ~200条目 × 120B = 24KB |
 | `ItemProperties.material` 字段 | 物品系统 003 | 1 个 `Option<MaterialDefId>` (8 bytes) |
-| `RecipeInput.acceptable` 材料约束 | 物品系统 006 | 1 个 Option 子结构 |
+| `RecipeInput.acceptable_material` 材料约束 | 物品系统 006 | 1 个 Option 子结构 |
 | `resolve_material()` 工具函数 | 物品系统 | ~50 行纯函数 |
 | MaterialDefId bit 布局 | 物品系统 002 | 类似 ItemDefId 的编码方案 |
 
@@ -189,7 +189,7 @@ MaterialDef 表: 200 × 120B = 24KB
 
 ### 4.2 材质交互涌现
 
-铁+水+空气 → 锈（`oxidizes_when_heated=true` + 露天存放 → durability 自然下降）。不需要"生锈系统"——物质属性和环境自动计算。
+铁+水+空气 → 锈（`oxidizes_when_heated=true` 控制高温氧化(锻造时产生氧化皮需WIPE)；常温锈蚀由环境中 `wetness > 0 + 时间` 驱动——两套独立机制）。不需要"生锈系统"——物质属性和环境自动计算。
 
 ### 4.3 跨域材料实验
 
@@ -214,7 +214,7 @@ IGNITE 原子 × MaterialProperties:
 ## §五、对物品系统的 Phase 5 联动修改要求
 
 1. `物品系统/003-物品属性与品质.md` — 新增 `MaterialProperties` 字段说明 + MaterialDef 引用说明
-2. `物品系统/006-制造与配方.md` — 新增 `RecipeInput.acceptable` 材料约束字段说明
+2. `物品系统/006-制造与配方.md` — 新增 `RecipeInput.acceptable_material` 材料约束字段说明
 3. `物品系统/001-物品系统总纲.md` — 更新 ItemProperties 结构体 + 材料系统概述
 4. 新增 `物品系统/010-材料属性与物理模拟.md` — MaterialDef TOML 格式规范 + 完整字段定义
 

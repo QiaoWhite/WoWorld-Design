@@ -31,6 +31,17 @@
 | 008 | [[建筑模块/008-跨模块接口与数据合同|跨模块接口与数据合同]] | BuildContext、BuildingQuery、Surface、依赖清单、所有权裁决 |
 | 009 | [[建筑模块/009-性能预算与存储分析|性能预算与存储分析]] | 帧预算、LOD 三层内存、VRAM、存储、WFC 耗时分析 |
 
+### 推荐阅读顺序
+
+1. **008** — 先看三扇门（BuildContext/BuildingQuery/ConstructionTask），理解模块边界
+2. **001 + 002** — 核心数据模型：组件族、Building、ComponentInstance、BuildingHistory
+3. **003** — BuildingQuery trait 完整签名，看懂外部怎么消费本模块
+4. **004** — WFC 求解器（核心算法）和结构完整性验证
+5. **005** — 施工调度和 CONSTRUCT 原子如何执行建造
+6. **007** — 建筑生成器族谱：8 种生成策略 + 类型映射
+7. **006** — Blueprint TOML：玩家 DIY 入口
+8. **009** — 性能验证：所有操作都在预算内
+
 ---
 
 ## 架构速览

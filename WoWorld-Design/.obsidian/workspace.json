@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "参考文档/037-世界生成重构跨模块补充需求-20260620/001-建筑模块补充需求.md",
+                "file": "Happy Game/开发阶段/感官与知觉系统/视觉/001-视觉感知-VisionQuery.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "001-建筑模块补充需求"
+              "title": "001-视觉感知-VisionQuery"
             }
           },
           {
@@ -27,16 +27,15 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Happy Game/开发阶段/世界生成/001-世界生成总流程.md",
+                "file": "Change/hand/0-提示词考量角度.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "001-世界生成总流程"
+              "title": "0-提示词考量角度"
             }
           }
-        ],
-        "currentTab": 1
+        ]
       }
     ],
     "direction": "vertical"
@@ -240,44 +239,44 @@
       "bases:新建数据库": false
     }
   },
-  "active": "2571f8345d0d6e5c",
+  "active": "7ef170f8dfaf12d5",
   "lastOpenFiles": [
-    "参考文档/037-世界生成重构跨模块补充需求-20260620/README.md.tmp.19848.b7a8353e3680",
-    "参考文档/037-世界生成重构跨模块补充需求-20260620/README.md.tmp.19848.e0e44f91593a",
-    "参考文档/037-世界生成重构跨模块补充需求-20260620/README.md.tmp.19848.69c68a0009d8",
-    "Happy Game/开发阶段/载具系统/010-跨模块接口.md.tmp.19848.2cff4fabc72a",
-    "Happy Game/开发阶段/概念与语言地基/001-概念与语言地基总纲.md.tmp.19848.df93e0776e04",
-    "Happy Game/开发阶段/天气与季节系统/001-天气系统总纲.md.tmp.19848.385cfcb74541",
-    "Happy Game/开发阶段/魔法/01-基础层/001-魔法总纲.md.tmp.19848.c62e3a91c740",
-    "Happy Game/开发阶段/信仰系统/001-信仰系统总纲.md.tmp.19848.49709822d7f3",
-    "Happy Game/开发阶段/文化系统/002-文化核心参数与生成.md.tmp.19848.78ef94d6bdc0",
-    "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md.tmp.19848.6773d56086c5",
-    "Happy Game/开发阶段/生命/001-生命总纲.md.tmp.19848.c3fdc81e5f58",
+    "Happy Game/开发阶段/文化系统/README.md.tmp.19848.51e51e143fd5",
+    "Happy Game/开发阶段/建筑模块/007-建筑生成器族谱.md.tmp.19848.bb01e7ca4d2e",
+    "Happy Game/开发阶段/建筑模块/008-跨模块接口与数据合同.md.tmp.19848.218edbc899fd",
+    "Happy Game/开发阶段/模块接头总览/14-经济/002-接口入口.md.tmp.19848.a8790b2d1b8f",
+    "Happy Game/开发阶段/模块接头总览/09-文化/001-接口出口.md.tmp.19848.aa3547ba35af",
+    "Happy Game/开发阶段/文化系统/004-文化审美与物质.md.tmp.19848.301f7c006af3",
+    "Happy Game/开发阶段/世界生成/008-NPC初始化与历史模拟.md.tmp.19848.6f0f805dfec8",
+    "Happy Game/开发阶段/文化系统/008-节日与仪式系统/005-权力与空间.md.tmp.19848.194f5de915af",
+    "Happy Game/开发阶段/文化系统/004-文化审美与物质.md.tmp.19848.dc35c6f6f545",
+    "Happy Game/开发阶段/文化系统/001-文化系统总纲.md.tmp.19848.ab4f552140c0",
+    "Happy Game/开发阶段/信仰系统/README.md.tmp.19848.df67f808613a",
+    "Happy Game/开发阶段/魔法/020-性能预算.md",
+    "参考文档/037-世界生成重构跨模块补充需求-20260620/001-建筑模块补充需求.md",
+    "Change/hand/0-提示词考量角度.md",
+    "Change/CHG-047-全模块系统性交叉审计-20260620.md",
+    "参考文档/038-孤儿接口与预留接口清单-20260620/README.md",
+    "Change/CHG-046-植被系统架构升级-20260620.md",
+    "Change/CHG-019-LLM增强层与语音输出v2.0创建-20260613.md",
+    "Change/CHG-031-感官与知觉系统v1.0创建-20260616.md",
+    "Change/CHG-023-权力系统v1.0创建-20260614.md",
+    "Change/CHG-015-技能系统v1.0创建-20260612.md",
+    "Change/archived/renumbered-duplicates/README.md",
+    "Change/archived/renumbered-duplicates/CHG-003-创建人世哲学与NPC完整性深化-20260609.md",
+    "Change/archived/renumbered-duplicates/CHG-002-设计哲学深化与风格定义-20260609.md",
+    "Change/archived/renumbered-duplicates/CHG-001-废止阶段性实现规划-20260609.md",
+    "Change/archived/renumbered-duplicates/NPC数量目标变更 20260609.md",
+    "Happy Game/开发阶段/模块接头总览/24-概念与语言地基/003-变更影响链.md",
+    "Happy Game/开发阶段/模块接头总览/24-概念与语言地基/002-接口入口.md",
+    "Happy Game/开发阶段/模块接头总览/24-概念与语言地基/001-接口出口.md",
+    "Happy Game/开发阶段/模块接头总览/24-概念与语言地基/000-变更日志.md",
+    "Happy Game/开发阶段/世界生成/012-植被覆盖生成.md",
+    "Happy Game/开发阶段/生命/010-植被群落与覆盖.md",
+    "Happy Game/开发阶段/世界生成/001-世界生成总流程.md",
     "参考文档/037-世界生成重构跨模块补充需求-20260620/012-载具系统补充需求.md",
     "Happy Game/开发阶段/世界生成/002-自然景观.md",
     "Happy Game/开发阶段/世界生成/013-生成后校验与完整性保证.md",
-    "Happy Game/开发阶段/世界生成/012-权力与经济Bootstrap.md",
-    "Happy Game/开发阶段/世界生成/011-知识种子与历史事件生成.md",
-    "Happy Game/开发阶段/世界生成/010-生命世界初始化.md",
-    "Happy Game/开发阶段/世界生成/009-世界边界与无限延伸.md",
-    "Happy Game/开发阶段/世界生成/008-NPC初始化与历史模拟.md",
-    "Happy Game/开发阶段/世界生成/008-人口投影与家族协同生成.md",
-    "文件备份/005-建筑与房间生成.md",
-    "文件备份/004-聚落生成.md",
-    "Happy Game/开发阶段/世界生成/007-体素设计决策.md",
-    "Happy Game/开发阶段/世界生成/006-交通网络.md",
-    "Happy Game/开发阶段/世界生成/004-聚落选址与社会结构推导.md",
-    "Happy Game/开发阶段/世界生成/003-资源与矿产.md",
-    "Happy Game/开发阶段/世界生成/001-世界生成总流程.md",
-    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/001-NPC行动涌现总纲.md",
-    "参考文档/037-世界生成重构跨模块补充需求-20260620/001-建筑模块补充需求.md",
-    "参考文档/037-世界生成重构跨模块补充需求-20260620/011-魔法系统补充需求.md",
-    "参考文档/037-世界生成重构跨模块补充需求-20260620/010-信仰系统补充需求.md",
-    "参考文档/037-世界生成重构跨模块补充需求-20260620/009-概念与语言地基补充需求.md",
-    "参考文档/037-世界生成重构跨模块补充需求-20260620/008-天气系统补充需求.md",
-    "参考文档/037-世界生成重构跨模块补充需求-20260620/007-文化系统补充需求.md",
-    "参考文档/037-世界生成重构跨模块补充需求-20260620/006-历史系统补充需求.md",
-    "参考文档/037-世界生成重构跨模块补充需求-20260620/005-经济系统补充需求.md",
     "Happy Game/想法/WoW World/生命/NPC/角色处理对象时的心理作用.canvas"
   ]
 }

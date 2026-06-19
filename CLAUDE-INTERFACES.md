@@ -597,3 +597,46 @@
 | EventMemory新增（1000 L1 × 2000条） | ~144MB |
 | 总新增（含AgentSnapshot/AtomLog） | ~180MB（占1.4GB预算13%） |
 | 帧CPU增量 | <0.5ms（<3%帧预算） |
+
+---
+
+## CHG-046 植被系统架构升级
+
+> **完整设计**: [[WoWorld-Design/Happy Game/开发阶段/生命/010-植被群落与覆盖|生命 010]] · [[WoWorld-Design/Happy Game/开发阶段/世界生成/012-植被覆盖生成|世界生成 012]]
+> **CHG文档**: [[Change/CHG-046-植被系统架构升级-20260620|CHG-046]]
+
+### 基座契约
+
+| 概念 | 权威 Owner | 消费方 | 关键约定 |
+|------|-----------|--------|---------|
+| VegetationProvider trait | **woworld_core** 定义 → **Life 010** (woworld_vegetation) 实现 | ✅ 天气 · 🔗 建筑/NPC/音频/经济/文化 · ⚠️ 战斗(接口预留) | Pattern D (trait inversion)。7方法。消费方三级：✅已验证(天气) · 🔗设计合理接收端已补(建筑/经济/文化/音频/NPC) · ⚠️接口预留(战斗掩体/NPC森林恐惧/历史读树) |
+| TimberAvailability | **woworld_core** (共享类型) | 建筑(BuildingContext.materials)/经济(市场供给) | `available: bool, quality: TimberQuality, abundance: f32, harvest_difficulty: f32, dominant_species: Vec<SpeciesId>`。单一事实来源——Building不import植物类型 |
+| TimberQuality | **woworld_core** (共享类型) | 建筑/经济/物品 | `Softwood \| Hardwood \| TropicalHardwood \| GiantWood \| MagicWood`。从PlantSpecies形态参数推导——非手工标注 |
+| GroundCoverMap | **woworld_core** (共享类型) | 音频(脚步声)/NPC(移动速度) | `grass_density/moss_density/leaf_litter/bare_soil` 四通道，和=1.0 |
+| WoodMaterialContract | **Life 010** §五 | 建筑/经济/物品/NPC物理原子 | 木材从PlantSpecies→TimberAvailability的完整推导链。5模块隐式链路收敛为VegetationProvider单一trait枢纽。Building crate的Cargo.toml不含woworld_life依赖 |
+| P2.25 植被覆盖 | **World Gen 012** | P2.5(文化)/P3(资源)/P3.5(动物) | 植被是自然基底(P2.25位于P2和P2.5之间)，非生命层(P3.5)。L6.5密度场四通道在此阶段正式生成。P3木材zone从VegetationCover推导(非独立噪声)。P3.5动物初级生产力从VegetationCoverMap查询 |
+| 演替阶段 | **Life 010** §四 | World Gen P2.25/运行时查询 | 纯函数 `f(years_since_disturbance, soil_fertility, climate)` ——不存枚举标签。同一片森林50年后重访→自动过渡到下一阶段 |
+| 群落涌现 | **Life 010** §三/§六 | World Gen P2.25 | 香农熵加权优势种筛选(丰富度非硬编码整数)。Voronoi tessellation林窗检测。并查集连通分量→森林斑块从连通性涌现(无预定义ForestRegion) |
+
+### 核心设计原则
+
+| 原则 | 内容 |
+|------|------|
+| **植被是自然基底，不是生命层** | P2.25位于地形(P2)和文化(P2.5)之间——和地形一样是画布 |
+| **trait隔离** | 消费方依赖woworld_core trait，不依赖Life crate植物类型。Building完全不知道PlantSpecies的存在 |
+| **木材品质涌现** | TimberQuality = f(wood_type, max_trunk_diameter, spirit_capacity)。新增金属木植物→只需woworld_vegetation内添加映射规则 |
+| **群落从数学涌现** | 香农熵、Voronoi、并查集——从连续参数场自然推导，零硬编码分类 |
+| **演替是纯函数** | 不存succession_stage标签。同一片林随years_since_disturbance流逝自动演进 |
+| **种子确定性** | 每Chunk RNG从hash(seed, "vegetation", cx, cy)派生。T0实例零存储，PlantInstanceId从种子推导 |
+
+### 数据预算
+
+| 类别 | 数值 |
+|------|------|
+| VegetationCover LMDB（全量75K Chunk） | ~50MB（密度场降采样策略） |
+| PlantCommunityTemplate（每Chunk ~100B） | ~7.5MB |
+| SurfaceMaterialMap | ~19MB |
+| TimberAvailabilityMap | ~5MB |
+| P2.25世界生成耗时（16线程rayon） | ~16s（全量VMC模板~3s + 近场预展开~13s） |
+| 运行时查询（canopy_closure × 100 Chunk/帧） | ~0.1ms |
+

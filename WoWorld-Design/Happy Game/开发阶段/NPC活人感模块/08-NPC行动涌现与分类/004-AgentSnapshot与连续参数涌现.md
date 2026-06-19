@@ -46,37 +46,97 @@ struct AgentSnapshot {  // ~96 bytes, SoA 友好布局
 }
 ```
 
-## §三、派生规则
+## §三、完整派生公式
+
+> **约定**: AgentSnapshot 所有字段为 0-1 归一化值。派生公式确保输入→输出的归一化映射。
 
 ```rust
 impl AgentSnapshot {
     fn from_sources(
-        vitals: &Vitals,           // Life 004
-        lifecycle: &LifecycleState, // 生命周期 CHG-041
-        skills: &[SkillEntry],      // 技能系统
-        cognition: &CognitiveStyle, // 认知系统 CHG-032
-        power: &PowerProfile,       // 权力系统 CHG-023
-        weather: &WeatherSample,    // 天气系统 CHG-016
-    ) -> Self { /* 各字段的派生公式 */ }
+        vitals: &Vitals,               // Life 004
+        lifecycle: &LifecycleState,     // 生命周期 CHG-041
+        skills: &[SkillEntry],          // 技能系统
+        cognition: &CognitiveStyle,     // 认知系统 CHG-032
+        power: &PowerProfile,           // 权力系统 CHG-023
+        weather: &WeatherSample,        // 天气系统 CHG-016
+    ) -> Self {
+        // === 身体 (7 fields) ===
+        let strength = vitals.strength_normalized();           // Life.physique→0-1映射
+        let dexterity = vitals.dexterity_normalized();
+        let stamina = vitals.stamina_pool / vitals.stamina_max; // 当前/最大
+        let fatigue = 1.0 - stamina;                            // 疲劳=精力倒数
+        let mobility_factor = lifecycle.mobility_curve()        // AgeClock×体型
+            * (1.0 - 0.3 * vitals.encumbrance_ratio());         // 负重衰减 ≤30%
+        
+        // health_penalty: 多个损伤源采用乘法聚合(避免超1.0)
+        //   penalty = 1.0 - Π(1.0 - source_i)
+        let health_penalty = 1.0 
+            - (1.0 - vitals.poison_level())    // 中毒 0-1
+            * (1.0 - vitals.injury_aggregate()) // 受伤(各部位max)
+            * (1.0 - vitals.disease_level())   // 疾病 0-1
+            * (1.0 - fatigue * 0.3);           // 疲劳贡献≤30%
+        let hunger = vitals.hunger_normalized();                // 0=饱 1=饿死
+        
+        // === 认知 (5 fields) ===
+        let cognitive_damping = cognition.damping_coefficient(); // CognitiveStyle.damping
+        let planning_horizon = (7.0 * (1.0 - cognitive_damping)  
+            * lifecycle.maturity_factor()).clamp(1.0, 7.0) as u8;
+        let literacy = skills.literacy_level().clamp(0.0, 1.0);
+        let mental_model_count = cognition.model_count() as u8;
+        let skill_vector_compressed = compress_skills(skills);   // 见§3.1
+        
+        // === 社交 (4 fields) ===
+        let legal_capacity = power.legal_capacity(lifecycle.age_years());
+        let reputation_flags = power.reputation_bitmask();
+        let social_standing = power.social_standing_normalized();
+        let religious_participation = power.religious_participation();
+        
+        // === 生命阶段 (4 fields) ===
+        let developmental_phase = lifecycle.current_phase() as u8; // 0-7
+        let age_ratio_in_phase = lifecycle.phase_progress();       // 0-1
+        let fertility_potential = lifecycle.fertility_curve();     // sigmoid
+        let gompertz_mortality_risk = lifecycle.gompertz_risk();   // 基础×exp加速
+        
+        // === 环境 (3 fields) ===
+        let wetness = weather.surface_wetness.clamp(0.0, 1.0);
+        let temperature_exposure = weather.ground_temperature;     // 绝对K值(非归一化——物理公式需要)
+        let intoxication = vitals.intoxication_level.clamp(0.0, 1.0);
+        
+        Self { /* ... */ }
+    }
 }
 ```
 
-**关键**: AgentSnapshot 不存储在任何持久化系统中——是每次决策周期（L1: 0.3s）从各模块数据**瞬时派生**的临时视图。
+### 3.1 skill_vector_compressed 编码方案
+
+98个技能 → 按5大类分组压缩: Combat(取MeleeWeapon组max) / Magic(取Element组max) / Artisan(取Metalwork组max) / Academic(取Natural组max) / Survival(取Gathering组max) → 5×u8层级编码(0-100 → 0-255) = 40 bits + 24 bits保留/标记。精确技能等级由领域模块在调用原子时自行从 `SkillEntry` 获取并填入原子 Input.skill_proficiency。
+
+### 3.2 intoxication 与 execution_noise 的交互
+
+```rust
+fn effective_noise(skill_level: f32, intoxication: f32) -> f32 {
+    let skill_noise = execution_noise_std(skill_level);  // BASE × (1-proficiency)²
+    let intoxication_multiplier = 1.0 + intoxication * INTOX_FACTOR; // INTOX_FACTOR≈2.0 [TUNING]
+    (skill_noise * intoxication_multiplier).clamp(0.0, 1.0)
+}
+// 醉酒 = 技能噪声放大。清醒时无影响，全醉时噪声×3。
+// 乘法叠加确保零噪声×任何系数仍为零（大师不受酒精影响——"肌肉记忆"）。
+```
 
 ## §四、年龄涌现矩阵
 
 所有阶段差异从连续参数涌现——不设二进制门控。完整的阶段行为特征表详见 [[001-NPC行动涌现总纲#§五|001 §五]]。
 
-## §五、涌现验证实例
+## §五、涌现验证实例（归一化版本）
 
 ### 中毒不劳动
-`health_penalty=0.6` → GRASP force_check ×0.4 → 拿不动大锤 + GOAP评估: 买药(0.95) > 硬撑(0.096) → 去药铺
+`health_penalty = 1-(1-0.6)×(1-0)×(1-0)×(1-0) = 0.6` → GRASP: `strength×(1-0.6)=0.12 < 锤子阈值0.32` → 拿不动大锤 + GOAP: 买药(0.95) > 硬撑(0.096) → 去药铺
 
 ### 儿童不能锻造
-`strength=0.3` → GRASP(8kg锤) force_check: 0.3×1.0=0.3 < 8×0.3=2.4 → 拿不动。用小锤可能打得动小件→涌现"学徒做小件"
+`strength=0.3 < 大锤阈值0.32` → GRASP失败。`strength=0.3 > 小锤阈值0.12` → 拿得动小锤 → 涌现"学徒做小件"
 
 ### 老人从战士转指挥官
-`strength 0.95→0.5` + `stamina 恢复×0.5` → STRIKE效用持续下降 → GOAP自动转向 strategy/command 等高认知低体力的行动
+`strength: 0.95→0.5, stamina恢复×0.5` → STRIKE效用持续下降 → GOAP转向 strategy/command（高认知低体力行动）
 
 ### 幼儿不能结婚
-`fertility_potential=0` + `legal_capacity=0` → Marry的precondition_check失败。不是"年龄不到不能结婚"——是生理和法律能力连续为零。
+`fertility_potential=0 + legal_capacity=0` → Marry precondition 失败。连续能力自然为零，非年龄门控。

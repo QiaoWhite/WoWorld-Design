@@ -15,8 +15,8 @@
 | **SpatialEventBus** | 3 | woworld_core | woworld_spatial | 全部模块 (写入+查询事件) | CHG-033 |
 | **VisibilityQuery** | 2 | woworld_core | woworld_spatial | 感官(05) · 战斗(06) · 大日志 · 音频(16) | CHG-033 |
 | **SpatialQuery** | (聚合) | woworld_core | world_gen + woworld_spatial | 全部模块 — 统一入口, 聚合以上四 trait | CHG-033 |
-| **VisionQuery** | — | woworld_core | 感官 crate | NPC crate | CHG-031 |
-| **ScentQuery** | — | woworld_core | 感官 crate | NPC crate | CHG-031 |
+| **VisionQuery** | 4 | woworld_core | 感官 crate | NPC crate (感知决策) | CHG-031 |
+| **ScentQuery** | 4 | woworld_core | 感官 crate | NPC crate (嗅觉感知) | CHG-031 |
 | **CulturalKnowledgeBase** | — | woworld_core | TOML 数据驱动 | NPC prepare_facts() | CHG-031 |
 
 ---
@@ -26,7 +26,11 @@
 | Trait | 方法数 | 定义方 | 实现方 | 消费方 | 关联CHG |
 |-------|--------|--------|--------|--------|---------|
 | **WeatherQuery** | sample()等 | 天气 crate | 天气 crate | NPC · 战斗 · 载具 · 音频 · 海洋 · 生命 · 全部 | CHG-016 |
-| **BiomeMicroclimateQuery** | — | 天气 crate | 世界生成(实现) | 天气系统 (冠层/雪面/沙地修正) | CHG-016 |
+| **BiomeMicroclimateQuery** | 3 | 天气 crate | 世界生成(实现) | 天气系统 (冠层/雪面/沙地修正) | CHG-016 |
+| **ElevationQuery** | 1 | woworld_core | 世界生成(实现) | 天气·感官·载具 (地形高度查询) | CHG-016 |
+| **ClimateParamsQuery** | 1 | woworld_core | 世界生成(实现) | 天气·生命 (气候参数查询) | CHG-016 |
+| **OceanCurrentQuery** | 1 | woworld_core | 世界生成(实现) | 天气·载具·世界生成 (洋流查询) | CHG-016 |
+| **WorldBoundaryQuery** | 2 | woworld_core | 世界生成(实现) | 天气·载具 (边界距离/内部判定) | CHG-016 |
 
 ---
 
@@ -34,8 +38,8 @@
 
 | Trait | 方法数 | 定义方 | 实现方 | 消费方 | 关联CHG |
 |-------|--------|--------|--------|--------|---------|
-| **VisionQuery** | (woworld_core定义) | woworld_core | 感官 crate | NPC crate (感知决策) | CHG-031 |
-| **ScentQuery** | (woworld_core定义) | woworld_core | 感官 crate | NPC crate (嗅觉感知) | CHG-031 |
+| **VisionQuery** | 4 (visible_entities/line_of_sight/visual_signature/occlusion_query) | woworld_core | 感官 crate | NPC crate (感知决策) | CHG-031 |
+| **ScentQuery** | 4 (scent_sources_at/scent_intensity/scent_trail/scent_identity) | woworld_core | 感官 crate | NPC crate (嗅觉感知) | CHG-031 |
 
 ---
 
@@ -129,6 +133,7 @@
 | Trait | 方法数 | 定义方 | 实现方 | 消费方 | 关联CHG |
 |-------|--------|--------|--------|--------|---------|
 | **NpcEconomicState** | — | 经济系统 001 | NPC (trait注入 NpcData) | NPC决策器 · 经济系统 — 不修改 NpcData 本体 | CHG-022 |
+| **EconomyQuery** | 8 | woworld_core | 经济 crate | 概念与语言地基(模式签名)·权力(合法性推导)·NPC(消费决策)·世界生成(Bootstrap) | CHG-048 |
 
 ---
 
@@ -156,7 +161,7 @@
 
 | Trait | 方法数 | 定义方 | 实现方 | 消费方 | 关联CHG |
 |-------|--------|--------|--------|--------|---------|
-| **OceanProvider** | — | 技术栈方案 | 海洋 crate | Godot 渲染 · 载具 · 世界生成 — 预留 FFT 升级 | 技术栈 v4.0 |
+| **OceanProvider** | 6 (wave_height/wave_direction/current_velocity/depth_query/sea_state/is_navigable) | 技术栈方案 (woworld_core定义) | 海洋 crate | Godot 渲染 · 载具 (导航) · 世界生成 (P1海洋系统) — 预留 FFT 升级 | 技术栈 v4.0 |
 
 ---
 

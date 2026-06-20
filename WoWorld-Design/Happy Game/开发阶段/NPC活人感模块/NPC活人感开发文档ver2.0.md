@@ -3859,5 +3859,110 @@ NPC 与物理空间的锚定——`{ home: HomeAnchor, workplace: WorkplaceAncho
 ### 初始动作状态（冷启动）
 `initial_action_state(npc, profession_tags, time_of_day, anchors, rng) → InitialNpcState` — 从 ProfessionTag TOML `daily_schedule` 推导首帧位置和动作。非预模拟——规则推导。
 
+### ProfessionSchedule — 职业日常时间表 ★CHG-049
+
+> **关联**: [[../../../../Change/CHG-049-LOD架构全面深化-20260620|CHG-049 §三 ai_lod=2]] · [[../../世界生成/012-植被覆盖生成|P2.25]]
+
+ProfessionSchedule 是 ai_lod=2（统计行为模板）的行为驱动——当 GOAP 太贵时，用统计模板近似 NPC 的日常行为模式。
+
+#### 结构定义
+
+```rust
+/// woworld_types — 职业日常时间表
+/// 这是对 GOAP 典型输出的统计近似，非预设规则
+#[derive(Clone, Debug)]
+pub struct ProfessionSchedule {
+    pub periods: [PeriodTemplate; 6],  // 黎明/上午/正午/下午/黄昏/夜晚
+}
+
+#[derive(Clone, Debug)]
+pub struct PeriodTemplate {
+    pub activity: ActivityCluster,       // 行为聚类
+    pub indoor_bias: f32,                // 0.0=总是在外, 1.0=总是在内
+    pub posture: PostureLodHint,         // 姿态提示
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ActivityCluster {
+    Work = 0,       // 在 workplace 锚点
+    Rest = 1,        // 在 home 锚点
+    Social = 2,      // 在最近的社交中心(酒馆/广场)
+    Worship = 3,     // 在最近的神殿/圣所
+    Travel = 4,      // 在 home 与 workplace 之间
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum PostureLodHint {
+    Standing,        // 站立——守卫、商贩
+    Sitting,         // 坐着——书记员、酒馆客人
+    ActiveWork,      // 动态劳作——铁匠、农夫
+    Resting,         // 休息——睡眠中、躺卧
+}
+```
+
+#### TOML 表设计
+
+```toml
+# ~100 职业 × 6 时段 × 8B ≈ 5KB 全局数据
+[profession_schedule.blacksmith]
+dawn    = { activity = "Rest",    indoor = 1.0, posture = "Resting" }
+morning = { activity = "Work",    indoor = 0.3, posture = "ActiveWork" }
+noon    = { activity = "Social",  indoor = 0.1, posture = "Sitting" }
+afternoon = { activity = "Work",  indoor = 0.3, posture = "ActiveWork" }
+dusk    = { activity = "Social",  indoor = 0.1, posture = "Sitting" }
+night   = { activity = "Rest",    indoor = 1.0, posture = "Resting" }
+
+[profession_schedule.guard]
+dawn    = { activity = "Work",    indoor = 0.0, posture = "Standing" }
+morning = { activity = "Rest",    indoor = 0.8, posture = "Resting" }
+noon    = { activity = "Rest",    indoor = 0.8, posture = "Resting" }
+afternoon = { activity = "Work",  indoor = 0.0, posture = "Standing" }
+dusk    = { activity = "Work",    indoor = 0.0, posture = "Standing" }
+night   = { activity = "Work",    indoor = 0.0, posture = "Standing" }
+
+[profession_schedule.farmer]
+dawn    = { activity = "Work",    indoor = 0.0, posture = "ActiveWork" }
+morning = { activity = "Work",    indoor = 0.0, posture = "ActiveWork" }
+noon    = { activity = "Rest",    indoor = 0.7, posture = "Resting" }
+afternoon = { activity = "Work",  indoor = 0.0, posture = "ActiveWork" }
+dusk    = { activity = "Social",  indoor = 0.2, posture = "Sitting" }
+night   = { activity = "Rest",    indoor = 1.0, posture = "Resting" }
+```
+
+#### ai_lod=2 位置生成
+
+```rust
+fn lod2_position(entity: &NpcEntity, game_time: GameTime) -> Vec3 {
+    let schedule = PROFESSION_SCHEDULE_TABLE.get(&entity.profession);
+    let period = schedule.period_for(game_time.hour, game_time.season);
+
+    match period.activity {
+        ActivityCluster::Rest | ActivityCluster::Worship =>
+            entity.anchors.home + time_noise(entity.id, game_time),
+        ActivityCluster::Work =>
+            entity.anchors.workplace + time_noise(entity.id, game_time),
+        ActivityCluster::Social =>
+            nearest_social_hub(entity.anchors.home, game_time),
+        ActivityCluster::Travel =>
+            lerp(entity.anchors.home, entity.anchors.workplace, travel_phase(game_time)),
+    }
+}
+
+/// 确定性空间噪声——同一NPC在相同时刻总在同一位置
+fn time_noise(entity_id: EntityId, game_time: GameTime) -> Vec3 {
+    let hash = hash(entity_id, game_time.day);
+    // SPREAD_RADIUS ≈ 3m (家附近) / 8m (工作地附近)
+    deterministic_noise(hash) * SPREAD_RADIUS
+}
+```
+
+#### 回退策略
+
+若 ProfessionSchedule 表未实现，ai_lod=2 NPC 回退为：
+- 停在最后已知锚点（基于 `NpcAnchors` 中的 home 或 workplace）
+- 昼夜切换：白天在 workplace，夜晚在 home
+- 30s 间隔随机 idle 姿态切换（站→坐→站循环）
+
 ### query_personal_history()（替代废弃的 SelfNarrative）
 无状态查询——从 FamilyTree+EventLog+BuildingData 实时推导 NPC 个人史。不预存文本。

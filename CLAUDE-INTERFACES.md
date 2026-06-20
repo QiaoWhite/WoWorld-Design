@@ -640,3 +640,157 @@
 | P2.25世界生成耗时（16线程rayon） | ~16s（全量VMC模板~3s + 近场预展开~13s） |
 | 运行时查询（canopy_closure × 100 Chunk/帧） | ~0.1ms |
 
+## CHG-048 新增契约（全模块交叉审计修复——Wave A 基础设施清理）
+
+> **来源**: CHG-047 全模块系统性交叉审计 Phase 2-5 发现，CHG-048 修复执行（2026-06-20）
+> **影响范围**: 模块接头总览·全局基础设施·世界生成编号·生命编号·CHG文书
+
+### 幽灵 Trait 注册
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| EconomyQuery trait | **woworld_core** (定义) → **经济 crate** (实现) | 概念与语言地基(compute_pattern_signature)·权力(legitimacy推导)·NPC(消费决策)·世界生成(Bootstrap) | 8方法(query_price/query_market_volume/query_wealth_distribution/query_trade_routes/query_production_capacity/query_consumption_demand/query_labor_market/query_economic_health)。标准Query模式——对标CultureQuery |
+| OceanProvider trait | **woworld_core** (定义) → **海洋 crate** (实现) | Godot渲染·载具(导航)·世界生成(P1海洋系统) | 6方法(wave_height/wave_direction/current_velocity/depth_query/sea_state/is_navigable)——预留FFT升级 |
+| ElevationQuery trait | **woworld_core** (定义) → **世界生成** (实现) | 天气·感官·载具 | 1方法(elevation_at)——地形高度查询 |
+| ClimateParamsQuery trait | **woworld_core** (定义) → **世界生成** (实现) | 天气·生命 | 1方法(climate_params_at)——气候参数查询 |
+| OceanCurrentQuery trait | **woworld_core** (定义) → **世界生成** (实现) | 天气·载具·世界生成 | 1方法(current_at)——洋流查询 |
+| WorldBoundaryQuery trait | **woworld_core** (定义) → **世界生成** (实现) | 天气·载具 | 2方法(boundary_distance/is_inside)——边界距离/内部判定 |
+| VisionQuery trait | **woworld_core** (定义) → **感官 crate** (实现) | NPC crate | 4方法(visible_entities/line_of_sight/visual_signature/occlusion_query) |
+| ScentQuery trait | **woworld_core** (定义) → **感官 crate** (实现) | NPC crate | 4方法(scent_sources_at/scent_intensity/scent_trail/scent_identity) |
+
+### 编号体系修复
+
+| 修复项 | 变更 | 影响文件 |
+|--------|------|---------|
+| 世界生成 012/013/014 去重 | 012-权力→013-权力·013-校验→014-校验。全部交叉引用同步更新。005 确认为已归档——README 已记录。008-旧版(NPC初始化)自声明已退役——009引用修复。 | 世界生成/ 11文件 + 接口出口 1文件 |
+| 生命 010 去重 | 010-植被群落与覆盖(保留010)·010-神明→013-神明。README更新——新增010植被条目。信仰/文化模块 6文件引用同步。 | 生命/ 5文件 + 信仰/ 4文件 + 文化/ 2文件 |
+| CHG-XXX 占位符替换 | 15处 → CHG-041(生命周期·DeathCause/FertilityDrivers/FertilityPotential等)·CHG-045(世界生成v2.0重构)。涉及生命/NPC/世界生成接口出口入口和变更日志。 | 5文件 |
+
+### 缺失基础设施
+
+| 修复项 | 新建文件 | 说明 |
+|--------|---------|------|
+| NPC活人感模块根 README | `NPC活人感模块/README.md` | 7子模块索引+六层模型速览+关键参数表 |
+| 载具系统 README | `载具系统/README.md` | 10文档索引+载具分类+关键参数表 |
+| 变更追踪/影响地图 | `变更追踪/002-影响地图.md` | 24模块影响矩阵+高风险Top10+消费方反查 |
+
+### CHG-048 设计原则
+
+| 原则 | 说明 |
+|------|------|
+| **trait 必须注册** | 任何被跨模块消费的 trait 必须在 00-全局基础设施/003-通用trait索引 中注册完整签名。经济模块的 EconomyQuery 对标 CultureQuery/FaithQuery/AudioQuery 标准 Query 模式 |
+| **编号必须唯一** | 每模块内编号前缀不得重复。退役文档在 README 中标记并归档——不占编号。旧版文档自声明退役+指向权威替代 |
+| **CHG 必须编号** | 任何接口变更必须分配 CHG 编号并同步至模块接头。禁止遗留 CHG-XXX 占位符 |
+| **README 必须存在** | 每个模块根目录必须有 README.md（≥60行）——含模块元数据+文档索引+架构速览+关键参数表 |
+
+---
+## CHG-049 新增契约（LOD 架构全面深化）
+
+> 📘 **权威规格**: [[WoWorld-Design/Change/CHG-049-LOD架构全面深化-20260620|CHG-049]]。LODCoordinator 所有权归**技术栈方案 v4.0 §二十一**。
+
+### LODCoordinator 接口
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| LODCoordinator | **技术栈方案** §二十一 | 全部模块 | Rust 侧纯函数，每帧一次。输入: CameraState+PlayerAttention+FrameBudget+VramPressure+Entities+Broadcasts+Interactions。输出: `HashMap<EntityId, LodPrescription>`。自身 <0.05ms |
+| LodPrescription (7维) | **技术栈方案** §二十一 | 全部模块 | `scene_lod(0-7)/skeleton_lod(0-4)/animation_lod(0-4)/render_lod(0-4)/physics_lod(0-4)/audio_lod(0-4)/ai_lod(0-4)`。~8B/实体。各维度对外契约见 CHG-049 §三 |
+| VramPressure | **技术栈方案** §二十一 → woworld_core `VramLedger` | LODCoordinator | current_ratio+predicted_ratio_10fr。Rust 侧记账（非 GPU 查询），±15% 精度。3 级阈值 70/85/95% |
+| InteractionIntent | **NPC 活人感/GOAP** → LODCoordinator | LODCoordinator | 7 种类型(PhysicalContact/Combat/Trade/Conversation/PublicSpeech/CasualAcknowledgment/Theft)。级联拉升预算制(≤0.3ms) |
+
+### 统一距离带（所有模块以此为权威）
+
+| 概念 | 权威 Owner | 消费方 | 关键约定 |
+|------|-----------|--------|---------|
+| 场景距离带 (8层) | **技术栈方案** §二十一 | 世界生成/建筑/植被/海洋/云 | 0-30-80-200-500-1500-4000-10000-inf (m)。体素 0.5→1→2→4→8→16→32→64m。LOD7=Billboard+大气 |
+| 角色距离带 (5层) | **技术栈方案** §二十一 | 模型/动画/渲染/物理/AI/音频 | 0-15-60-200-800-inf (m)。骨骼 35→33→28→15→0。基于 Hall 人际距离学 |
+| 音频距离带 (5层) | **技术栈方案** §二十一 | 音频系统 | 0-30-100-300-1000-inf (m)。可被 CommunicationIntent+AcousticProjection 覆盖 |
+
+### 跨维硬约束（不可违反）
+
+| 约束 | 权威 Owner | 消费方 | 说明 |
+|------|-----------|--------|------|
+| skeleton_lod=4 → anim=4, render=4, physics=4 | **技术栈方案** §二十一 | 模型/动画/物理 | 0骨不可逆 |
+| scene_lod=N → skeleton_lod≥max(0,N-2) | **技术栈方案** §二十一 | 世界生成/模型 | 场景降了骨架必须跟 |
+| ai_lod≥3 → physics≥3, animation≥3 | **技术栈方案** §二十一 | AI/物理/动画 | 统计NPC不需碰撞/动画 |
+| skeleton_lod≥2 → physics_lod≥2 | CHG-042 | 模型/物理 | 骨骼粗→物理粗 |
+| animation_lod≥skeleton_lod | CHG-033（动画模块内部） | 动画 | 模块内部 clamp |
+
+### 各维度跨模块约定
+
+| 概念 | 权威 Owner | 消费方 | 关键约定 |
+|------|-----------|--------|---------|
+| scene_lod → Building 映射 | **技术栈方案** §二十一 | 建筑模块 | LOD0(0-30m全WFC)→LOD1(30-200m外壳)→LOD2(200m+统计)。Landmark +1 修正。仿真 LOD 独立 |
+| scene_lod → 植被 VMC | **技术栈方案** §二十一 | 植被 CHG-046 | VegetationProvider 消费 scene_lod，内部映射 4 级。Pattern D trait inversion |
+| ai_lod ↔ 生命周期 | **技术栈方案** §二十一 | 生命周期 CHG-041 | L1↔ai0-1, L3↔ai2-3, L4↔ai4。统一时间流速。advance_age 对 LOD 零耦合 |
+| animation_lod 契约 | CHG-033 动画模块 | 渲染/感官/审美 | CHG-049 定义 5 档对外契约。内部 9 层退化由 CHG-033 自行实现 |
+| audio_lod 意图覆盖 | **技术栈方案** §二十一 | 音频 CHG-030 / 语言 CHG-018 | CommunicationIntent 5 级(whisper/normal/loud/shout/declamation) + AcousticProjection(非语言声源)。AudioBroadcast 广播优化。玩家专注聆听(Alt键) |
+| 级联交互 | **技术栈方案** §二十一 | NPC/战斗/经济 | 单向·被动·按需拉升。InteractionIntent 指定最低 LOD。预算制并发上限 |
+
+### 过渡时序
+
+| 维度 | 升级 | 降级 | 权威 |
+|------|------|------|------|
+| scene | 0ms | 500ms迟滞 | 技术栈方案 §二十一 |
+| skeleton | ≤200ms | 0ms | CHG-033 |
+| animation | 200-500ms | 0ms | CHG-033 |
+| render | 0ms(触发dither) | 200ms dither | CHG-033 |
+| physics | 0ms | 0ms | CHG-042 |
+| audio | 0ms | 0ms | CHG-030 |
+| ai | 1-3帧(<50ms) | 0ms | CHG-032/042 |
+
+### 设计原则（不可违反）
+
+1. **分离关注点**: LODCoordinator 管资源分配。各模块管实现策略。消费者管信息后果
+2. **零领域知识**: LODCoordinator 不直接理解 RitualDef/CombatStyle/ProfessionSchedule。重要性信号通过 ai_lod/InteractionIntent/relation_importance 上传
+3. **确定性**: 同一输入→同一输出。VRAM/帧预算预测使用上一帧快照
+4. **玩家=NPC**: 玩家永远 LOD0，但玩家感知也受 LOD 约束
+
+## CHG-050 新增契约（家具与放置物品系统 v1.0）
+
+> 📘 **权威规格**: [[WoWorld-Design/Change/CHG-050-家具与放置物品系统v1.0创建-20260620|CHG-050]]。家具与放置物品系统是**物品系统的子模块**——所有权归物品系统。
+
+### 核心所有权
+
+| 概念 | Owner | 消费方 | 关键约定 |
+|------|-------|--------|---------|
+| PlacementStore | **物品系统 (家具与放置物品)** | 世界生成 / NPC 行动 / History | 物品系统内部数据结构——外部模块永不直接碰。通过 EntityIndex trait 查询 |
+| PlacedEntry/PlacedCold | **物品系统** | PlacementStore | 热 32B Copy type，冷 40B。热冷分离——与建筑模块 ComponentInstance 一致 |
+| ItemPlacementProps | **物品系统** | PlacementStore / 世界生成 Pass B / 制造系统 | 附加在 ItemProperties.placement 上。None=不可摆放 |
+| AffordanceSet (u64) | **woworld_core** | 物品系统填充 → NPC GOAP 消费 | 64 标记位。物理供给标记在 AffordanceSet，语义标记(IS_SACRED)在 ItemTags |
+| SurfaceId (4变体) | **woworld_core** | 建筑模块 / 物品系统 / 世界生成 | Building/Terrain/Feature/Furniture——4 变体紧凑编码 |
+| Surface trait | **woworld_core** — 建筑模块首先实现 | 物品系统 (PlacementStore 放置验证) | orientation/load_bearing_kpa/contains_footprint |
+| CultureFurnishProfile | **文化系统** (定义 struct) | 世界生成 Pass B / FurnishEnsemble | 从 CultureCoreParams 显式派生——14 字段，各有确定性公式 |
+| WorkstationRegistry (u16) | **启动胶水代码** — 各领域模块注册 | NPC GOAP | 物品系统只存 u16——不知道"这是灶台" |
+| Chimney ComponentFamily (0x000A) | **建筑模块** | 世界生成 P6 WFC / Pass A | 烟道组件——提供 PassThrough 连接面 + usage_tag="chimney_opening" |
+| ComponentInstance.item_id | **建筑模块** | 物品系统 / History | WFC 生成的内置家具的物品身份——可选字段 |
+| 0x44 (FurnitureChest) | **废弃** — 归档标签 | — | 统一为 0x54_02（FurnitureItem 子类别）。旧存档迁移：0x44→0x54_02 |
+
+### 跨模块数据流
+
+| 流 | 提供方 | 消费方 | 说明 |
+|-----|--------|--------|------|
+| Surface → 放置查询 | 建筑模块 (BuildingQuery) | 物品系统 (validate_furniture_placement) | 家具放置时查询可用表面 |
+| CultureCoreParams → 家具风格 | 文化系统 | 物品系统 (CultureFurnishProfile 公式) | P2.5 生成 → P11.5 消费 |
+| EntityId → 物理原子 | 物品系统 (PlacementStore via EntityIndex) | NPC 行动 (35 物理原子) | 原子不区分家具/建筑组件——只读 Graspability |
+| elemental_affinity → 魔法 | 物品系统 (MaterialDefRegistry) | 魔法系统 | 家具的 MaterialProperties.elemental_affinity——通过 EntityIndex::material_of() |
+| 家具→音频表面 | 物品系统 (PlacementStore) | 音频系统 | 地毯覆盖地板 → footstep_material 改变——查询链自顶向下 |
+| 家具→天气暴露 | 物品系统 (PlacementStore::weather_exposure) | 天气系统 | 户外家具的 WeatherExposure——风化系统消费 |
+| PlacedItem→provenance | 物品系统 (ItemEntId) | 历史系统 | 家具的 provenance 链——History 已有机制，无需新接口 |
+
+### 物料谱系链
+
+```
+PlantSpecies → PlantMaterialDef → harvested ItemEntId 
+  → crafting (determines_material=true) → FurnitureItem ItemEntId
+    → material_instance = 输入材料的 MaterialDefId
+      → MaterialProperties { elemental_affinity, density, combustibility, ... }
+        → 物理原子 / 魔法 / 风化 消费
+```
+
+### 设计原则（不可违反）
+
+1. **不区分组件与家具**: 差异在 Graspability 梯度（Immovable/Attached/Free），不在类型
+2. **物品系统不知道 workstation 语义**: 只存 u16 标签，领域模块注册并解释——与 slot_type 同模式
+3. **参数化不穷举**: 新文化风格只需调整参数映射表 (TOML)，零 Rust 代码改动
+4. **种子确定性**: 世界生成的家具 ID 用 hash(seed, path) 派生——非 AtomicU64 递增
+5. **渐进的是渲染/物理 LOD**: 不是家具的存在性——家具全量预生成写入 LMDB

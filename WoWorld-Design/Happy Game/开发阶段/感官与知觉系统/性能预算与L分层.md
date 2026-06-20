@@ -92,4 +92,18 @@ for npc in npcs_where(phase_matches_frame(npc.phase_offset, frame)):
 
 ---
 
+## CHG-049 对齐确认
+
+> **关联**: [[../../../../Change/CHG-049-LOD架构全面深化-20260620|CHG-049 §十四]]
+
+感官系统**无需修改**以对接 CHG-049。理由：
+
+1. **LOD 层级只是调度分桶**——感知模型是距离的连续函数（`PerceptionDegradation`），不预设 N 层。层级数量可随意增减，不改变感知算法本身。
+2. **animation_lod 降级的后果是涌现的**——`animation_lod ≥ 2` 时面部表情关闭 → `VisionQuery` 自然读取不到微表情信号 → 低 confidence → NPC 对该目标的情绪判断更不确定。感官系统不需要主动感知 `animation_lod` 的值。
+3. **CHG-049 §十三 设计原则 1**："消费者管信息后果"——感官系统只需读取动画系统当前产出的任何状态，在信息不足时返回低 confidence。这就是自然涌现。
+
+**唯一确认**：感官系统消费的 `AnimationBodyState`（CHG-033）在不同 `animation_lod` 下的字段可用性需在 CHG-033 动画文档中注明——这不是感官系统的职责。
+
+---
+
 > **相关**: [[../技术栈方案/001-WoWorld正式技术栈方案v3|技术栈方案v3.0 硬件目标]]

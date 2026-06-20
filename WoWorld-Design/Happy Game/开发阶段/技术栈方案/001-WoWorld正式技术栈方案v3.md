@@ -608,51 +608,171 @@ NPC 在世界中的位置 = T_V × P_local（GPU 每帧更新）
 
 ---
 
-## 二十一、LOD 统一架构（v4.0 新增 — KCQ-022）
+## 二十一、LOD 统一架构（v4.0 新增 — KCQ-022 · CHG-049 全面深化）
+
+> 📘 **权威深化规格**：[[../../../Change/CHG-049-LOD架构全面深化-20260620|CHG-049 LOD 架构全面深化]]（2026-06-20）。以下为完整概要，CHG-049 为第一权威参考。
 
 ### 21.1 设计动机
 
-v3.0 中 LOD 分散在四处各自为政：场景 LOD (§四 地形 0-8 级) 与角色 LOD (CHG-033 骨骼 0-4 级) 互不沟通。地形 LOD 6 时远处 NPC 可能仍在跑完整的 35 骨动画——这是**必然浪费而非可能浪费**。
+v3.0 中 LOD 分散在四处各自为政：场景 LOD (§四 地形 0-8 级) 与角色 LOD (CHG-033 骨骼 0-4 级) 互不沟通。地形 LOD 6 时远处 NPC 可能仍在跑完整的 35 骨动画——这是**必然浪费而非可能浪费**。多文档警告 VRAM 4.2GB/6GB=70%，"若 LOD 架构不完整落地，VRAM 先于 CPU/GPU 成为瓶颈"。
 
-### 21.2 核心设计: 两体系分离 + LODCoordinator 统一调度
+### 21.2 两体系分离 + 统一距离带
 
-**LODCoordinator** — Rust 侧无状态纯函数, 每帧运行一次:
+**场景线 — 8 层（0-7）**，倍增 ~2.7×, 12km 覆盖：
+
+| LOD | 距离 | 体素 | 地形 | 建筑 | 植被 | 海洋 | 云 |
+|-----|------|------|------|------|------|------|----|
+| 0 | 0-30m | 0.5m | 全 Transvoxel | LOD0 全WFC+内饰 | 全3D+风动画 | 全 Gerstner | 3D体积 |
+| 1 | 30-80m | 1m | Transvoxel | LOD1 外壳 | 4-angle impostor | 简化 | 3D降采样 |
+| 2 | 80-200m | 2m | Transvoxel | LOD1 外壳 | 群落quad | 简单shader | 2D impostor |
+| 3 | 200-500m | 4m | Transvoxel | LOD2 体块+屋顶 | 群落quad | 颜色平面 | 噪声高云仅 |
+| 4 | 500m-1.5km | 8m | 低精度 Transvoxel | LOD2 统计聚合 | 颜色heightfield | 融入 | — |
+| 5 | 1.5-4km | 16m | Signed Heightfield | LOD2 统计 | 融入地形色 | — | — |
+| 6 | 4-10km | 32m | Signed Heightfield | 融入地形色 | — | — | — |
+| 7 | 10km+ | 64m | Billboard+大气 | — | — | — | — |
+
+**角色线 — 5 层（0-4）**，倍增 ~4×, 800m+ 覆盖：
+
+| LOD | 距离 | 骨骼 | 动画 | 渲染 | 物理 | AI | 音频 |
+|-----|------|------|------|------|------|-----|------|
+| 0 | 0-15m | 35骨 | 9层全栈 | 1500面 | 全碰撞+IK | 全GOAP | 全传播 |
+| 1 | 15-60m | 33骨 | 6核心层 | 800面 | 5胶囊简化 | 轻量决策 | 简化衰减 |
+| 2 | 60-200m | 28骨 | 4行为层 | 300面 | AABB | 统计模板 | 事件声 |
+| 3 | 200-800m | 15骨 | 2层(姿态+战斗) | impostor | AABB仅 | 统计聚合 | 静默* |
+| 4 | 800m+ | 0骨 | 无 | 无 | 无 | 仅存在 | 静默* |
+
+> \* audio_lod 可通过意图驱动覆盖（喊话/广场公讲/钟声等），见 §21.7。
+
+### 21.3 LODCoordinator 完整设计
+
+**签名**: Rust 侧纯函数，每帧一次：
 
 ```
-输入: CameraState, PlayerAttention, FrameBudgetRemaining
-输出: HashMap<EntityId, LodPrescription>
+输入:
+  CameraState            — 位置/朝向/FOV
+  PlayerAttention        — 注视目标/聚焦方向/focus_listening
+  FrameBudget            — 剩余时间预算 (ms)
+  VramPressure           — ★新增: current_ratio + predicted_ratio_10fr
+  Vec<EntityLodInput>    — 所有活跃实体
+  Vec<AudioBroadcast>    — ★新增: 本帧音频广播
+  Vec<InteractionIntent> — ★新增: 跨实体交互意图
+  PrevPrescriptions      — 上一帧的 LOD 状态（用于迟滞）
+
+输出:
+  HashMap<EntityId, LodPrescription>  (每条实体 ~8 字节)
 ```
 
-**LodPrescription** (每条实体一个, ~8 字节):
+**LodPrescription**（7 维，audio_lod ★本次从 4 档扩展为 5 档）：
 
 ```
-scene_lod: u8     (0-8,  地形/建筑/海洋/云/植被统一)
-skeleton_lod: u8  (0-4,  35→33→28→15→0 骨)
-animation_lod: u8 (0-4,  全9层→简化→关键帧→无)
-render_lod: u8    (0-4,  全Mesh→简化→Impostor→无)
-physics_lod: u8   (0-4,  全空间查询→粗查询→AABB→无)
-audio_lod: u8     (0-3,  全传播→简化衰减→静音)
-ai_lod: u8        (0-4,  全GOAP→轻量→统计→无)
+scene_lod: u8      (0-7)
+skeleton_lod: u8   (0-4)
+animation_lod: u8  (0-4, 契约见动画模块)
+render_lod: u8     (0-4)
+physics_lod: u8    (0-4, CHG-042 定义)
+audio_lod: u8      (0-4, ★修订: 4档→5档)
+ai_lod: u8         (0-4, 全GOAP→轻量→统计模板→统计聚合→仅存在)
 ```
 
-### 21.3 核心规则
+**冲突解决算法**（8 步）：
 
-1. **距离驱动 + 注意力加成**: 基础 LOD = f(距离); 玩家注视目标 +1 LOD (提前加载细节); 帧预算紧张时 -1 LOD (动态降级)
-2. **跨维约束**: 场景 LOD N → 角色骨骼 LOD ≥ N-2 (远处角色骨骼自动降级); AI LOD = 4 → animation_lod = 4 (无 AI 的角色不需要动画)
-3. **平滑过渡**: LOD 切换 alpha dither 200ms
-4. **确定性**: 同一输入 → 同一输出, 方便调试
-5. **性能**: LODCoordinator 自身 <0.01ms (查表+距离比较)
+```
+Step 1 — 基础分配: distance → 查表 scene_lod + char_lod
+Step 2 — 硬约束:   玩家全LOD0 + 战斗NPC保底 + 交互目标拉升
+Step 3 — 级联拉升:   InteractionIntent驱动 (预算制, ≤0.3ms)
+                    AudioBroadcast驱动听众 audio_lod
+Step 4 — Attention: 视线锥30°内 → 场景/渲染/动画各+1档
+                    玩家聚焦目标 → 拉满
+                    focus_listening → 视线±10° audio-1
+Step 5 — VRAM降级:  优先降场景(视觉代价最低), 3级阈值 70%/85%/95%
+Step 6 — 帧预算降级: 优先降实体计算(从远到近), 3级阈值 3.0/1.5/0.5ms
+Step 7 — 跨维Clamp:  应用 §21.4 全部硬约束
+Step 8 — 迟滞:      降级 500ms延迟(防振荡), 升级无延迟(响应优先)
+```
 
-### 21.4 与现有设计的兼容
+**自身性能**: <0.05ms（增加了 VRAM+级联+广播处理）
 
-- 场景 LOD 0-8 → 直接映射 §四 8 级 Transvoxel Clipmap
-- 角色骨骼 LOD 0-4 → 直接映射 CHG-033 35/33/28/15/0 骨
-- NPC L1-L4 → 映射 ai_lod 0-3 (L4 视觉 = render_lod 4)
-- Ocean LOD → 随场景 LOD 级联 (LOD 6+ 远海用简单 Shader)
+### 21.4 跨维硬约束
+
+```
+skeleton_lod = 4  →  animation=4, render=4, physics=4   (0骨不可逆)
+scene_lod = N     →  skeleton_lod ≥ max(0, N-2)         (场景降了骨架必须跟)
+ai_lod ≥ 3        →  physics≥3, animation≥3             (统计NPC不需碰撞/动画)
+ai_lod = 4        →  animation=4                         (无AI不播动画)
+skeleton_lod ≥ 2  →  physics_lod ≥ 2                    (骨骼粗→物理粗)
+physics_lod = 4   →  animation_lod = 4                  (无碰撞无动画)
+animation_lod ≥ skeleton_lod  (动画模块内部clamp)
+```
+
+### 21.5 级联交互机制
+
+**单向·被动·按需拉升**：高LOD实体拉升低LOD实体。被拉者只升到交互所需最低LOD。不同交互类型所需最低LOD不同（PhysicalContact→physics≤1, Combat→全LOD0, Conversation→ai≤1/skel≤2/anim≤2, PublicSpeech→听众audio≤1, Casual→不拉升）。
+
+升级重建：确定性函数从缓存 AgentSnapshot + LifeEntity + ProfessionSchedule 重建（1-3帧, <50ms）。
+
+### 21.6 过渡时序
+
+| 维度 | 升级 | 降级 | 机制 |
+|------|------|------|------|
+| scene | 0ms | 500ms迟滞 | Clipmap预计算, 指针切换 |
+| skeleton | ≤200ms | 0ms | 升级时等render dither |
+| animation | 200-500ms | 0ms | 逐层blend_weight |
+| render | 0ms(触发dither) | 200ms dither | alpha dither交叉淡化 |
+| physics | 0ms | 0ms | 碰撞无状态 |
+| audio | 0ms | 0ms | 传播无状态 |
+| ai | 1-3帧(<50ms) | 0ms | AgentSnapshot确定性重建 |
+
+**时序规则**: 降级时 skeleton先降→render跟降（避免高精度骨骼驱动低面数mesh的浪费）。升级时 render先升(dither开始)→skeleton在dither期间跟进（低清但动作流畅→可接受）。
+
+### 21.7 音频 LOD 完整公式
+
+```
+effective_distance = raw_distance × env_acoustic_modifier
+env_acoustic_modifier: 峡谷0.6/密林2.5/石殿0.4/水下3.0/平原1.0/市集1.8
+
+effective_audio_lod = max(0, base_lod(effective_distance)
+                           - intent_boost_steps
+                           - hearer_attention_bonus)
+intent_boost_steps: whisper=0, normal=0, loud=1, shout=2, declamation=3
+hearer_attention_bonus: 睡眠=0→专注聆听=1
+```
+
+非语言声源（钟/瀑布/打铁）→ **AcousticProjection**（base_loudness + freq_profile + directionality）。AudioBroadcast 广播优化：一次传播计算→N个接收端。玩家"专注聆听"（Alt键）：视线±10°内 audio_lod-1，移速×0.3。
+
+**失真链→谣言**: audio_lod 0→完整记忆, 1→高保真, 2→语义压缩(可能错记), 3→主题抽取(谣言级), 4→仅察觉。这是故事涌现的核心驱动力，非bug。
+
+### 21.8 Building LOD 映射 + 地标规则
+
+```
+scene_lod 0 (0-30m)     → Building LOD0 (全WFC+内饰)
+scene_lod 1-2 (30-200m) → Building LOD1 (简化外壳, 无内饰)
+scene_lod 3-5 (200m-4km) → Building LOD2 (统计聚合)
+scene_lod 6-7 (4km+)    → 融入地形色
+
+地标(BuildingTag::Landmark): effective_scene = scene_lod - 1
+  → 大教堂在4km外仍保留统计体块，民居则融入地形色
+  → 远处可见城市天际线
+```
+
+仿真 LOD（建筑模块内部，独立于渲染）：LOD0全数据(~500栋,<3km)/LOD1结构(~50k,3-30km)/LOD2统计(~1.78M,全图)。
+
+### 21.9 植被 VMC 对接 + VRAM 监控
+
+植被: CHG-046 `VegetationProvider` trait 消费 `scene_lod`，内部映射 4 级体系（Pattern D trait inversion）。LODCoordinator 不感知 TC 展开/宏观 Chunk——只下发 scene_lod。
+
+VRAM: `VramLedger`（woworld_core）在资产加载/卸载路径记账。±15%精度足够。VRAM降级和帧预算降级是两个独立压力源，可双重惩罚同一实体——这是正确行为（scene_lod=6 时远处NPC不可见，保留动画是浪费）。
+
+### 21.10 设计原则
+
+1. **分离关注点**: LODCoordinator 管资源分配（"本帧有多少预算"）；各模块管实现策略（"给定预算，砍哪些细节"）；消费者管信息后果（"给定退化输入，还能读到什么"）
+2. **零领域知识**: LODCoordinator 不直接理解 RitualDef/CombatStyle/ProfessionSchedule。重要性信号通过 ai_lod/InteractionIntent/relation_importance 上传
+3. **确定性**: 同一输入→同一输出。VRAM/帧预算预测使用上一帧快照
+4. **玩家=NPC**: 玩家永远LOD0，但玩家感知也受LOD约束（远处听不清，除非专注聆听）
 
 ---
 
-> **本方案是 WoWorld 的正式技术蓝图 v4.0。** 于 2026-06-18 完成全量审计修订——整合 CHG-022~033 全部模块、CHG-033 物理架构迁移 (仅玩家 PhysicsServer3D)、LOD 统一架构。v3.0 (2026-06-10) 已被本版本取代。
+> **本方案是 WoWorld 的正式技术蓝图 v4.0。** 于 2026-06-18 完成全量审计修订——整合 CHG-022~033 全部模块、CHG-033 物理架构迁移 (仅玩家 PhysicsServer3D)、LOD 统一架构。2026-06-20 CHG-049 完成 LOD 架构全面深化——统一距离带·7维契约·冲突解决8步算法·级联交互·音频意图驱动·VRAM监控·Building映射·过渡时序。v3.0 (2026-06-10) 已被本版本取代。
 >
 > **审计文档**: [[../../../参考文档/031-技术栈全量审计-20260618/README|技术栈全量审计]] · [[../../../参考文档/031-技术栈全量审计-20260618/Conflict-Matrix|冲突矩阵]] · [[../../../参考文档/031-技术栈全量审计-20260618/Resolution-Blueprint|解决方案蓝图]]
+> **LOD 深化**: [[../../../Change/CHG-049-LOD架构全面深化-20260620|CHG-049]]
 > **关联模块**: [[NPC活人感开发文档ver2.0]] · [[001-战斗系统总览|战斗系统]] · [[README|魔法系统]] · [[../../../参考文档/031-技术栈全量审计-20260618/模块接头总览/README|模块接头总览]]

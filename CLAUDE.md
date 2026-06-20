@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前活跃的开发工作**：最新完成 [[WoWorld-Design/Change/CHG-047-全模块系统性交叉审计-20260620|CHG-047 全模块系统性交叉审计]]（2026-06-20）——4阶段分层审计·24模块·~120接口不一致·3 CRITICAL·孤儿接口清单·性能预算汇总 + [[WoWorld-Design/Happy Game/开发阶段/世界生成/README|世界生成 v2.0 完全重构]]（2026-06-20，CHG-045）+ [[WoWorld-Design/Happy Game/开发阶段/概念与语言地基/001-概念与语言地基总纲|概念与语言地基系统 v1.0]]（2026-06-19，CHG-044）+ [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/001-生命周期系统总纲|NPC 生命周期系统 v1.0]]（2026-06-18，CHG-041）。模块累计 24 个独立系统，~107,000行正式开发规格。
+**当前规格版本**: v4.0（经技术栈全量审计升级）。模块累计 24 个独立系统 + 1 个深化子模块（家具与放置物品），~114,000行正式开发规格。最新 CHG 序列见 `Change/` 目录。
 
 ## 文档结构
 
@@ -30,20 +30,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### `Happy Game/` — 核心设计文档
 - `欢迎.md` — 项目总览 | `想法/WoW World/总设计草稿.md` — 总设计文档
 - `想法/` — 概念设计/脑暴（`#草稿` = 早期文档，允许矛盾模糊未决）
-- `开发阶段/` — 正式开发规格（权威规格）。24 个子模块目录：
-  - `游戏概述.md` / `README.md` / **`技术栈方案/`**（★ v4.0 权威技术方案）
-  - **`模块接头总览/`** — 23模块×4文件的接口地图（见下方专门章节）
-  - `NPC活人感模块/` — NPC ver2.0 + 基本需求(7维) + 进阶需求(三层) + 审美与艺术 + 认知与智慧 + **生命周期系统（07-新增）**
-  - `模型动作与物理系统/` — 模型定义(骨架/面部图集) + 动画(38姿态/15轨迹/9层栈) + 空间查询(4 trait) + 物理响应
-  - `文化系统/` 8篇 | `信仰系统/` 10篇 | `权力系统/` 9篇
-  - `经济系统/` 9篇 | `物品系统/` 9篇 | `技能系统/` 3篇 | `语言表达/` 8篇
-  - `战斗/` 14篇 | `魔法/` 19篇 | `世界生成/` 13篇（7 v2.0新+4保留+2归档） | `生命/` 12篇 | `历史/` 6篇
-  - `天气与季节系统/` 4篇 | `载具系统/` 10篇 | `音频系统/` 9篇 | `感官与知觉系统/` 8篇
-  - **`概念与语言地基/` — 12篇 ★新增** | 概念空间与模式识别+Utterance渲染管道+词汇库与构词系统(原子词库·复合构词·涌现命名)+语言/文字proficiency+推理系统(归纳/类比/演绎)+代际知识传递(六路径+保真度模型)+LLM概念层对接
-  - **`建筑模块/` — 9篇 ★新增** | 组件族+数据模型+WFC求解+施工调度+Blueprint+生成器族谱+跨模块接口+性能预算
+- `开发阶段/` — 正式开发规格（权威规格）。24 个子模块 + 1 个深化子模块（[[WoWorld-Design/Happy Game/开发阶段/物品系统/家具与放置物品/README|家具与放置物品]]），分层如下：
+
+| 层级 | 模块 | 角色 |
+|------|------|------|
+| **全局基础** | `技术栈方案/`（★ v4.0 权威）、`模块接头总览/`（接口地图） | 所有模块的决策依据和接口枢纽 |
+| **世界框架** | `世界生成/`、`生命/`、`历史/`、`天气与季节系统/` | 定义世界的物理和生物基底 |
+| **NPC 核心** | `NPC活人感模块/`（含需求/审美/认知/生命周期/行动涌现）、`概念与语言地基/` | NPC 从生理到思维到语言的完整心智 |
+| **社会系统** | `经济系统/`、`权力系统/`、`文化系统/`、`信仰系统/` | NPC 之间的涌现式社会结构 |
+| **交互系统** | `战斗/`、`魔法/`、`语言表达/`、`物品系统/`、`技能系统/` | 玩家和 NPC 与世界交互的方式 |
+| **表现系统** | `模型动作与物理系统/`、`音频系统/`、`感官与知觉系统/` | 模拟结果的视听表现 |
+| **建造** | `建筑模块/`、`载具系统/` | NPC 和玩家对世界的物理改造 |
 
 ### `Change/` — 设计变更追踪
-按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名。CHG-001~006 早期变更，CHG-007~013 审计与重构，CHG-014~019 地基模块，CHG-022~033 业务系统（经济→模型动作物理），CHG-034~044 技术栈审计+新模块，CHG-045 世界生成 v2.0 重构，CHG-046 植被系统架构升级，**CHG-047 全模块交叉审计**，**CHG-048 交叉审计修复**。详见 `Change/README.md`。
+按 `CHG-XXX-简短描述-YYYYMMDD.md` 命名。CHG-001~006 早期变更，CHG-007~013 审计与重构，CHG-014~019 地基模块，CHG-022~033 业务系统（经济→模型动作物理），CHG-034~044 技术栈审计+新模块，CHG-045 世界生成 v2.0 重构，CHG-046 植被系统架构升级，CHG-047 全模块交叉审计，CHG-048 交叉审计修复，CHG-049 LOD 架构全面深化，**CHG-050 家具与放置物品系统 v1.0 创建（物品系统子模块）**。详见 `Change/README.md`。
 
 **`Change/hand/`** — 用户直接设计反馈。修改涉及的设计决策时，需检查此目录是否有相关意见。
 
@@ -57,13 +57,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **引擎**: Godot 4.6 LTS | **模拟语言**: Rust (stable 1.80+) — GDExtension 集成
 - **引擎评估**: 详见 [[参考文档/032-Bevy引擎切换可行性分析-20260618/README|Bevy引擎切换可行性分析]]（2026.06）——经三种路径（纯Bevy / Godot+Bevy混合 / 保持现状）全面评估，**结论为保持 Godot+Rust 现状，持续观察 Bevy 演进**。Rust 模拟核心保持引擎无关以降低未来迁移成本
 - **体素**: 自建 Transvoxel（Rust 侧）→ Godot ArrayMesh。垂直稀疏Chunk + Clipmap LOD。分层密度场(L0-L10 + L6.5植被)。海拔~1500m（700m+山），8级LOD，3km切换Signed Heightfield
-- **海洋**: Gerstner程序化波，`OceanProvider` trait 预留FFT升级。海:陆≈7:3
+- **海洋**: Gerstner程序化波，`OceanProvider` trait (woworld_core · 6方法: wave_height/wave_direction/current_velocity/depth_query/sea_state/is_navigable) 预留FFT升级。海:陆≈7:3
 - **天空**: 混合体积云——2D impostor + 3D体积密度场 + 噪声高云。随天气/季节变化
 - **画面**: 3D低多边形 + flat/cel渲染（TABS风格——单diffuse pass，无PBR）。512²面部图集驱动表情
 - **NPC AI**: GOAP规划（安全网，9%）+ 概率行为树（日常，90%）+ 可选LLM增强（1%）。SoA + rayon并行。分层模拟 L1/L2/L3/L4
 - **战斗**: 半自动——玩家AI = NPC AI = 同一套Rust代码。三层模型（本能→节奏→战略）。招式积木+流派涌现+信息不对称。详见 `开发阶段/战斗/`
 - **动画**: 9层可叠加动画栈——Rust CPU批量骨骼矩阵(≤0.5ms) → Godot GPU skinning(双骨蒙皮)。38模块姿态+15基元轨迹。涌现式步态(9参数从BigFive派生)。面部表情512²图集驱动
-- **世界生成**: 编排器模式——15阶段管线(P0-P13 + P2.25植被覆盖)。结构层全量预生成(NPC/权力/经济/历史)，细节层按Chunk渐进(内饰/植物/动物)。VMC双层空间架构(75K个1km²植被宏观Chunk·运行时32m TC确定性展开)。Bootstrap哲学——初始订单簿/初始权力边=已运行千年世界的当前快照，非破坏涌现。协同生成——NPC+家族+历史事件同时产生。逆向人口投影(四阶段)·NpcAnchors(家/工作/产权)·整数规划职业世系·KnowledgeSeed技术传播·因果事件图·P13生成后完整性校验。种子确定性+增量存档。详见 `开发阶段/世界生成/`（14篇·v2.0 + CHG-046）
+- **世界生成**: 编排器模式——15阶段管线(P0-P13 + P2.25植被覆盖)。结构层全量预生成(NPC/权力/经济/历史)，细节层按Chunk渐进(内饰/植物/动物)。VMC双层空间架构(75K个1km²植被宏观Chunk·运行时32m TC确定性展开)。Bootstrap哲学——初始订单簿/初始权力边=已运行千年世界的当前快照，非破坏涌现。协同生成——NPC+家族+历史事件同时产生。逆向人口投影(四阶段)·NpcAnchors(家/工作/产权)·整数规划职业世系·KnowledgeSeed技术传播·因果事件图·P13生成后完整性校验。种子确定性+增量存档。详见 `开发阶段/世界生成/`（15篇·001-014+README · v2.0 + CHG-046）
 - **载具**: 魔力驱动火车/帆船。移动参考系。NPC集体建造
 - **建造/蓝图**: 三途径——编辑器/TOML导入/委托NPC。NPC团体集体施工
 - **数据库**: LMDB — 流式Chunk存储。双层记忆架构
@@ -71,11 +71,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Mod**: TOML数据驱动——调节涌现乘数，不编写行为脚本。无脚本引擎
 - **模型/动画/物理**: 33骨(L1)/35骨(L0)人形骨架。9层动画栈+38模块姿态+15基元轨迹。面部512²图集驱动。Rust侧空间查询(4 trait)。**仅玩家保留PhysicsServer3D**。TABS式cel渲染
 - **物理架构**: ⚠️ CHG-033 重大变更 — 不再"PhysicsServer3D管理所有物理"。**仅玩家CharacterBody3D保留PhysicsServer3D**。其余全部Rust侧空间查询(TerrainQuery/EntityIndex/SpatialEventBus/VisibilityQuery四trait)
-- **LOD架构**: v4.0 §二十一 LOD统一架构 — 场景LOD与角色LOD分离双层体系 + LODCoordinator统一调度。7维LodPrescription跨维约束
+- **LOD架构**: v4.0 §二十一 LOD统一架构 + CHG-049 全面深化 — 场景8层(0-7)×角色5层(0-4)双层体系 + LODCoordinator 8步冲突解决 + 7维LodPrescription(audio_lod 5档★修订) + 跨维硬约束 + 级联预算制交互 + 音频意图驱动 + VRAM监控 + Building地标映射 + 分维度过渡时序。统一距离带覆盖12km。
 - **架构**: Rust模拟核心 → GDExtension → Godot客户端（渲染/UI/音频/输入/玩家物理）
 - **硬件目标**: GTX 1660 SUPER 6GB VRAM。VRAM~4.2GB/6GB，内存~1.4GB/32GB，帧预算16.7ms（60fps）
 - **美术**: AI生成(Stable Diffusion) + 手动调整(Blender)
 - **平台**: Windows / Linux / macOS
+
+## 关键目录与文件规则
+
+### `想法/` vs `开发阶段/` — 两级文档体系
+
+| 目录 | 性质 | 规则 |
+|------|------|------|
+| `想法/` | 概念设计/脑暴 | 可带 `#草稿` 标签，表示**允许矛盾、模糊、未决**——是思考过程而非最终结论 |
+| `开发阶段/` | 正式开发规格 | **权威规格**。必须清晰、完整、无内部矛盾。优先以此为准 |
+
+### `.canvas` 文件 — ⚠️ 禁止文本编辑
+
+Obsidian 画布文件（`.canvas`）是**二进制 JSON**——用 Edit/Write 工具编辑会损坏文件。只能通过 Obsidian 修改。
+
+### `文件备份/` — ⚠️ 禁止修改
+
+`WoWorld-Design/文件备份/` 下的所有目录（如 `20260618/`、`20260619skill设计前/` 等）是**历史快照**，用于回溯设计演进。**绝不能修改或删除**这些文件。
 
 ## 文件格式
 
@@ -124,41 +141,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 死亡原因 | **Life** 004 §九 | History | ⚠️ CHG-041: 从25种5类扩展为30种6类。类别级亡灵规则。DeathCauseRegistry trait支持mod扩展 |
 | 植被覆盖 | **World Gen** 012 (P2.25) + **Life** 010 | Building/NPC/天气/音频/战斗/经济 | ⚠️ CHG-046: VegetationProvider trait (woworld_core · 7方法)。植被是自然基底(P2.25)，非生命层(P3.5)。木材从trait推导——Building不import植物类型 |
 
-### 后续 CHG 契约摘要
+### 后续 CHG 契约
 
-| CHG | 模块 | 核心契约要点（详见 [[CLAUDE-INTERFACES.md]]） |
-|-----|------|----------------------------------------------|
-| 014 | 物品系统 | ItemDefId/ItemEntId(u64)、Quality×Rarity、BodyPlan自动派生、Assembly组件树+JointType、Enchantment卡槽+直接双模式 |
-| 015 | 技能系统 | SkillId(u64)5分类22子组、SkillEntry稀疏存储、三层天赋(MentalAccess×天生×交叉训练)、TeachingRisk trait、CrossTraining非递归 |
-| 016 | 天气系统 | WeatherQuery::sample()零事件总线、SeasonClock纯时间函数(120d/y·48min/d)、双层温度、Markov 6状态+雾、极端天气参数组合 |
-| 017 | 语言表达 | LanguageId(u32)/ScriptId(u16)、ExpressionRef 8B句柄、ContentResolver trait注册、片段组合文本(~430片段)、PhaticLayer五类应酬 |
-| 018 | 语言表达v1.1 | 五传播通道+失真算子、DeceptionIntent四种、CommunicationNorms→文化系统(★所有权转移)、GestureCultureMapping→文化系统 |
-| 019 | LLM增强层 | LlmSceneConfig 20场景开关(7+3+3+3+4)、LlmBackend trait(本地5+云端6)、VoiceProfile(⚠️ CHG-030已迁至音频)、TtsEngine trait、VoicePriority五级 |
-| 022 | 经济系统 | 价格从订单簿涌现(禁止直写)、Market≠物理地点、两阶段提交、NpcEconomicState trait注入、中间商四条件涌现、五大货币稳定器 |
-| 023 | 权力系统 | 17 UniversalPowerAtom、PowerTopology有向多重图、Legitimacy 5因子公式、Duty制裁塌缩链、Polity 4条件涌现、外交6因子 |
-| 024 | 文化系统 | CultureCoreParams 10核心参数(f32)、CommunicationNorms迁入、障碍Voronoi空间模型、RitualDef统一原子、四路径文化演变 |
-| 025 | 信仰系统 | FaithTheology 10参数、实践优先模型(无"神学立场")、FaithQuery 30方法、NPC→NPC接触传染5渠道、ReligiousReproductionNorms迁入 |
-| 027 | 基本需求 | ConsumableEffect schema(Life定义)、7维需求统一框架、element_surplus[8]、NeedSensitivity 8字段、GOAP安全网不扩展 |
-| 028 | 进阶需求 | 三层需求(生存→心理→成长)、esteem_deficit/competence_frustration、survival_suppression() sigmoid、frustration_regression() ERG挫折回归 |
-| 029 | 审美系统 | AestheticSignal 6维、judge()纯函数零副作用、HasAestheticSignal trait 12实现者、4事件原子(React/Articulate/Adopt/Embellish)、FineArts技能大类(0x06) |
-| 030 | 音频系统 | SoundFootprint物理模型、AudioQuery 30方法、VoiceProfile迁入音频、五类声音、传播引擎(衰减/吸收/风/温度/遮挡/多普勒)、话语清晰度五档 |
-| 031 | 感官系统 | PerceptBatch统一产出、VisionQuery/ScentQuery/SpatialQuery trait(woworld_core)、PerceptualCache LRU、DarkAdaptation指数松弛、AestheticFrameworks四过程、感官噪声确定性种子 |
-| 032 | 认知与智慧系统 | CognitiveStyle 4维认知风格(含阻尼)、CognitiveTide 3维潮汐、MentalModel(≤20条·6路径跨代传递)、ThoughtTrigger 6类触发+ThoughtFragment 3级清晰度、睡眠正则化(过拟合大脑假说)、创新管线6阶段→6领域对接、MindAttribution Theory of Mind、零新trait·零新调参旋钮·全部已有维度派生 |
-| 033 | 模型动作与物理 | TerrainQuery/EntityIndex/SpatialEventBus/VisibilityQuery四trait空间查询、33骨(L1)/35骨(L0)人形骨架、双骨蒙皮、512²面部图集(16嘴×16眉×8眼)、38模块姿态+15基元轨迹、9层动画栈、步态9参数从BigFive派生、CombatStyleParams8参数流派涌现、COM抛物体飞行、骨架松弛死亡(替代布娃娃)、仅玩家保留PhysicsServer3D |
-| 041 | 生命周期系统 ★新增 | NPC从受孕到死亡+死后痕迹的完整生命历程。6核心原则：零年龄门控/零系统开关/连续模型/中性事件/平等性/统一时间流速。AgeClock纯函数+Gompertz衰老+InfantDependency状态机+FertilityPotential曲线+DeathCause 30种6类+玩家双角色死亡继承。详见 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/07-生命周期系统/001-生命周期系统总纲|生命周期系统总纲]] |
-| 034~037 | 技术栈全量审计 | 8阶段三层审计(C→B→A) Wave1~4。技术栈 v3→v4.0(物理迁移+7模块条目+峰值互斥预算+LOD统一架构)。CHG-026 补入 CLAUDE-INTERFACES。感官SpatialQuery→4trait签名。L1/L2/L3三级验证通过 |
-| 038~039 | TDI扩展+接头总览 | ~126条新TDI从8模块提取(音频/感官/经济/权力/文化/信仰/模型物理)。模块接头总览全部22模块×4文件填充(~300KB接口文档) |
-| 042 | NPC物理原子层 ★新增 | 三层原子架构(35物理基元+~40领域复合原子+~25社会抽象原子)。AgentSnapshot连续能力快照。MaterialProperties数据驱动涌现。IK+碰撞箱战斗管线。KnowledgeSeed知识种子。execution_noise技能精度。零年龄门控·零硬编码禁止·零预设战斗动画。详见 [[WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/001-NPC行动涌现总纲|NPC行动涌现总纲]] |
-| 043 | 建筑模块 ★新增 | 组件化建筑物理与建造规则v1.0。ComponentFamily参数化族+9核心族。BuildContext六维参数聚合(种族/气候/材料/文化/信仰/业主)。BuildingQuery唯一对外接口。2.5D WFC三阶段求解(BSP→2D WFC→3D组装)。BuildingGenerator trait—8种生成器(WfcRectangular/WfcRadial/Cathedral/Complex等)。Blueprint TOML玩家DIY格式。ConstructionScheduler声明式施工调度。BuildingHistory双层时间窗口存储。Surface trait→物品系统家具放置。详见 [[WoWorld-Design/Happy Game/开发阶段/建筑模块/README|建筑模块总纲]]。关联: [[参考文档/035-建筑模块设计探讨-20260619/001-建筑模块大纲|建筑模块大纲]] |
-| 044 | 概念与语言地基系统 ★新增 | NPC概念思维与语言表达的底层地基v1.0。三层模型：PatternSignature(全球客观模式指纹)→文化概念空间(文化相对概念切分)→语言词汇(概念×语言投影)。新增woworld_core纯数学crate。11篇正式规格。核心: classify_pattern()概念识别、Utterance结构化话语、TextGenerator三模式统一、language/script proficiency从原子日志涌现、归纳/类比/演绎三推理模式、六条代际传递路径+保真度数学模型、LLM在概念层操作。NpcData新增~4.3KB字段、EventMemory新增CompactConceptEncoding([u8;64])、AgentSnapshot新增20B语言/文字proficiency。总新增~180MB在预算内。详见 [[WoWorld-Design/Happy Game/开发阶段/概念与语言地基/README|概念与语言地基总纲]]。关联: [[参考文档/036-概念与语言地基设计探讨-20260619/001-概念与语言地基大纲|概念与语言地基大纲]] |
-| 045 | 世界生成 v2.0 ★重大重构 | 编排器模式——15阶段管线(P0-P13+P2.25)。结构层全量预生成(NPC/权力/经济/历史)，细节层渐进(内饰/植物/动物)。Bootstrap哲学——初始订单簿/初始权力边=已运行千年世界的当前快照。协同生成——NPC+家族+历史同时产生。P5 社会结构推导(BuildingSpec·RoleTemplate·PowerSkeleton·户外工作场所)。P8 逆向人口投影(四阶段:骨架→家族→职业世系整数规划→实例化·NpcAnchors·FamilyTree DAG)。P9 KnowledgeSeed传播链+因果事件图。P10 权力Bootstrap·P11 经济Bootstrap(ProfessionTag TOML consumes/produces→供需自动聚合)。P3.5 生命世界初始化(种群模板+食物链顺序)。P13 生成后完整性校验。跨模块补充需求11篇输出至[[参考文档/037-世界生成重构跨模块补充需求-20260620/README|037]]。世界生成文档从9篇扩展至13篇(7新+4保留+2归档)。详见 [[WoWorld-Design/Happy Game/开发阶段/世界生成/README|世界生成总览]]。 |
-| 046 | 植被系统架构升级 ★新增 | 15阶段管线·VMC双层空间架构(P2.25植被覆盖插入P2与P2.5之间·75K个1km²植被宏观Chunk·运行时32m TC确定性展开)。群落层从个体层分离(010-植被群落与覆盖新增)。VegetationProvider trait (woworld_core · Pattern D trait inversion)——7方法: query_community/canopy_closure/timber_availability/ground_cover/query_harvestable/fuel_load/root_interference。木材形式化合同(WoodMaterialContract)——TimberAvailability/TimberQuality在woworld_core单一定义，5模块隐式链路收敛为单一trait枢纽。P3.5植物迁移至P2.25。香农熵加权优势种筛选·Voronoi林窗检测·并查集斑块连通性·演替纯函数推导。Building模块零植物类型依赖。详见 [[WoWorld-Design/Happy Game/开发阶段/生命/010-植被群落与覆盖|植被群落与覆盖]] · [[WoWorld-Design/Happy Game/开发阶段/世界生成/012-植被覆盖生成|P2.25管线规格]]。
+| CHG 范围 | 涉及模块 | 说明 |
+|----------|---------|------|
+| 014~033 | 物品/技能/天气/语言/LLM/经济/权力/文化/信仰/需求/审美/音频/感官/认知/模型物理 | 各业务系统 v1.0 创建时的跨模块契约 |
+| 034~039 | 技术栈全量审计·TDI扩展·接头总览 | 技术栈 v3→v4.0，模块接头总览填充 |
+| 041~050 | 生命周期·NPC原子层·建筑·概念语言地基·世界生成v2.0·植被·交叉审计·LOD深化·家具与放置物品 | 最新模块批次 |
+
+> 📘 **完整契约逐条内容详见 [[CLAUDE-INTERFACES.md]]**——该文件是跨模块接口的权威参考。修改任何跨模块概念时必须同步维护它。
 
 **冲突修正原则**：不删除原有设计。通过建立正确的派生/引用/映射关系消除冲突。两个模块定义同一概念的不同抽象层时——建立派生关系而非强制合并。有疑问时先与用户确认，不要从根上削减原有设计。
 
 ## 模块接头总览（Module Interface Hub）
 
-> 📘 **位置**: `开发阶段/模块接头总览/` | **最后填充**: 2026-06-20 (CHG-048) — 24个模块已全部填充，世界生成 v2.0 出口/入口/影响链已刷新，植被子项接口已补充，CRITICAL接口错误已修正
+> 📘 **位置**: `开发阶段/模块接头总览/` | **最后填充**: 2026-06-20 (CHG-048) — 24个模块已全部填充，世界生成 v2.0 出口/入口/影响链已刷新，植被子项接口已补充，CRITICAL接口错误已修正。**Wave A基础设施清理完成**: 幽灵trait注册(EconomyQuery 8方法/OceanProvider 6方法/4 DI trait/VisionQuery+ScentQuery)·编号去重(世界生成012/013/014·生命010/013)·缺失README补全(NPC+载具)·CHG-XXX→正确编号·变更追踪影响地图创建
 
 **定位**: 介于 CLAUDE-INTERFACES.md（契约宪法）和具体模块文档之间的"生活地图"——按模块和概念组织的接口地图。
 
@@ -171,7 +168,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 模块接头总览/
   00-全局基础设施/    — woworld_core 核心类型 + 空间查询四trait签名 + 40+通用trait索引
   01~24/              — 每模块4文件: 001-接口出口 / 002-接口入口 / 003-变更影响链 / 000-变更日志
-  变更追踪/           — 待处理变更队列 + 已解决变更日志
+  变更追踪/           — 待处理变更队列 + 已解决变更日志 + 影响地图
 ```
 
 ### 保鲜协议（关键——防止接口地图腐化）

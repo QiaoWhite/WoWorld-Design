@@ -73,7 +73,7 @@ CHG-XXX-简短描述-YYYYMMDD.md
 | CHG-032 | [CHG-032-NPC认知与智慧系统v1.0创建-20260617.md](CHG-032-NPC认知与智慧系统v1.0创建-20260617.md) | 2026-06-17 | NPC认知与智慧系统v1.0创建：CognitiveStyle 4维认知风格、CognitiveTide 3维潮汐、MentalModel(≤20条·6路径跨代传递)、ThoughtTrigger 6类触发、创新管线6阶段 | 完成 |
 | CHG-033 | [CHG-033-模型动作物理系统v1.0创建-20260617.md](CHG-033-模型动作物理系统v1.0创建-20260617.md) | 2026-06-17 | 模型动作物理系统v1.0创建：TerrainQuery/EntityIndex/SpatialEventBus/VisibilityQuery四trait空间查询、33/35骨骨架、9层动画栈、38模块姿态、仅玩家保留PhysicsServer3D | 完成 |
 
-### 6. CHG-041 ~ CHG-046：新模块 + 架构升级 (New Modules + Architecture Upgrades)
+### 6. CHG-041 ~ CHG-050：新模块 + 架构升级 (New Modules + Architecture Upgrades)
 
 | 编号 | 文件名 | 日期 | 描述 | 状态 |
 |------|--------|------|------|------|
@@ -81,7 +81,11 @@ CHG-XXX-简短描述-YYYYMMDD.md
 | CHG-042 | [CHG-042-NPC物理原子层v1.0创建-20260618.md](CHG-042-NPC物理原子层v1.0创建-20260618.md) | 2026-06-18 | NPC物理原子层v1.0创建：三层原子架构(35物理基元+~40领域复合原子+~25社会抽象原子)、AgentSnapshot连续能力快照、MaterialProperties数据驱动涌现、IK+碰撞箱战斗管线 | 完成 |
 | CHG-043 | [CHG-043-建筑模块v1.0创建-20260619.md](CHG-043-建筑模块v1.0创建-20260619.md) | 2026-06-19 | 建筑模块v1.0创建：ComponentFamily参数化族(9核心族+Mod扩展)、2.5D WFC三阶段求解(BSP→2D WFC→3D组装)、BuildingGenerator trait(8种生成器)、Blueprint TOML、ConstructionScheduler声明式施工 | 完成 |
 | CHG-044 | [CHG-044-概念与语言地基系统v1.0创建-20260619.md](CHG-044-概念与语言地基系统v1.0创建-20260619.md) | 2026-06-19 | 概念与语言地基系统v1.0创建：三层模型(PatternSignature→文化概念空间→语言词汇)、classify_pattern()概念识别、Utterance结构化话语、归纳/类比/演绎三推理模式、六条代际传递路径+保真度数学模型 | 完成 |
-| CHG-046 | [CHG-046-植被系统架构升级-20260620.md](CHG-046-植被系统架构升级-20260620.md) | 2026-06-20 | 植被系统架构升级：15阶段管线·VMC双层空间架构(P2.25植被覆盖·75K个1km²植被宏观Chunk·运行时32m TC确定性展开)、VegetationProvider trait(7方法)、木材形式化合同(WoodMaterialContract)、群落层从个体层分离 | 进行中 |
+| CHG-045 | [CHG-045-世界生成v2.0完全重构-20260620.md](CHG-045-世界生成v2.0完全重构-20260620.md) | 2026-06-20 | 世界生成v2.0完全重构：编排器模式·14阶段管线·结构/细节双层分离·Bootstrap哲学·协同生成（★CHG-048编号修复后在接头总览中登记为CHG-045） | 完成 |
+| CHG-046 | [CHG-046-植被系统架构升级-20260620.md](CHG-046-植被系统架构升级-20260620.md) | 2026-06-20 | 植被系统架构升级：15阶段管线·VMC双层空间架构(P2.25植被覆盖·75K个1km²植被宏观Chunk·运行时32m TC确定性展开)、VegetationProvider trait(7方法)、木材形式化合同(WoodMaterialContract)、群落层从个体层分离 | 完成 |
+| CHG-048 | — (见CLAUDE-INTERFACES.md CHG-048) | 2026-06-20 | ★全模块交叉审计修复Wave A——幽灵trait注册(EconomyQuery 8方法·OceanProvider 6方法·4 DI trait·VisionQuery+ScentQuery)·编号去重(世界生成012/013/014·生命010/013)·缺失README补全(NPC+载具)·CHG-XXX→正确编号·变更追踪影响地图创建 | 完成 |
+| CHG-049 | [CHG-049-LOD架构全面深化-20260620.md](CHG-049-LOD架构全面深化-20260620.md) | 2026-06-20 | LOD架构全面深化：场景8层×角色5层双层体系·LODCoordinator 8步冲突解决·7维LodPrescription(audio_lod 5档)·跨维硬约束·级联预算制交互·音频意图驱动·VRAM监控·Building地标映射·分维度过渡时序 | 完成 |
+| CHG-050 | [CHG-050-家具与放置物品系统v1.0创建-20260620.md](CHG-050-家具与放置物品系统v1.0创建-20260620.md) | 2026-06-20 | 家具与放置物品系统 v1.0 创建：物品系统子模块的全面重写——9参数化家具族·PlacementStore数据模型(32B热)·七步放置验证·双Pass种子确定性生成·表面链级联物理·AffordanceSet 64-bit供给位集·CultureFurnishProfile文化派生·雕塑标记化目录(~66 mesh)·工作站u16注册制解耦。6篇新建设计文档+13个文件联动修改 | 完成 |
 
 ---
 
@@ -96,7 +100,6 @@ CHG-XXX-简短描述-YYYYMMDD.md
 | CHG-034 ~ CHG-037 | 技术栈全量审计 (v3→v4.0: 物理迁移+7模块条目+峰值互斥预算+LOD统一架构)。审计过程记录于多个参考文档和模块变更中，对应 CHG 文档待创建 | 规划中 |
 | CHG-038 ~ CHG-039 | TDI扩展 + 模块接头总览填充。成果已体现在模块接头总览目录中，对应 CHG 文档待创建 | 规划中 |
 | CHG-040 | 预留给技术栈审计收尾 | 规划中 |
-| CHG-045 | 世界生成 v2.0 完全重构：编排器模式·14阶段管线·结构/细节双层分离·Bootstrap哲学·协同生成（2026-06-20，变更内容已分布在14篇世界生成文档中） | 规划中 |
 
 ## 相关目录
 
@@ -121,4 +124,4 @@ CHG-XXX-简短描述-YYYYMMDD.md
 
 > **注意**：`开发阶段/Change/` 文件夹中包含早期变更记录（NPC 数量目标变更），后续所有变更请使用此顶层 Change 文件夹。
 
-> **最后更新**: 2026-06-20 — 补充 CHG-005~CHG-046 全部索引，标注编号缺口，添加归档目录说明。
+> **最后更新**: 2026-06-20 — CHG-045/047/048/049 已登记，CHG-045从编号缺口移除（✓接头总览CHG-XXX已替换），CHG-048 Wave A基础设施清理完成。

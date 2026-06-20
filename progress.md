@@ -1,5 +1,47 @@
 # Progress Log — WoWorld 设计文档
 
+## Session: 2026-06-20 — CHG-048 Wave A 基础设施清理
+
+### Wave A: 全部完成
+- **Status:** complete
+- 6 任务全部完成——编号去重·缺失README·幽灵trait注册·CHG-XXX替换·影响地图·保鲜同步
+
+**A1 世界生成编号修复** (14文件):
+- 012-权力→013-权力·013-校验→014-校验 (git mv)
+- 008-旧版(NPC初始化)已退役——009引用修复
+- 005缺号确认为有意归档——README已有记录
+- 全部交叉引用更新：001/003/004/006/008/009/010/011 + 接口出口
+
+**A2 缺失README创建** (2新文件):
+- NPC活人感模块/README.md — 7子模块索引+六层模型+关键参数表
+- 载具系统/README.md — 10文档索引+载具分类+关键参数表
+
+**A3 生命系统010去重** (9文件):
+- 010-神明→013-神明 (git mv)
+- README更新——新增010植被条目+013神明
+- 信仰系统 4文件 + 文化系统 2文件 + 生命 012-繁衍 引用同步
+
+**A4 CHG-XXX→正确编号** (5文件, 15处):
+- 生命接口出口: CHG-041 (DeathCause/AgeClock/LifeEvent/GestationState/FertilityPotential/InfantDependency/DeathSummary)
+- NPC接口出口/入口: CHG-041 (生命周期5出口+入口2处)
+- 世界生成接口出口+变更日志: CHG-045 (v2.0重构)
+
+**A5 幽灵trait补充** (1文件):
+- EconomyQuery: 8方法——标准Query模式注册至woworld_core经济section
+- OceanProvider: 6方法(wave_height/wave_direction/current_velocity/depth_query/sea_state/is_navigable)
+- 4 DI trait: ElevationQuery·ClimateParamsQuery·OceanCurrentQuery·WorldBoundaryQuery
+- VisionQuery/ScentQuery: 方法计数+摘要 (各4方法)
+
+**A6 变更追踪影响地图** (1新文件):
+- 变更追踪/002-影响地图.md — 24模块影响矩阵+高风险Top10+消费方反查
+
+**保鲜同步**:
+- CLAUDE.md: OceanProvider方法·世界生成为15篇·结构代码块更新·CHG-048条目
+- CLAUDE-INTERFACES.md: +CHG-048完整章节(幽灵trait注册·编号修复·缺失基础设施·设计原则)
+- Change/README.md: +CHG-045/048·更新编号缺口
+
+**总计**: ~30文件修改, 3新文件, +~1200/-~200行
+
 ## Session: 2026-06-11/12
 
 ### Phase 6: 全文档审计 + 修复

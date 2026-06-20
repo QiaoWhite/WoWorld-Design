@@ -1,4 +1,4 @@
-# 012-权力与经济 Bootstrap
+# 013-权力与经济 Bootstrap
 
 > **开发代号**: WoWorld (Wonder World)
 > **版本**: v1.0 — 全新（P10 权力 Bootstrap·P11 经济 Bootstrap）
@@ -194,4 +194,4 @@ fn initial_price(item: ItemDefId, settlement: SettlementId,
 
 ---
 
-> **关联**: [[004-聚落选址与社会结构推导]] · [[008-人口投影与家族协同生成]] · [[013-生成后校验与完整性保证]]
+> **关联**: [[004-聚落选址与社会结构推导]] · [[008-人口投影与家族协同生成]] · [[014-生成后校验与完整性保证]]

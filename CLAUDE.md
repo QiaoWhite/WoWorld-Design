@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前规格版本**: v4.0（经技术栈全量审计升级）。模块累计 24 个独立系统 + 1 个深化子模块（家具与放置物品），~114,000行正式开发规格。最新 CHG 序列见 `Change/` 目录。
+**当前规格版本**: v4.0（经技术栈全量审计升级）。模块累计 24 个独立系统 + 1 个深化子模块（家具与放置物品）+ **交互配方表系统**（物品获取物理统一入口，007 §九），~114,000行正式开发规格。最新 CHG 序列见 `Change/` 目录。
 
 ## 文档结构
 
@@ -38,7 +38,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **世界框架** | `世界生成/`、`生命/`、`历史/`、`天气与季节系统/` | 定义世界的物理和生物基底 |
 | **NPC 核心** | `NPC活人感模块/`（含需求/审美/认知/生命周期/行动涌现）、`概念与语言地基/` | NPC 从生理到思维到语言的完整心智 |
 | **社会系统** | `经济系统/`、`权力系统/`、`文化系统/`、`信仰系统/` | NPC 之间的涌现式社会结构 |
-| **交互系统** | `战斗/`、`魔法/`、`语言表达/`、`物品系统/`、`技能系统/` | 玩家和 NPC 与世界交互的方式 |
+| **交互系统** | `战斗/`、`魔法/`、`语言表达/`、`物品系统/`（含 `家具与放置物品/`）、`技能系统/` | 玩家和 NPC 与世界交互的方式 |
+
+### 关键架构关系：技能系统 ↔ 物理原子层
+
+这两个系统容易误读为冲突（离散技能名 vs 连续物理参数），实际是正交维度：
+
+- **物理原子层**（`NPC活人感模块/08-NPC行动涌现与分类/`）：AgentSnapshot 连续参数决定**身体能不能执行**物理动作（force_check）。35个物理原子纯物理计算，零领域知识。
+- **技能系统**（`技能系统/`）：SkillEntry 追踪**脑子练过多少次**（用进废退，只升不降）。`execution_noise_std(skill_level: f32) → f32` 消耗 f32 精度值——不关心来源（SkillEntry/AgentSnapshot/玩家硬编码1.0皆可）。
+
+**汇合点**：复合原子的 execute() 同时消费 AgentSnapshot（可行性）+ f32 proficiency（精度），在调用方融合。`execution_noise_std` 签名是 f32——零耦合。
+
+**关键约定**：技能是事后记录标签（"这人砍了很多树→woodcutting Lv高"），不是事前门控规则（"woodcutting不够→不能砍"）。门槛从物理涌现——MaterialProperties × noise 自然拒绝低能力者。
+
+### 交互配方表系统（`物品系统/007 §九`）
+
+物品获取的物理路径（采集/拆解/屠宰）统一走 TOML 数据驱动的配方表：
+
+- **配方表**：`(EntityKind, tool_tags) → (composite_atom, yield_resolver, xp)` —— 纯数据，不定义技能门槛
+- **工具标签**：`ItemProperties.tool_tags: Option<Vec<String>>` — 工具 TOML 定义功能标签（如 `["axe_head"]`），配方表匹配。和 WeaponType 标签对标的模式
+- **产物解析**：`YieldResolverRegistry` 注册制——Life/Item/WorldGen 模块启动时注册解析函数，物品系统不反向依赖
+- **DETACH 物理原子**（002 §五）：ATTACH 的逆操作，纯物理——`surface_damage = force / material.toughness`。拆解品质由调用方从 damage 推导
+- **DISASSEMBLE 复合原子**（003 §2.1）：OBSERVE→{GRASP→DETACH×N}——受控拆解
+- **BUTCHER 复合原子**（003 §2.1）：GRASP→CUT→SCOOP→STACK→LIFT——动物尸体处理
+
+配方表和 `CraftingRecipe`（006制造系统）是两张独立表——采集不需要 SkillRequirement，门槛从物理涌现。
 | **表现系统** | `模型动作与物理系统/`、`音频系统/`、`感官与知觉系统/` | 模拟结果的视听表现 |
 | **建造** | `建筑模块/`、`载具系统/` | NPC 和玩家对世界的物理改造 |
 

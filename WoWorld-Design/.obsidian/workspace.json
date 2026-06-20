@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "参考文档/039-WoWorld设计文档全面规划-20260620/README.md",
+                "file": "Change/hand/0-提示词考量角度.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "README"
+              "title": "0-提示词考量角度"
             }
           },
           {
@@ -27,15 +27,16 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Change/hand/0-提示词考量角度.md",
+                "file": "Happy Game/开发阶段/语言表达/010-非语言表达与语言联动.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "0-提示词考量角度"
+              "title": "010-非语言表达与语言联动"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -239,44 +240,44 @@
       "bases:新建数据库": false
     }
   },
-  "active": "7ef170f8dfaf12d5",
+  "active": "2571f8345d0d6e5c",
   "lastOpenFiles": [
-    "Happy Game/开发阶段/家具系统设计-旧.md.tmp.19848.2d3c97a342d5",
-    "Change/README.md.tmp.19848.1b4c50bc7498",
-    "Change/README.md.tmp.19848.c91d56ee0e1e",
-    "Change/CHG-050-家具与放置物品系统v1.0创建-20260620.md",
-    "Change/CHG-050-家具与放置物品系统v1.0创建-20260620.md.tmp.19848.e8b110a63986",
-    "Happy Game/开发阶段/模块接头总览/21-家具/000-变更日志.md.tmp.19848.7f454280ee99",
-    "Happy Game/开发阶段/模块接头总览/21-家具/003-变更影响链.md.tmp.19848.2efa591bb052",
-    "Happy Game/开发阶段/模块接头总览/21-家具/002-接口入口.md.tmp.19848.fa915f879969",
-    "Happy Game/开发阶段/模块接头总览/21-家具/001-接口出口.md.tmp.19848.6ec29b0ba252",
-    "Happy Game/开发阶段/世界生成/001-世界生成总流程.md.tmp.19848.da3f125915e7",
-    "Happy Game/开发阶段/建筑模块/001-组件族定义与注册.md.tmp.19848.63a9dbecd4fb",
-    "Happy Game/开发阶段/建筑模块/001-组件族定义与注册.md.tmp.19848.1676fb456931",
-    "Happy Game/开发阶段/物品系统/家具与放置物品/README.md",
-    "Happy Game/开发阶段/物品系统/家具与放置物品/016-跨模块接口补充-家具.md",
-    "Happy Game/开发阶段/物品系统/家具与放置物品/015-家具文化派生.md",
-    "Happy Game/开发阶段/物品系统/家具与放置物品/014-放置物品数据模型.md",
-    "Happy Game/开发阶段/物品系统/家具与放置物品/013-放置规则引擎.md",
-    "Happy Game/开发阶段/物品系统/家具与放置物品/012-家具族参数化定义.md",
-    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/002-物理原子层定义与签名.md",
+    "Change/README.md.tmp.10956.27ccce2742ef",
+    "Change/README.md.tmp.10956.691b75d74dd0",
+    "Change/CHG-052-玩家游玩内容全貌设计-20260620.md",
+    "Change/CHG-052-玩家游玩内容全貌设计-20260620.md.tmp.10956.9d54904bbe49",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/003-补充-农业执法海洋复合原子注册.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/003-补充-农业执法海洋复合原子注册.md.tmp.10956.51c32412a283",
+    "Happy Game/开发阶段/历史/005-补充-大日志多镜头UI.md",
+    "Happy Game/开发阶段/历史/005-补充-大日志多镜头UI.md.tmp.10956.02146787c62d",
+    "Happy Game/开发阶段/小精灵系统/001-小精灵系统总纲.md",
+    "Happy Game/开发阶段/小精灵系统/001-小精灵系统总纲.md.tmp.10956.a1668b42d8d9",
+    "Happy Game/开发阶段/小精灵系统/README.md",
+    "Happy Game/开发阶段/小精灵系统/README.md.tmp.10956.8b53549062a0",
+    "Happy Game/开发阶段/小精灵系统",
+    "Happy Game/开发阶段/战斗/015-大规模战争方阵统计模型.md",
+    "Happy Game/开发阶段/战斗/015-大规模战争方阵统计模型.md.tmp.10956.11a7b0d17072",
+    "Happy Game/开发阶段/生命/012-玩家角色管理与继承.md",
+    "Happy Game/开发阶段/生命/012-玩家角色管理与继承.md.tmp.10956.74cb9d0f1322",
+    "参考文档/README.md.tmp.10956.3b8f2c9f171a",
+    "参考文档/036-玩家游玩内容全貌设计-20260620/002-遗漏与待解决事项.md",
+    "参考文档/036-玩家游玩内容全貌设计-20260620/001-玩家游玩内容全貌设计大纲.md",
+    "参考文档/035-法律涌现与执法机制分析-20260620/001-法律涌现分析-无需独立法律模块.md",
+    "Happy Game/开发阶段/语言表达/008-跨模块接口与数据合同.md",
+    "Happy Game/开发阶段/文化系统/003-文化沟通规范.md",
+    "Happy Game/开发阶段/模块接头总览/13-语言表达/002-接口入口.md",
+    "Happy Game/开发阶段/模块接头总览/13-语言表达/001-接口出口.md",
+    "Happy Game/开发阶段/模块接头总览/13-语言表达/000-变更日志.md",
     "Change/hand/0-提示词考量角度.md",
-    "Happy Game/开发阶段/物品系统/家具与放置物品/011-家具与放置物品系统总纲.md",
-    "Happy Game/开发阶段/物品系统/家具与放置物品/000-跨模块依赖与接口清单.md",
-    "参考文档/040-家具与放置物品系统概览-20260620/README.md",
-    "Happy Game/开发阶段/模型动作与物理系统/001-模型动作与物理系统总纲.md",
-    "Happy Game/开发阶段/模型动作与物理系统/动画系统/001-动画系统总纲.md",
-    "Happy Game/开发阶段/历史/005-大日志系统.md",
+    "Change/hand/009 玩家角色本质.md",
+    "Change/hand/010 NPC行为动作.md",
+    "Change/hand/010-玩家进入游戏.md",
+    "Change/hand/006 权力看法.md",
     "参考文档/039-WoWorld设计文档全面规划-20260620/README.md",
-    "Change/archived/renumbered-duplicates/CHG-001-废止阶段性实现规划-20260609.md",
-    "Happy Game/开发阶段/模块接头总览/变更追踪/002-影响地图.md",
-    "Happy Game/开发阶段/载具系统/README.md",
-    "Happy Game/开发阶段/NPC活人感模块/README.md",
-    "Happy Game/开发阶段/生命/013-神明与信仰.md",
-    "Happy Game/开发阶段/世界生成/014-生成后校验与完整性保证.md",
-    "Happy Game/开发阶段/世界生成/013-权力与经济Bootstrap.md",
-    "Change/archived/renumbered-duplicates/CHG-003-创建人世哲学与NPC完整性深化-20260609.md",
-    "Change/archived/renumbered-duplicates/NPC数量目标变更 20260609.md",
+    "Happy Game/开发阶段/NPC活人感模块/08-NPC行动涌现与分类/002-物理原子层定义与签名.md",
+    "Change/CHG-051-交互配方表系统物品获取物理统一入口-20260620.md",
+    "Change/CHG-050-家具与放置物品系统v1.0创建-20260620.md",
+    "Happy Game/开发阶段/物品系统/家具与放置物品/README.md",
     "Happy Game/想法/WoW World/生命/NPC/角色处理对象时的心理作用.canvas"
   ]
 }

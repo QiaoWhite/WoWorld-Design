@@ -26,7 +26,7 @@
 |------|-----------|-------------------|---------|
 | 物品标识 (ItemDefId/ItemEntId) | **物品系统** `001`/`002` | 全部模块 | ItemDefId=u64全局恒定(8+56bit), ItemEntId=u64存档内唯一——旧MaterialId/MagicItemId/resource_type通过映射表桥接 |
 | 物品属性 (ItemProperties) | **物品系统** `003` | 全部模块 | 核心属性+Quality(4档)×Rarity(5档)+AestheticProps——各模块在此之上叠加 |
-| 装备槽位 (EquipmentSlots) | **物品系统** `004` | NPC/Life | BodyPlan自动派生——不预定义物种类型。双套Outfit切换由NPC自主决定 |
+| 装备槽位 (EquipmentSlots) | **物品系统** `004` | NPC/Life | BodyPlan自动派生——不预定义物种类型。双套Outfit切换由NPC自主决定。★ v1.2: 肩部槽位(shoulder_drape解剖条件)·戒指10→4命名手指槽位·容器纯数据层·视觉独立开关 |
 | 库存与仓储 | **物品系统** `005` | NPC/Player | 30基础槽位+容器五层体系——[TUNING]可调。货币独立于库存(CharacterWallet) |
 | 物品装配 (Assembly) | **物品系统** `001` | Combat/Magic | 通用组件树框架+四种JointType(Rigid/Hinge/Chain/Flexible)——Combat/Magic注册slot_type |
 | 附魔 (Enchantment) | **物品系统** `008` | Combat/Magic | 卡槽附魔(日常经济,可撤换)+直接附魔(历史锚点,永久)——两者可共存于同一物品 |
@@ -794,3 +794,46 @@ PlantSpecies → PlantMaterialDef → harvested ItemEntId
 3. **参数化不穷举**: 新文化风格只需调整参数映射表 (TOML)，零 Rust 代码改动
 4. **种子确定性**: 世界生成的家具 ID 用 hash(seed, path) 派生——非 AtomicU64 递增
 5. **渐进的是渲染/物理 LOD**: 不是家具的存在性——家具全量预生成写入 LMDB
+
+---
+
+## CHG-055 新增契约（存档系统 v1.0）→ CHG-056 修订（v2.0）
+
+> 📘 **权威规格**: [[WoWorld-Design/Change/CHG-055-存档系统v1.0创建-20260621|CHG-055]] · [[WoWorld-Design/Change/CHG-056-存档系统深度审计与修正-20260621|CHG-056 v2.0 修订]]。存档系统是"世界的快照相机"——不参与游戏模拟，只负责状态的持久化与恢复。v2.0 经 10 轮迭代审计修正。
+
+### 核心所有权
+
+| 概念 | Owner | 消费方 | 关键约定 |
+|------|-------|--------|---------|
+| SaveableModule trait (14 方法) | **存档系统** | 全部 14 持久化模块 | 4 必覆（module_name/current_version/named_dbs） + 10 默认。object-safe——`&mut dyn SaveableModule` |
+| named_dbs + key_prefix | **存档系统**（注册时验证）→ 各模块声明 | SaveSystem | `&[(&str, &str)]` — (db_name, key_prefix) 组合全模块唯一 |
+| LoadContext | **存档系统** | 各模块 load() | `txn` + `create_txn()` 工厂——模块渐进加载零 SaveSystem 耦合 |
+| LMDB 环境 | **存档系统**（SaveSystem 唯一持有） | 无——模块只通过 trait 方法/LoadContext 访问 | 模块不持有 LMDB env 引用。只通过 `snapshot_dirty`/`write_dirty`/`write_initial`/`load`/`migrate` 间接操作 |
+| 存档文件格式（.woworld） | **存档系统** | 文件系统 | 单文件 LMDB + 多 named_db。原子写入协议（临时文件 + rename） |
+| 崩溃恢复三件套 | **存档系统** | 全部存档操作 | 临时文件+原子重命名 / 覆盖前自动备份(.bak) / session.lock |
+| 版本迁移调度 | **存档系统**（编排）→ 各模块 migrate() | 各模块 | from_version 到 current_version 差可 >1——模块内部链式迁移。惰性迁移解决 ConsumableEffect 跨模块协调 |
+| 键空间命名约定 | **存档系统**（定义 `module/entity/id` 格式） | 各模块 | 约定——存档系统不验证键内容 |
+| 世界发现（目录扫描） | **存档系统** | 主菜单 UI | 文件系统为唯一权威源——无注册表。UUID 去重处理复制目录 |
+| 连续存档调度 | **存档系统**（SaveQueue） | 游戏主循环 | Manual > DeathExit > Quick > Auto 优先级 + 补执行。死亡存档不拒绝（等待完成） |
+
+### 跨模块数据流
+
+| 流 | 提供方 | 消费方 | 说明 |
+|-----|--------|--------|------|
+| WorldState（P13 完成）→ Initial 存档 | 世界生成 | 存档系统（create_initial_save） | P13 输出纯内存 ValidatedWorldState → write_initial 逐模块流式写入。世界生成不再持有 LMDB |
+| 模块 ↔ named_db | 各模块（impl SaveableModule） | 存档系统（SaveSystem） | 存档系统只传 bytes——不解析内容。模块自选序列化格式 |
+| Schema 版本转换 | Schema 所有者（Audio/Life）→ 存储方（NPC/Items） | load() 流程 | 惰性迁移——load() 中批量转换，加载画面预算内完成 |
+| Mod 清单 | Mod 管理器 → HeaderBuilder | SaveHeader.mod_manifest | 存档时记录——加载时比对检测增删 |
+| 磁盘空间预警 | SaveSystem（estimate_dirty_bytes 汇总） | UI | mapsize 使用率 ≥ 80% → 弹出警告 |
+| Initial 存档直写 | 存档系统 | 各模块 write_initial() | 不经 Phase 1 内存收集——流式写入避免 3GB OOM |
+
+### 设计原则（不可违反）
+
+1. **存档系统不拥有任何模拟数据**: 模块数据归各自模块——存档系统只提供 trait 契约 + IO 流程
+2. **存档系统不规定序列化格式**: 模块自选 bincode/rkyv/其他
+3. **存档系统不参与数据老化策略**: 模块自治——各模块自己决定记忆压缩、建筑归档等
+4. **存档系统不解析键/值内容**: 键和值都是不透明 bytes——存档系统只传递
+5. **单一写路径**: 所有 LMDB 写入都经过存档系统——不会出现"P13 写的格式和存档系统写的格式不同"
+6. **模块不持有 LMDB 环境**: 模块只通过 trait 方法访问 LMDB——不直接 open/create LMDB
+7. **跨模块原子性**: 单文件 + 单写事务保证所有 named_db 同步写入或全部回滚
+8. **线程安全由实现者保证**: `snapshot_dirty(&self)` 在 tick 边界调用——`Send + Sync` 约束 + 内部同步

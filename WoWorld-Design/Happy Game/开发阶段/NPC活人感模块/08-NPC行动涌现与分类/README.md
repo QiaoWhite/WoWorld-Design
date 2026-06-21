@@ -30,6 +30,37 @@
 | [[010-跨模块接口与数据合同]] | 010 | 与其他模块的双向接口清单、trait 签名、数据合同 |
 | [[011-关键问题回应与设计论证]] | 011 | 用户核心提问的完整记录与设计回应 |
 
+## 三层原子架构
+
+```
+Layer 1: 物理基元 (35个)     — MOVE/GRASP/STRIKE/ATTACH/IGNITE/OBSERVE...
+    ↓ 纯物理计算。零领域知识。STRIKE 不区分"战斗攻击"和"锻打铁锭"和"砸矿石"
+Layer 2: 领域复合原子 (~40个) — HARVEST/CRAFT/BUTCHER/DISASSEMBLE/TRADE/PRAY...
+    ↓ 编排多个物理基元序列。由各领域模块注册 (003-补充-农业执法海洋复合原子注册.md)
+Layer 3: 抽象行动 (~25个)     — GOAP 可见的 ActionCandidate
+    ↓ GOAP 规划器产出 → composite_atom.execute() → physical_atom.execute()
+```
+
+## AgentSnapshot v1.1 速查
+
+| 段 | 字段数 | 内容 | ~bytes |
+|----|--------|------|--------|
+| 身体 | 7 | strength/dexterity/stamina/health_penalty/mobility/fatigue/hunger | 28 |
+| 认知 ★v1.1 | 8 | skill_compressed(u64)/mental_model_count/cognitive_damping/planning_horizon/literacy/cognitive_load/rumination_pressure/mind_quietude | 34 |
+| 社交 | 4 | legal_capacity/reputation_flags/social_standing/religious_participation | 16 |
+| 生命周期 | 4 | developmental_phase/age_ratio/fertility_potential/gompertz_mortality | 16 |
+| 环境 | 3 | wetness/temperature_exposure/intoxication | 12 |
+| **总计** | **26** | **单 cache line (128B) 友好** | **~108** |
+
+## 性能
+
+| 项目 | 数值 |
+|------|------|
+| 物理原子执行 | ≤0.45ms/帧 (含碰撞扫掠+IK+MaterialProperties+PBD) |
+| AgentSnapshot 更新 | <0.1ms/帧 (26个 f32 插值——从上游字段批量派生) |
+| 复合原子编排 | O(N) where N=物理原子序列长度 (通常 3-8) |
+| 内存 (100K NPC) | AgentSnapshot ~10.8MB SoA + 碰撞数据 ~0.5MB |
+
 ## 与其他模块的关系
 
 本模块消费、被消费的双向关系详见 [[010-跨模块接口与数据合同]]。主要消费方：NPC活人感、战斗、魔法、经济、文化、信仰、生命、模型动画。主要被消费方：物品系统（MaterialProperties）、技能系统（execution_noise）、生命周期系统（AgentSnapshot参数）、天气系统（环境参数）。

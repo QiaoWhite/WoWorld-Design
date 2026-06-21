@@ -143,10 +143,10 @@ holder → subject: atom(domain)
 - [[../经济系统/006-权力与市场|经济系统 006 — 权力与市场（PowerAtom × MarketAuthority）]]
 - [[../经济系统/005-经济体制参数化|经济系统 005 — 经济体制参数化（MarketRegulations）]]
 - [[../../想法/WoW World/总设计草稿|总设计草稿]] — 核心设计哲学
-- [[../../想法/WoW World/文化设计|文化设计]] — 文化参数定义
-- [[../../想法/世界生成/人文景观/聚落/聚落群域|聚落群域]] — 政治实体概念草稿（参考，非权威规格）
 - [[../../参考文档/021-WoWorld设计文档补全规划-20260613/001-设计文档补全总体规划|021 设计文档补全总体规划]] — Phase 13 规划
 - [[../../../CLAUDE.md|项目 CLAUDE.md]] — 跨模块接口契约注册
+
+> ⚠️ **v1.0 待完善**: 权力系统当前无 TOML 数据驱动配置。合法性因子权重(0.35/0.20/0.20/0.15/0.10)、PowerEdgeTemplate、Contract obligation 规格、Polity 涌现阈值等均硬编码在 Rust 中。建议后续 CHG 增加 `power_config.toml` 和 Contract 注册表，对标经济系统的 ProfessionTag TOML 模式。
 
 ---
 

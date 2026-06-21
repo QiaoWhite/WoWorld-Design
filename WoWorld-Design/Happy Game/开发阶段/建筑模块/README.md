@@ -86,5 +86,5 @@ BuildingGenerator trait → 8 种生成器实现
 ## 关联参考文档
 
 - [[035-建筑模块设计探讨-20260619/001-建筑模块大纲|建筑模块大纲（参考文档）]]
-- [[CLAUDE-INTERFACES.md]]
-- [[CLAUDE.md]]
+- [[../../../../CLAUDE-INTERFACES|CLAUDE-INTERFACES]]
+- [[../../../../CLAUDE|CLAUDE]]

@@ -169,10 +169,10 @@ pub struct CognitiveTide {
     
     /// 心智安静度：0=思绪纷飞/焦躁，1=深度安静（心流/冥想/出神）
     /// 对标：情绪引擎的 arousal 维度（但独立变化——高arousal情绪≠高认知负载）
-    pub mental_quietude: f32,
+    pub mind_quietude: f32,
     
     /// 漫游驱动——从以上三维派生，不独立存储
-    /// mind_wander_drive = (1 - cognitive_load) × rumination_pressure × (1 - mental_quietude)
+    /// mind_wander_drive = (1 - cognitive_load) × rumination_pressure × (1 - mind_quietude)
 }
 ```
 
@@ -217,7 +217,7 @@ impl CognitiveTide {
         
         let nature_bonus = current_action.environment_naturalness();  // 从VisualScene派生
         
-        self.mental_quietude = (flow_bonus 
+        self.mind_quietude = (flow_bonus 
                               + nature_bonus * 0.3 
                               + (1.0 - self.rumination_pressure) * 0.3
                               + (1.0 - neuroticism) * 0.2)
@@ -234,7 +234,7 @@ impl CognitiveTide {
     pub fn mind_wander_drive(&self) -> f32 {
         (1.0 - self.cognitive_load) 
             * self.rumination_pressure 
-            * (1.0 - self.mental_quietude)
+            * (1.0 - self.mind_quietude)
     }
 }
 ```
@@ -351,7 +351,7 @@ pub fn compute_biases(
 ```rust
 pub struct EmbodiedCognitionModifiers {
     pub cognitive_load_shift: f32,       // 身体状态→额外认知负载
-    pub mental_quietude_shift: f32,      // 身体状态→安静度调制
+    pub mind_quietude_shift: f32,      // 身体状态→安静度调制
     pub short_term_bias: f32,            // 饥饿→短期偏好
     pub association_looseness: f32,      // 醉酒/高烧→跨界关联松弛
 }
@@ -370,7 +370,7 @@ pub fn compute_embodied_modulation(
                              .clamp(0.0, 0.5),  // 最大+0.5（即身体因素最多使负载从0升到0.5）
         
         // 疼痛和高温→安静度下降
-        mental_quietude_shift: -(physiology.pain * 0.4 
+        mind_quietude_shift: -(physiology.pain * 0.4 
                                + (1.0 - temperature_comfort) * 0.3)
                                .clamp(-0.6, 0.0),
         

@@ -49,3 +49,24 @@
 - **[[../NPC活人感模块/NPC活人感开发文档ver2.0|NPC 活人感]]**：material_inventory → ItemEntId 迁移、UseItem/GiveGift、Outfit 自主切换
 - **[[../历史/001-历史系统总纲|历史系统]]**：ItemEntId → 文物追踪、inventory 迭代、provenance 查询
 - **[[../世界生成/003-资源与矿产|世界生成]]**：ResourceCategory → ItemCategory 映射、NPC 初始装备分配
+
+## 架构速览
+
+```
+woworld_types/          ← ItemDefId(8+56bit)·ItemProperties·Quality·Rarity
+woworld_core/           ← ItemQuery trait (所有消费模块的只读入口)
+woworld_item/           ← 物品 crate——实现 ItemQuery、管理注册表
+各消费模块              ← Combat/Magic/Life/NPC/History/WorldGen 通过 ItemQuery 只读消费
+```
+
+## 性能预算
+
+| 项目 | 数值 |
+|------|------|
+| ItemDefId 空间 | 64bit = 256类×每个2^56实例——永不枯竭 |
+| ItemProperties | ~128B/item——100K物品≈12.8MB |
+| CharacterWallet | 8B/NPC——100K≈0.8MB |
+| PersonalInventory | ~2KB/NPC (30槽位+容器)——100K≈200MB |
+| 查询热路径 | ItemQuery::get_properties() O(1) HashMap lookup < 50ns |
+
+> **交互配方表**: 物品获取（采集/拆解/屠宰）统一走 TOML 数据驱动配方表 `(EntityKind, tool_tags) → (composite_atom, yield_resolver, xp)`。与 CraftingRecipe 独立——采集不需要 SkillRequirement，门槛从物理涌现。

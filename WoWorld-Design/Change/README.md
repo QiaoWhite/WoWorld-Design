@@ -90,6 +90,8 @@ CHG-XXX-简短描述-YYYYMMDD.md
 | CHG-052 | [CHG-052-玩家游玩内容全貌设计-20260620.md](CHG-052-玩家游玩内容全貌设计-20260620.md) | 2026-06-20 | 玩家游玩内容全貌设计：36问13编34章。不创建"玩家旅程系统"独立模块——全部从已有24个模块交汇涌现。新建5份开发文档(小精灵系统+方阵统计+角色管理+大日志多镜头+复合原子注册)+3份参考文档(法律分析+游玩大纲+遗漏清单) | 完成 |
 | CHG-053 | [CHG-053-Godot4.7技术栈升级与设计深化-20260621.md](CHG-053-Godot4.7技术栈升级与设计深化-20260621.md) | 2026-06-21 | Godot 4.7 技术栈升级与设计深化：引擎升级+画面渲染管线+语音合成+氛围系统+wear维护+面部表情+Bark语声——12子系统设计 | 完成 |
 | CHG-054 | [CHG-054-世界生成v2.1五Pass重构与RelationshipNorms集成-20260621.md](CHG-054-世界生成v2.1五Pass重构与RelationshipNorms集成-20260621.md) | 2026-06-21 | 世界生成 v2.1：P8 Phase B 五Pass混合构造(祖先创建+配偶池合并+社会关系初始化含同性/多配偶/非婚生+已故子女+DAG验证)。消除7个一致性bug。P9a事件驱动优化(~10x加速)。新增FertilityNorms方法+RelationshipNorms struct(文化系统004)。P13 FamilyTree校验+死因装饰。SettlementData.founding_year。性能总预算5-13s→3-10s | 完成 |
+| CHG-055 | [CHG-055-存档系统v1.0创建-20260621.md](CHG-055-存档系统v1.0创建-20260621.md) | 2026-06-21 | 存档系统 v1.0 创建：全量快照+脏增量·SaveableModule trait(8方法·2必覆·6默认)·LMDB单文件多named_db·崩溃恢复三件套(临时文件+原子重命名/覆盖前备份/session.lock)·版本迁移(模块级)·Mod兼容(冻结/替换)·玩家继承(PendingInheritance+灵魂转世)·世界发现(目录扫描)。6篇正式规格+7篇参考/接头文档·9文档联动修改·11轮审计 | 完成 |
+| CHG-056 | [CHG-056-存档系统深度审计与修正-20260621.md](CHG-056-存档系统深度审计与修正-20260621.md) | 2026-06-21 | 存档系统深度审计与修正（10轮迭代审计·24问题全修复）——SaveableModule trait 8→14方法(4必覆+10默认)·LoadContext渐进加载上下文·named_dbs键前缀冲突检测·write_dirty流式增量写入·write_initial Initial直写路径·惰性迁移(ConsumableEffect)·死亡存档最高优先级·SaveQueue调度模式·UUID去重·全遍历写入后验证·World.mod_modules Mod预留 | 完成 |
 
 ---
 

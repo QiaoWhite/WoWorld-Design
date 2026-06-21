@@ -406,7 +406,7 @@
 | 优先级 | 文件 | 变更 |
 |--------|------|------|
 | CRITICAL | 感官与知觉系统/001 | SpatialQuery→拆分为四个trait。wind_at→WeatherQuery |
-| CRITICAL | 技术栈方案 v3.0 | 物理方案改为"仅玩家PhysicsServer3D"。性能预算更新 |
+| CRITICAL | 技术栈方案 v4.0 | 物理方案改为"仅玩家PhysicsServer3D"。性能预算更新 |
 | HIGH | NPC ver2.0 §4 | "物理表达"替换为本模块引用 |
 | MEDIUM | 生命/001 | BodyPlan定义→woworld_core |
 | MEDIUM | 物品系统/001 | +WeaponPhysicalParams映射表 |
@@ -422,9 +422,9 @@
 | 概念 | 权威 Owner | 消费方 | 关键约定 |
 |------|-----------|--------|---------|
 | LifeStage (6阶段) | **Life** `004-身体状态与生命过程` | NPC生命周期 / 模型物理 / 技能 / 信仰（葬式） | Juvenile/Adolescent/YoungAdult/Adult/MiddleAge/Elder。属性乘数由LifeStage决定。不同物种有独立阶段百分比分布 |
-| AgeClock | **Life** `013-生命周期时钟与事件`（新增） | LOD调度器 | 纯函数 advance_age(entity, delta_days, rng) → (LifeEntity, Vec<LifeEvent>)。同输入+同种子→同输出。与调用频率无关 |
+| AgeClock | **Life** `014-生命周期时钟与事件`（CHG-056 审计新建） | LOD调度器 | 纯函数 advance_age(entity, delta_days, rng) → (LifeEntity, Vec<LifeEvent>)。同输入+同种子→同输出。与调用频率无关 |
 | DeathCause (30种6类) | **Life** `004 §九` | 历史 / 信仰 / 战斗 / 权力 | 30种：创伤8/匮乏5/侵入5/奥术5/衰亡3/意志4。类别级亡灵规则。DeathCauseRegistry trait支持mod扩展 |
-| DeathEvent / BirthEvent / LifeStageTransition | **Life** `013` | 所有模块独立订阅 | 中性事实——不携带情感建议/行为期望/人际通知。EventBus分发 |
+| DeathEvent / BirthEvent / LifeStageTransition | **Life** `014` | 所有模块独立订阅 | 中性事实——不携带情感建议/行为期望/人际通知。EventBus分发 |
 | GestationState + FetusBlueprint | **Life** `004` | NPC生命周期（产前影响） | 受孕时确定种子——外观通过age_factor插值派生。FetusBlueprint编码青壮年标准模型 |
 | FertilityPotential | **Life** `004` | 受孕概率计算 | 连续sigmoid曲线。替代旧FertilityDrivers（退役）。libido和fertility是分离信号 |
 | InfantDependency | **Life** `004` | NPC GOAP / 世界生成 | Nursing→Weaning→Weaned三状态。L1由母亲GOAP驱动；L3/L4统计近似 |
@@ -470,7 +470,7 @@
 | 概念 | 权威 Owner | 消费方 | 关键约定 |
 |------|-----------|--------|---------|
 | **物理基元 (35个)** | **NPC行动涌现** `002` | 全部模块 | 定义在 `woworld_core::atoms`。MOVE/GRASP/STRIKE/ATTACH/IGNITE/OBSERVE... 零领域知识，仅做物理计算。各领域模块的execute()内部消费。不设门控 |
-| **AgentSnapshot** | **NPC行动涌现** `004` | 全部模块 | ~96B SoA连续能力快照。23字段(身体7/认知5/社交4/生命周期4/环境3)。从Life/Skill/Cognition/Lifecycle/Weather瞬时派生。零年龄门控。不持久化 |
+| **AgentSnapshot** | **NPC行动涌现** `004` | 全部模块 | ~108B SoA连续能力快照。26字段(身体7/认知8★v1.1/社交4/生命周期4/环境3)。认知段含CognitiveTide 3字段(cognitive_load/rumination_pressure/mind_quietude)。从Life/Skill/Cognition/Lifecycle/Weather瞬时派生。零年龄门控。不持久化。单cache line友好 |
 | **MaterialProperties** | **NPC行动涌现** `008` | 物品系统/Combat/Magic/Physics | MaterialDef TOML注册表(~30字段)。物品系统存储(`Option<MaterialDefId>`)+查询，不解释含义。消费模块各自读取。遵循ConsumableEffect委托模式 |
 | **execution_noise()** | **NPC行动涌现** `006` | 全部消费物理原子的模块 | `execution_noise_std(level) = BASE_NOISE × (1-level/100)²`。技能→原子执行精度连续映射。不新增SkillEntry字段。不修改proficiency() |
 | **KnowledgeSeed** | **NPC行动涌现** `005` → 技能系统/历史系统 | World Gen P8/P9 | TOML技术时代时间线。时代框架手工设计，传播路径自动生成。generate_starting_skills()消费。不修改TeachingSession/XP公式 |

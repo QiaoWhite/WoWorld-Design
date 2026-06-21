@@ -2609,6 +2609,8 @@ pub struct FrameSliceConfig {
 > **设计意图**：心智在 Rust 侧运行。物理表达是 Rust → Godot 的数据通道——骨骼矩阵、渲染实例数据、感官反馈。Godot 侧不处理 NPC 逻辑。
 >
 > ⚠️ **[CHG-033 架构变更 — 2026-06-18 审计更新]**: NPC 物理交互已从 Godot CharacterBody3D/PhysicsServer3D 迁移至 Rust 空间查询 (TerrainQuery/EntityIndex/SpatialEventBus/VisibilityQuery)。仅玩家保留 PhysicsServer3D。NPC 碰撞/导航/物理表达由 Rust 侧空间查询四 trait 处理。详见 [[../模型动作与物理系统/空间查询与物理/001-空间查询与物理系统|空间查询四 trait]]。
+>
+> ★ **[行动原子层]**: NPC 的所有物理行为由 35 个物理基元 (PhysicalAtom — MOVE/GRASP/STRIKE/ATTACH/IGNITE/OBSERVE 等) + ~40 个领域复合原子 (CompositeAtom — HARVEST/CRAFT/BUTCHER/DISASSEMBLE 等) 驱动。GOAP 规划器产出 ActionCandidate → 复合原子 → 物理基元。零年龄门控——婴儿不能锻造是因为 strength=0.05 < GRASP(8kg大锤)力要求，不是 `if age<12`。完整规格见 [[08-NPC行动涌现与分类/README|08-行动涌现子模块]]。
 
 ---
 
@@ -3628,31 +3630,22 @@ pub fn simulation_frame(world: &mut WorldState, dt: Duration, frame_index: u32) 
 
 ## 6.3 存档
 
+> ⚠️ **CHG-056 变更**：NPC 模块不再持有 LMDB 环境。存档操作通过 [[../存档系统/README|存档系统]] 的 `SaveableModule` trait 统一管理。
+> 
+> NPC 模块实现 `SaveableModule` trait——声明 `named_dbs() = &[("npc", "npc/memory/"), ("npc", "npc/relationship/"), ("npc", "npc/identity/")]`。
+> 序列化格式：bincode 二进制。
+> 
+> **数据老化**：低冲击力(impact<0.05)且超过 365 游戏日未访问的记忆 → 压缩为摘要。模块自治——存档系统不干预。
+
 ```rust
-/// 存档格式: bincode 二进制 → LMDB
-/// 流式 Chunk 存储 (无限世界):
-///   未修改的 Chunk 不存储 — 读档时从种子重现
-///   脏 Chunk + 变更的 NPC 数据 → 增量存档
-
-pub struct SaveSystem {
-    db: lmdb::Environment,
-    base_seed: u64,
-}
-
-impl SaveSystem {
-    /// 增量存档: <500ms (仅序列化脏数据)
-    pub fn incremental_save(&self, world_state: &WorldState) -> Result<Duration> { /* ... */ }
-
-    /// 全量存档: <5s
-    pub fn full_save(&self, world_state: &WorldState) -> Result<Duration> { /* ... */ }
-
-    /// 读档: <10s
-    /// 流程: 种子重现基础地形 → 回放修改层 (脏 Chunk) → 加载 NPC 数据
-    pub fn load(&self, save_id: &SaveId) -> Result<WorldState> { /* ... */ }
-
-    /// 数据老化: 低冲击力(impact<0.05)且超过 365 游戏日未访问的记忆 → 压缩为摘要
-    pub fn age_memories(&self, npcs: &mut [NpcData]) { /* ... */ }
-}
+// NPC 模块通过 SaveableModule trait 参与存档流程：
+//   snapshot_dirty(&self) → 序列化脏 NPC 数据
+//   write_dirty(&self, txn) → 流式写入 LMDB named_db "npc"
+//   load(&mut self, ctx: &LoadContext) → 从 named_db "npc" 反序列化
+//   confirm_snapshot_written(&mut self, snap) → 清除 dirty_since
+//
+// 存档系统负责 LMDB 环境管理、事务编排、崩溃恢复。
+// NPC 模块不持有 LMDB 引用。
 ```
 
 ## 6.4 调试工具

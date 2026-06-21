@@ -30,7 +30,7 @@
 | 世界生成 | ✅ | 15 | ~8,500 | v2.0 | 编排器模式——15阶段管线(P0-P13+P2.25植被覆盖)。结构层全量预生成(NPC/权力/经济/历史)，细节层按Chunk渐进。VMC双层空间架构(75K个1km²植被宏观Chunk)。Bootstrap哲学。协同生成。P5社会结构推导+P8逆向人口投影(四阶段)+P9 KnowledgeSeed传播链+因果事件图+P10权力Bootstrap+P11经济Bootstrap+P13完整性校验 |
 | 模型动作与物理系统 | ✅ | 8 | ~4,000 | v1.0 | TerrainQuery/EntityIndex/SpatialEventBus/VisibilityQuery四trait空间查询。33骨(L1)/35骨(L0)人形骨架+双骨蒙皮。512²面部图集(16嘴x16眉x8眼)。38模块姿态+15基元轨迹。9层动画栈。步态9参数从BigFive派生。仅玩家保留PhysicsServer3D |
 | 建筑模块 | ✅ | 10 | ~5,500 | v1.0 | ComponentFamily参数化族+9核心族。BuildContext六维参数聚合。BuildingQuery唯一对外接口。2.5D WFC三阶段求解(BSP→2D WFC→3D组装)。BuildingGenerator trait 8种生成器。Blueprint TOML玩家DIY格式。ConstructionScheduler声明式施工。Surface trait→物品系统家具放置 |
-| 天气与季节系统 | ✅ | 5 | ~2,552 | v1.0 | WeatherQuery统一轮询(零事件总线)/双层温度/Markov6状态+雾/SeasonClock(120天/年·48min/天)/13消费方合同/极端天气参数组合 |
+| 天气与季节系统 | ✅ | 5 | ~2,552 | v1.0 | WeatherQuery统一轮询(零事件总线)/双层温度/Markov6状态+雾/SeasonClock(120天/年·60min/天·玩家可调)/13消费方合同/极端天气参数组合 |
 
 #### 社会与文化
 | 模块 | 状态 | 文档数 | 行数 | 版本 | 关键内容 |
@@ -154,7 +154,7 @@
 | 硬件目标 | GTX 1660 SUPER 6GB VRAM | 60fps 目标 |
 | 密度场 | 11 层（L0-L10，含 L6.5 植被） | — |
 | 海洋深度 | 透光0-200/中200-1000/深1000-4000/深渊4000+ | Life 003/005 权威 |
-| 年份长度 | 120天/年 · 48分钟/天 [TUNING] | 天气与季节系统 |
+| 年份长度 | 120天/年 · 60分钟/天（默认，玩家可调 15-120）[TUNING] | 天气与季节系统 |
 
 ### 非决策（明确不做）
 - 不做航空物理模拟——飞行=spline 路径+三模式(拍翼/滑翔/悬停)+魔法超集

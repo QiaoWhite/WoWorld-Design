@@ -23,7 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **本仓库是纯设计文档仓库**——没有代码、没有构建系统、没有测试。唯一工具是 `git` 和 **Obsidian**（用于 `[[wikilink]]` 导航）。当前无 `woworld/` 代码目录。
 
-**当前规格版本**: v4.0（经技术栈全量审计升级）。模块累计 **~25 个独立系统** + 1 个深化子模块（家具与放置物品）+ 交互配方表系统 + 存档系统 v2.0（CHG-055/056）。★ 2026-06-22 Loop Audit 全量审计完成。★ **NPC 认知系统 v1.1 深度设计（CHG-057）**。★ **CHG-058 NPC 认知系统自审修正**。最新 CHG 序列见 `WoWorld-Design/Change/` 目录。
+**当前规格版本**: v4.0（经技术栈全量审计升级）。模块累计 **~25 个独立系统** + 1 个深化子模块（家具与放置物品）+ 交互配方表系统 + 存档系统 v2.0（CHG-055/056）。★ 2026-06-22 Loop Audit 全量审计完成。★ **NPC 认知系统 v1.1 深度设计（CHG-057）**。★ **CHG-058 NPC 认知系统自审修正**。★ **CHG-059 NPC 认知 v1.1 全模块传播审计**。最新 CHG 序列见 `WoWorld-Design/Change/` 目录。
 
 ## 快速导航
 
@@ -38,6 +38,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 看最近的设计变更 | `WoWorld-Design/Change/README.md` |
 | 查用户的设计裁决意见 | `WoWorld-Design/Change/hand/` |
 | 看历史设计讨论存档 | `参考文档/` |
+| 查阅NPC认知v1.1传播审计 | `参考文档/039-NPC认知传播审计-20260622/README.md` |
 | 验证技术栈决策 | `开发阶段/技术栈方案/001-WoWorld正式技术栈方案v3.md` |
 
 ## 文档结构
@@ -66,9 +67,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### `WoWorld-Design/Change/` — 设计变更追踪
 
-> ⚠️ **Change 文件夹约定**：编号大的覆盖编号小的。以 `开发阶段/` 实际内容为权威。最新 CHG 序列（052-058）详见 `WoWorld-Design/Change/README.md`。
+> ⚠️ **Change 文件夹约定**：编号大的覆盖编号小的。以 `开发阶段/` 实际内容为权威。最新 CHG 序列（052-059）详见 `WoWorld-Design/Change/README.md`。
 
-近期关键变更：**CHG-053**（Godot 4.7·12子系统）→ **CHG-054**（世界生成 v2.1）→ **CHG-055/056**（存档系统 v1.0→v2.0）→ **CHG-057**（NPC认知 v1.1·PatternExpression数学地基）→ **CHG-058**（NPC认知系统自审修正）。
+近期关键变更：**CHG-053**（Godot 4.7·12子系统）→ **CHG-054**（世界生成 v2.1）→ **CHG-055/056**（存档系统 v1.0→v2.0）→ **CHG-057**（NPC认知 v1.1·PatternExpression数学地基）→ **CHG-058**（NPC认知系统自审修正）→ **CHG-059**（NPC认知v1.1全模块传播审计）。
 
 **`WoWorld-Design/Change/hand/`** — 用户直接设计反馈。修改涉及的设计决策时，需检查此目录是否有相关意见。
 

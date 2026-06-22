@@ -150,6 +150,61 @@ pub fn event_modulation(style: &mut CognitiveStyle, event: &EventMemory) {
 }
 ```
 
+### 1.5 CognitiveStyle 的可变性与不可变性 ★ v1.1 澄清 (CHG-057 补充)
+
+> **CognitiveStyle 不是一生不变的。** 它有三种变化机制——但变化的速率和幅度受严格数学约束。
+
+**三种变化机制**：
+
+| 机制 | 触发频率 | 每次最大变化 | 80年总变化量级 |
+|------|---------|-------------|--------------|
+| 阻尼重派生 | 每 7 天 | 单个维度 0.0075 (damping=0.85) ~ 0.025 (damping=0.50) | 0.05–0.15 |
+| 事件调制 | 事件 impact > 0.8 | 0.02 (magnitude) | 假设一生 20 次重大事件 ≈ 0.2–0.3 |
+| 睡眠剥夺 | >48h 清醒 | rigid_flexible 临时 −0.3（非永久） | — |
+
+**变化有方向限制**：
+- 创伤使 rigid_flexible↓, reflective↑——"我从这件事之后变得谨慎了"
+- 启示使 rigid_flexible↑, abstract↑——"那次经历让我看事情的方式完全变了"
+- 培养/教育通过 BigFive→CognitiveStyle 的间接路径缓慢影响
+
+**不可变的是**：
+- `analytic_intuitive` 目前不受事件调制影响（4 个维度中只有它无事件调制）
+- CognitiveStyle 的**派生公式**（从 BigFive+wisdom+experience）不变——变的是这些输入值
+- 阻尼确保即使输入值突变，风格变化也很平滑
+
+**变化公式的完整循环**（002 第 100 行已描述）：
+```
+CognitiveStyle → MentalModel消化
+    → SelfNarrative.reflect()
+        → BigFive 漂移（仅在极端冲击 impact>0.9 或 100+ 天环境冲突）
+            → CognitiveStyle 重派生（阻尼融合旧值）
+```
+
+> 在"思考倾向一生不变"的错误表述出现过的 `deliberation_depth()` 已修正——详见 [[003-MentalModel与智慧积累#十四-深思熟虑-deliberation|003 §十四]]。
+
+### 1.6 crystallized_factor() ★ v1.2 新增 (CHG-058)
+
+```rust
+impl CognitiveStyle {
+    /// 结晶智力因子——终身积累的知识和思维模式的"凝固"程度
+    /// 用于认知老化路径推导（07-生命周期系统）
+    pub fn crystallized_factor(&self, life_event_count: u32) -> f32 {
+        // damping 从 life_event_count 重算——同 derive_with_damping 公式
+        let damping = 0.85 - (life_event_count as f32 / 500.0).min(0.35);
+        0.3
+            + self.analytic_intuitive * 0.25    // 分析型思维 → 更多结晶
+            + self.rigid_flexible * 0.15        // 固化的思维模式
+            + (1.0 - damping) * 0.15            // "思维粘性"——越难改变越结晶
+    }
+}
+```
+
+- `analytic_intuitive` 贡献 0–0.25："凝固了多少经验到直觉"
+- `rigid_flexible` 贡献 0–0.15："对新信息的开放度反向"
+- `(1−damping)` 贡献 0.03–0.10："思维粘性"——damping∈[0.50,0.85]
+- damping 从 `life_event_count` 重算——不依赖持久化存储
+- 消费方：`07-生命周期系统/006 derive_aging_path()`
+
 ---
 
 ## 二、CognitiveTide：3维认知潮汐

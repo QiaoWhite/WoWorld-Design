@@ -3,7 +3,7 @@
 > **开发代号**: WoWorld (Wonder World)
 > **模块**: 概念与语言地基系统
 > **文档类型**: 正式开发规格 · Utterance与渲染管道
-> **版本**: v1.0
+> **版本**: v1.1 (CHG-057)
 > **创建日期**: 2026-06-19
 > **父文档**: [[001-概念与语言地基总纲|001-总纲]]
 
@@ -47,6 +47,9 @@ pub struct UtteranceConcept {
     pub confidence: f32,                      // 说话者对此概念的置信度
     pub role: ConceptRole,                    // 在当前话语中的语义角色
     pub modifiers: Vec<ConceptModifier>,      // 修饰语（肯定的/否定的/时间/数量）
+    /// ★ v1.1 (CHG-057): 概念来源的领域签名
+    /// None = 未计算。用于修辞检测——TextGenerator 检查相邻概念的 domain_similarity。
+    pub domain_sig: Option<u64>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -195,6 +198,7 @@ pub struct RenderContext<'a> {
     pub listener_proficiency: f32,             // 听者对 speaker 语言的 proficiency
     pub ui_language: LanguageId,               // 最终渲染的目标 UI 语言
     pub familiarity: f32,                      // 说话者与听者的熟悉度
+    pub speaker_rhetorical_ability: f32,       // ★ v1.1 (CHG-057): 说话者的修辞能力，>0.4 触发修辞化渲染
 }
 ```
 
@@ -370,6 +374,63 @@ pub enum SilenceIntent {
 // 有意的沉默 = Utterance { content: Silence(RefusingToAnswer), speech_act: Refuse }
 // TextGenerator 渲染: "[NPC 沉默不语，移开了视线]"
 ```
+
+---
+
+## 七、修辞化渲染 ★ v1.1 新增 (CHG-057)
+
+> **设计裁决**: 修辞 = Creative Leap（认知侧跨域类比）+ TextGenerator 修辞化渲染模式（语言侧）。`rhetorical_ability` 从已有参数涌现，零新技能。
+
+### 7.1 rhetorical_ability —— 纯函数
+
+```rust
+/// 修辞能力从已有属性派生——不新增技能
+pub fn rhetorical_ability(npc: &NpcData) -> f32 {
+    // 找到类比的能力：智慧 + 抽象思维 + 认知灵活性
+    let find_analogies = npc.mental.wisdom * 0.5
+                       + npc.cognitive_style.abstract_concrete * 0.3
+                       + npc.cognitive_style.rigid_flexible * 0.2;
+    // 表达类比的能力：魅力 + 语言熟练度
+    let express_analogies = npc.mental.charisma * 0.6
+                          + npc.language_proficiency * 0.4;
+
+    (find_analogies * 0.6 + express_analogies * 0.4).clamp(0.0, 1.0)
+}
+```
+
+### 7.2 修辞触发与渲染
+
+TextGenerator 在 `render_utterance()` 中，当 `rhetorical_ability > 0.4` 且话语包含域相似度低的相邻概念时触发：
+
+```rust
+fn render_utterance(&self, ctx: &RenderContext) -> String {
+    let mut output = self.assemble_fragments(ctx);
+    
+    if ctx.speaker_rhetorical_ability > 0.4 {
+        // 检测跨域概念对
+        for w in ctx.utterance.concepts().windows(2) {
+            if let (Some(sig_a), Some(sig_b)) = (w[0].domain_sig, w[1].domain_sig) {
+                let ds = domain_similarity_raw(sig_a, sig_b);
+                if 0.1 < ds && ds < 0.4 && rng.gen_bool(ctx.speaker_rhetorical_ability * 0.4) {
+                    output = self.apply_rhetorical_device(output, &w[0], &w[1], ds, ctx);
+                }
+            }
+        }
+    }
+    
+    output
+}
+```
+
+### 7.3 修辞装置
+
+| 装置 | 触发条件 | 示例 |
+|------|---------|------|
+| **明喻 (simile)** | 教学 SpeechAct + 两个概念来自不同域 | "淬火就像冬天的冷风吹过热铁" |
+| **暗喻 (metaphor)** | Inform/Exclaim + rhetorical_ability > 0.6 | "我们是守护人界的盾牌" |
+| **类比解释 (analogy)** | WisdomSharing + 听者技能 < 讲者技能 | "锻造好比烹饪——火候对了才成" |
+
+修辞的**认知内容**来自 Creative Leap 的跨域结构匹配（已有），修辞的**语言形式**来自 TextGenerator 的修辞渲染模式（新增）。零新 crate。零新 trait。
 
 ---
 

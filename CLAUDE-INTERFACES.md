@@ -437,7 +437,7 @@
 | 生育欲望 | **NPC GOAP 通用管线** | 无处——和其他欲望同质 | 无专用通道。libido是身体信号（和hunger同质）。欲望形成走感知→认知→MentalModel→Aspiration→GOAP竞争 |
 | 教育 | 技能模块（教学路径）+ NPC GOAP | 无处——涌现模式 | 三层涌现：家庭→社区→专职教师。4条教学路径覆盖。无"教育系统" |
 | ControlMode | **NPC 生命周期** `008` | UI层 / GOAP引擎 | Auto/Manual/DomainDelegated。GOAP持续运转。被控角色无感知 |
-| CognitiveAgingPath | **NPC 认知** `006` | 认知年度更新 | Healthy/Pathological/SuperAging。从CognitiveStyle+终生认知活跃度派生 |
+| CognitiveAgingPath | **NPC 生命周期** `006` | 认知年度更新 / 战斗老年决策 / 语言流畅度 | Healthy/Pathological/SuperAging。由 crystallized_factor() + cognitive_engagement_score() + health_burden() 三函数联合派生（CHG-058）。高负担(>0.3)独立致病通路 pathological_annual_degradation() |
 | Widowhood | **NPC 关系** | NPC认知/情绪管线 | 中性事实{deceased_partner_id, date, death_cause}。不携带情感预设 |
 | PrenatalAccumulator | **NPC 生命周期** `003` | 新生儿初始化 | 可开关(enabled: bool)。出生时转移至新生儿→初始记忆偏差 |
 
@@ -837,3 +837,98 @@ PlantSpecies → PlantMaterialDef → harvested ItemEntId
 6. **模块不持有 LMDB 环境**: 模块只通过 trait 方法访问 LMDB——不直接 open/create LMDB
 7. **跨模块原子性**: 单文件 + 单写事务保证所有 named_db 同步写入或全部回滚
 8. **线程安全由实现者保证**: `snapshot_dirty(&self)` 在 tick 边界调用——`Send + Sync` 约束 + 内部同步
+
+---
+
+## CHG-057 — NPC 认知系统 v1.1 (2026-06-22)
+
+### 新增核心类型
+
+| 概念 | Owner | 消费方 | 关键约定 |
+|------|-------|--------|---------|
+| PatternExpression | **woworld_core** | NPC认知/概念与语言/存档 | ~120B。PatternStep[] 编码因果步骤。structural_lsh 用于 Creative Leap 结构匹配（Hamming 距离）。domain_signature 用于领域分类/formalize 路由/学科聚类 |
+| DomainSignature(u64) | **woworld_core** | NPC认知/概念与语言(修辞) | 替代 MentalModelDomain 枚举。hash(atom_class完整u16, context_hashes)。领域从原子类型涌现 |
+| AtomClass(u16) | **woworld_core** | 全领域crate | 统一原子分类=高4位命名空间+低12位索引。IntoAtomClass trait——域crate各自impl |
+| EmotionalCharge | **woworld_core** | 感官系统(生产)/NPC认知(消费) | valence/arousal/dominance+primary_emotion+confidence。外部可观察的情绪信号——不包括内感受 |
+| GazeEstimate | **woworld_core** | 感官系统(生产)/NPC认知(消费·Theory of Mind) | gaze_direction+is_looking_at_observer+confidence。纯几何——不可靠的 |
+| EnrichedPerceptBatch | **woworld_core** | NPC认知/Combat/Economy/Power | PerceptBatch::enrich() 的产出——跨模态绑定+视线估计+情绪读取 |
+
+### 关键架构裁决
+
+| 裁决 | 内容 | 影响的模块 |
+|------|------|-----------|
+| 回顾性原则 | NPC 心智是回顾性的记忆加工引擎——不模拟假想世界。预测=模式应用，不是仿真 | NPC认知 |
+| MentalModelDomain 移除 | 17个硬编码枚举 → DomainSignature 涌现。学科从聚类涌现 | NPC认知/概念与语言/创新管线 |
+| 四层记忆压缩 | L0 Hot ≤2000→L1 Cold ≤500→L2 Era ≤20→L3 Life ≤5。~617KB/NPC | NPC/存档 |
+| 感官→认知桥梁 | PerceptBatch::enrich()——woworld_core extension methods。零新crate | 感官/NPC/Combat/Economy |
+| 深思熟虑连续涌现 | deliberation_depth=trait×state×stakes。不硬编码 reflective>0.4 | NPC/GOAP |
+| 记忆源混淆 | source_confidence 衰减→<0.3 概率性 misattribution。虚假记忆涌现 | NPC |
+| formalize 注册制 | 领域crate 注册 ATOM_MASK + consumer_fn。未注册→AcademicWork | NPC/全领域crate |
+| 修辞化渲染 | Creative Leap（类比）+ TextGenerator（修辞化渲染）= 比喻 | NPC认知/概念与语言 |
+| crowd_emotional_field | EnvironmentPerception 新增字段。调制 trust evaluation 和 source_confidence 编码 | 感官/NPC认知 |
+
+### 感官系统新输出
+
+| 输出 | 类型 | 消费方 |
+|------|------|--------|
+| PerceptEntry.emotional_charge | EmotionalCharge | NPC(情绪传染/思维触发/信念评估) |
+| PerceptEntry.gaze_estimate | Option\<GazeEstimate\> | NPC(Theory of Mind) |
+| EnvironmentPerception.crowd_emotional_field | f32 | NPC(群体可暗示性/记忆编码) |
+| EnvironmentPerception.crowd_dominant_emotion | Option\<BasicEmotion\> | NPC(群体情绪识别) |
+
+### 概念与语言系统新输入
+
+| 输入 | 来源 | 用途 |
+|------|------|------|
+| UtteranceConcept.domain_sig | NPC认知系统(写入) | 修辞检测——TextGenerator查相邻概念的domain_similarity |
+
+### 技能系统新需求
+
+| 需求 | 内容 |
+|------|------|
+| Mathematics 子类(0405) | arithmetic/geometry/algebra/statistics/logic —— 5个技能。支撑Mathematician/TaxCollector/Architect职业 |
+| 认知原子 | COUNT/MEASURE/CALCULATE/DERIVE —— 4个。走标准三层(物理原子→复合→GOAP) |
+
+---
+
+## CHG-059 — NPC 认知 v1.1 全模块传播审计 (2026-06-22)
+
+> **完整 CHG 文档**: [[WoWorld-Design/Change/CHG-059-NPC认知v1.1传播审计-20260622|CHG-059]]
+> **审计文件目录**: [[WoWorld-Design/参考文档/039-NPC认知传播审计-20260622/README|039-传播审计]]
+
+### 概要
+
+CHG-057/058 在 06-认知与智慧系统中引入根本性架构变更后，CHG-059 系统地将 v1.1 认知变更传播到全部 16 个消费模块——审计每个模块的文档过时引用、缺失概念、接口不一致和级联需求，编辑所有受影响文件。
+
+| 维度 | 内容 |
+|------|------|
+| **影响模块** | 05-感官/08-行动涌现/24-概念与语言/07-生命周期/02-NPC活人感/13-语言表达/06-战斗/07-魔法/08-技能/09-文化/12-历史/14-经济/11-权力/23-建筑/26-存档/00-全局基础设施 |
+| **编辑规模** | 16模块·~80文件编辑·14审计文件 |
+| **审计协议** | 4维度——过时引用修复·缺失概念补全·接口不一致对齐·新上游需求记录 |
+
+### 关键修复
+
+| 修复项 | 影响范围 | 说明 |
+|--------|---------|------|
+| AgentSnapshot v1.1 加入出口 | 08-行动涌现 → 全模块 | CognitiveTide 3字段(cognitive_load/rumination_pressure/mind_quietude)正式加入 001-接口出口。所有消费模块 002-接口入口同步 |
+| RenderContext 补齐字段 | 05-感官与知觉 | EnrichedPerceptBatch 产出需 RenderContext(含 EmotionalCharge/GazeEstimate/crowd_emotional_field) |
+| CognitiveAgingPath 所有者更正 | 07-生命周期 ← 06-认知 | 从认知系统更正为生命周期系统 OWN——三函数联合派生(crystallized_factor/cognitive_engagement_score/health_burden) |
+| MemoryStore 四层升级 | 02-NPC活人感/26-存档 | L0 Hot(≤2000)→L1 Cold(≤500)→L2 Era(≤20)→L3 Life(≤5)。旧"2000条上限"全量更新。存档键空间扩展 |
+| MentalModelDomain→DomainSignature | 24-概念与语言/06-认知/全领域 | 17个硬编码枚举 → DomainSignature(u64)涌现。学科从聚类涌现 |
+| EnrichedPerceptBatch 消费全量声明 | 06-战斗/07-魔法/14-经济/11-权力 | 战斗 combat_intelligence/魔法 spell_selection/经济 EconomicCognition/权力 legitimacy——全部声明消费 EnrichedPerceptBatch |
+| deliberation_depth 连续涌现 | 02-NPC活人感 GOAP | 不硬编码阈值。deliberation_depth = trait×state×stakes 连续值 |
+| counterfactual_regret 集成 | 02-NPC活人感 情绪引擎 | 决策后反事实思考影响 regret 强度和后续决策权重 |
+| source_confidence 源混淆 | 02-NPC活人感 记忆系统 | 记忆源置信度衰减→<0.3 概率性 misattribution。虚假记忆涌现 |
+| formalize_innovation() 注册制 | 全领域crate | 领域crate注册 ATOM_MASK+consumer_fn。未注册→AcademicWork |
+
+### 新上游需求 (级联)
+
+| 需求 | 提出模块 | 目标模块 |
+|------|---------|---------|
+| Mathematics 子类 (0405) | 06-认知 | 08-技能系统 |
+| 认知原子 (COUNT/MEASURE/CALCULATE/DERIVE) | 06-认知 | 08-NPC行动涌现 |
+| PatternExpression 序列化 | 06-认知 | 26-存档系统 |
+| DomainSignature 查询 | 24-概念与语言 | 00-全局基础设施 |
+| crowd_emotional_field 生产 | 06-认知 | 05-感官与知觉 |
+| EmotionalCharge 生产 | 06-认知 | 05-感官与知觉 |
+| GazeEstimate 生产 | 06-认知 | 05-感官与知觉 |

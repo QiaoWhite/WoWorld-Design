@@ -76,7 +76,7 @@ pub struct NpcData {
     // ── 情绪 ──
     pub emotion: EmotionState,
 
-    // ── 记忆（双层: 事件 + 空间）──
+    // ── 记忆（四层压缩: L0热事件 + L1冷摘要 + L2时代概要 + L3人生摘要 + 空间）──
     pub memory: MemoryStore,
 
     // ── 关系 ──
@@ -152,9 +152,9 @@ pub struct NpcData {
     /// gap 缩小到 0.3 以下 → 每天 -2 快速消退
     pub competence_frustration_chronic_days: u16,
 
-    /// ★ 需求敏感性——从大五人格一次性派生, 终身不变
-    /// 缓存在 NpcData 中以避免每决策周期重新查表
-    /// 仅在人格发生极端冲击(创伤>0.9 或 长期环境冲突>100日)后重新计算
+    /// ★ 需求敏感性——从大五人格派生。初始一次性计算。缓存防重复查表。
+    /// ★ BigFive 在极端冲击后漂移 → NeedSensitivity 随之重算
+    /// (创伤>0.9 或 长期环境冲突>100日)
     pub need_sensitivity: NeedSensitivity,
 
     // ── ★ v1.0 感官与知觉系统 ([[../感官与知觉系统/001-感官系统总纲|感官系统]]) ──
@@ -199,6 +199,16 @@ pub struct NpcData {
     /// 认知压力指数——0=认知健康，1=认知崩溃边缘
     /// 对标 self_narrative.stagnation_sense。完全派生，每游戏日更新
     pub cognitive_distress: f32,
+
+    /// ★ v1.2 (CHG-058): 终身创建的 MentalModel 总数
+    /// try_induce_pattern() 或 creative_leap() 成功产出时递增
+    /// 用于认知老化路径推导——4 字节，无显著持久化成本
+    pub mental_model_creation_count: u32,
+
+    /// ★ v1.2 (CHG-058): 慢性 intoxication 积累——年
+    /// 年均更新：avg_daily_intox × (days_since_last_update / 365)
+    /// 用于健康负担评估（health_burden）
+    pub chronic_intoxication_years: f32,
 }
 ```
 
@@ -272,7 +282,7 @@ impl BigFive {
 
 ### 1.1.2a NeedSensitivity — 需求敏感性 ★ v1.0
 
-> **关联**: [[03-基本需求系统|§3.2]] · 从大五人格一次性派生, 终身不变
+> **关联**: [[03-基本需求系统|§3.2]] · 从大五人格派生，BigFive 极端冲击后重算
 
 ```rust
 /// NPC 对各个需求的个体敏感度——从大五人格一次性派生
@@ -501,14 +511,28 @@ pub struct BasicEmotions {
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryStore {
-    /// 事件记忆 — 容量上限 2000 条
-    pub events: Vec<EventMemory>,
+    // ── ★ v1.1 (CHG-057): 四层记忆压缩 — 替代二元 hot/cold ──
+    //
+    // L0 Hot Episodic (≤2000, ~512KB): 完整事件记忆 — 原始 EventMemory 条目
+    // L1 Cold Summary  (≤500,  ~100KB): 衰减后的摘要 — ColdMemorySummary
+    // L2 Era Digest     (≤20,    ~4KB): 跨年长期趋势 — EraDigest
+    // L3 Life Abstract   (≤5,    ~1KB): 人生主题——自传式内核 — LifeAbstract
+    //
+    // 压缩由 information_density() 公式驱动——无硬编码分界。
+    // 总预算 ~617KB/NPC
+    pub events: Vec<EventMemory>,                  // L0: ≤2000 条
 
     /// 空间记忆 — 五级道路
     pub spatial: Vec<SpatialMemory>,
 
-    /// 被压缩的冷记忆 (摘要化)
+    /// L1: 被压缩的冷记忆 (摘要化, ≤500 条)
     pub cold_memory_summaries: Vec<ColdMemorySummary>,
+
+    /// ★ v1.1: L2 时代概要 (≤20 条, ~4KB) — L1 超上限后最低密度条目提升至此
+    pub era_digests: Vec<EraDigest>,
+
+    /// ★ v1.1: L3 人生摘要 (≤5 条, ~1KB) — L2 超上限后最低密度条目提升至此
+    pub life_abstracts: Vec<LifeAbstract>,
 
     /// v3: 重要记忆标记 (战斗/分享/被救/航海事件/施工完成 — 优先保留)
     pub important_event_ids: HashSet<MemoryId>,
@@ -536,6 +560,42 @@ pub struct EventMemory {
     /// v3: 是否为"重构后"版本 (自我辩护/效价扭曲后不可逆)
     pub is_reconstructed: bool,
     pub original_summary: Option<String>,
+
+    /// ★ v1.1 (CHG-057): 记忆源标记
+    /// 编码时写入，永不改变。source_confidence 随时间衰减。
+    pub original_source: MemorySource,
+    /// ★ v1.1: 源置信度 0-1。编码时由 crowd_emotional_field 和 cognitive_load 调制。
+    /// < 0.3 时概率性源混淆——传闻→自认为亲历。与 decay_factor 同步衰减。
+    pub source_confidence: f32,
+
+    /// ★ v1.1: 如果此事件包含决策，记录决策点（用于 counterfactual_regret）
+    pub decision_point: Option<DecisionPoint>,
+}
+
+/// ★ v1.1 (CHG-057): 记忆的来源
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MemorySource {
+    Witnessed,              // 亲眼所见
+    HeardFrom(EntityId),    // 听某人说的
+    ReadFrom(WorkId),       // 从书中读到的
+    Inferred,               // 自己推理出来的
+}
+
+/// ★ v1.1 (CHG-057): 决策点——用于反事实后悔
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecisionPoint {
+    pub chosen: DecisionOption,
+    pub unchosen: ArrayVec<DecisionOption, 3>,
+    pub actual_outcome_pleasure: f32,
+    pub formed_at: GameInstant,
+}
+
+/// ★ v1.1: 决策选项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecisionOption {
+    pub description: String,
+    pub atom_classes: Vec<AtomClass>,
+    pub predicted_outcome_pleasure: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -571,6 +631,54 @@ pub struct SpatialMemory {
 
     /// v3: 该路径是否有商队/旅行者频繁使用
     pub traffic_level: Option<TrafficLevel>,
+}
+```
+
+### 1.1.5a 四层记忆压缩结构体 ★ v1.1 (CHG-057)
+
+```rust
+/// L1 冷记忆摘要 — 从 L0 EventMemory 压缩而来 (≤500 条, ~100KB)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColdMemorySummary {
+    pub original_id: MemoryId,
+    pub summary: String,
+    pub event_type: EventType,
+    pub compressed_at: GameDay,
+    /// ★ v1.1: 压缩时的信息密度——用于 L1→L2 提升排序
+    pub density_at_compression: f32,
+}
+
+/// L2 时代概要 — 从 L1 ColdMemorySummary 跨年聚合而来 (≤20 条, ~4KB)
+/// 覆盖游戏中数年范围的趋势模式——不是单个事件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EraDigest {
+    pub id: MemoryId,
+    /// 该时代的主题标签（如 "war_years"、"peaceful_prosperity"、"famine_period"）
+    pub theme: String,
+    /// 覆盖的游戏日范围
+    pub era_start: GameDay,
+    pub era_end: GameDay,
+    /// 压缩来源——从哪些 L1 条目聚合
+    pub source_ids: Vec<MemoryId>,
+    /// 时代的情感基调 (-1~1)
+    pub emotional_tone: f32,
+    /// 压缩时的信息密度——用于 L2→L3 提升排序
+    pub density_at_compression: f32,
+}
+
+/// L3 人生摘要 — 自传式内核 (≤5 条, ~1KB)
+/// NPC 对自身人生的最高层抽象——"我这一生..."
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LifeAbstract {
+    pub id: MemoryId,
+    /// 人生主题（如 "survivor"、"builder"、"wanderer"、"caretaker"）
+    pub life_theme: String,
+    /// 压缩来源——从哪些 L2 条目聚合
+    pub source_era_ids: Vec<MemoryId>,
+    /// 形成时的 NPC 年龄
+    pub formed_at_age: f32,
+    /// 是否被回顾性修正（LifeReview 时可能重写）
+    pub is_revised: bool,
 }
 ```
 
@@ -1158,10 +1266,120 @@ pub enum CollectiveEmotionPhase {
     /// (极难逆转，只有重大反证事件或数周冷却才能消退)
     Polarization { intensity: f32, group_id: GroupId, direction: EmotionDirection },
 
-    /// 情绪免疫: 低宜人性/对立身份/认知中介导致的冷静少数
-    Immunity { immune_npc_ids: Vec<NpcId> },
+    /// ★ v1.1 (CHG-057): 情绪免疫——从七个因子涌现的连续免疫度
+    /// 不是硬编码的 immune_npc_ids 集合，而是每个 NPC 对每个群体的 crowd_immunity() 连续量。
+    /// 当 5+ NPC 的 crowd_immunity > 0.7 且属于同一群体 → Immunity 被触发。
+    /// 七个抗性因子: 认知中介、对立身份、已有信念、情绪稳定性、专业训练、低宜人性、社会距离。
+    /// 详见 [[06-认知与智慧系统/003-MentalModel与智慧积累#十三-A-群体心理免疫|群体免疫机制]]。
+    Immunity { immune_npc_ids: Vec<NpcId>, immunity_threshold: f32 },
 }
 ```
+
+### ★ v1.1 (CHG-057): 群体可暗示性调制
+
+> **设计裁决**: 情绪传播和信念传播的速度差异不是 bug——情绪跑在信念前面。NPC 先感受后找理由（事后归因）。crowd_emotional_field 调制 trust evaluation —— 人群情绪激烈时，任何"提供解释"的来源都被更容易接受（Le Bon 的 crowd suggestibility）。
+
+```rust
+/// 群体可暗示性 —— 情绪传染系统输出，信念评估系统消费
+/// 从 PerceptBatch.environment.crowd_emotional_field 派生
+pub fn crowd_suggestibility(npc: &NpcData) -> f32 {
+    let field = npc.latest_percept_batch()
+        .map(|pb| pb.environment.crowd_emotional_field)
+        .unwrap_or(0.0);
+    (field * (1.0 - npc.cognition_tide.mind_quietude)).clamp(0.0, 1.0)
+}
+
+/// ★ v1.1: assess_and_integrate_mental_model() 的 trust evaluation 被 crowd_suggestibility 调制
+fn effective_trust(source_credibility: f32, suggestibility: f32) -> f32 {
+    // 高 suggestibility → trust → 0.7（任何人说的都信——急需解释匹配已感受到的情绪）
+    source_credibility * (1.0 - suggestibility * 0.7) + suggestibility * 0.7
+}
+
+/// ★ v1.1: 记忆编码时 source_confidence 被 crowd_emotional_field 调制
+fn encode_source_confidence(source: MemorySource, crowd_field: f32, cognitive_load: f32) -> f32 {
+    let base = match source {
+        MemorySource::Witnessed => 0.95,
+        MemorySource::HeardFrom(_) => 0.70,
+        MemorySource::ReadFrom(_) => 0.85,
+        MemorySource::Inferred => 0.40,
+    };
+    base * (1.0 - crowd_field * 0.5) * (1.0 - cognitive_load * 0.4)
+}
+```
+
+**事后归因的涌现链条**：
+```
+人群恐慌 → crowd_emotional_field↑ → 情绪传染 → NPC.fear↑
+→ ThoughtTrigger: "我害怕→为什么？→最近的记忆里有什么？"
+→ 源混淆编码："听说井水有毒"以低 source_confidence 编码
+→ 数月后 source_confidence 衰减至 0.3 以下 → "我记得井水有毒"（自认为亲历）
+→ 虚假记忆涌现
+```
+
+### ★ v1.2 (CHG-058): 信息级联——信念的多跳传播
+
+> **设计裁决**: 情绪的 Cascade→Resonance→Polarization 四阶段模型已完善。信念的多跳级联从已有三个机制的交互中涌现——不需独立系统。
+
+**多跳衰减链**（已有——ver2.0 §2.2 的 rumor routes）：
+
+```
+hop 0: A 在广场公开讲演 → 20 个听众接收
+    → 每人跑 assess_and_integrate_mental_model()
+    → crowd_suggestibility 调制 trust evaluation
+    → 约 15/20 接受
+
+hop 1: B→C (WisdomSharing)
+    → impact × 0.7（每转述衰减 30%）
+    → C 评估: crowd_suggestibility 已降低(不在广场), trust=B 是朋友=0.7
+    → C 可能接受或拒绝
+
+hop 2: C→D
+    → impact × 0.7² × 0.8²（+ waypoint loss 20%/hop）
+    → 衰减到接受阈值以下 → 级联自然终止
+```
+
+**级联终止不来自硬编码规则——来自衰减项的累积**：
+- impact × 0.7^n（n hops）
+- waypoint_loss × 0.8^n
+- crowd_suggestibility ↓（离开 crowd 后）
+- source_credibility ↓（离 originator 越来越远）
+
+3–4 跳后 impact 降至阈值以下。恐慌中的近距离听众最容易接受——"谣言在热闹的地方传播最快"是涌现的。
+
+**未建模的是"理性羊群效应"**（不信但不敢说→外表蔓延）——这属于权力/社会系统，由 DeceptionIntent + reputation_pressure 涌现。认知系统不负责。
+
+---
+
+### ★ v1.2 (CHG-058): 玩家话语→NPC 信念桥接
+
+```rust
+/// 玩家对 NPC 说话时调用——与 NPC↔NPC 走完全相同的认知管道
+fn receive_player_speech(npc: &mut NpcData, utterance: &Utterance, player_reputation: &PlayerReputation) {
+    // 1. 从 player Utterance 合成 incoming MentalModel
+    let incoming = MentalModel::from_player_utterance(utterance);
+    //    pattern: synthesize from utterance concepts
+    //    confidence: utterance.speaker_confidence（由语言系统从 speech 中解析）
+    //    source: ModelSource::TaughtByNpc(PLAYER_ENTITY_ID)
+    
+    // 2. 走已有管道——和 NPC↔NPC 完全相同
+    let result = assess_and_integrate_mental_model(
+        &incoming,
+        source_credibility: player_credibility(npc, player_reputation),
+        existing_models: &npc.mental_models,
+        cognitive_style: &npc.cognitive_style,
+        personality: &npc.personality,
+        emotion: &npc.emotion,
+        self_narrative: &npc.self_narrative,
+    );
+    
+    // 3. NPC 可以拒绝、部分接受或完全接受
+    //    取决于 trust evaluation + dissonance_tolerance + crowd_suggestibility
+    //    玩家撒谎→低 credibility（如果 NPC 之前抓到过）→ reject
+    //    高 reputation 玩家→高 credibility→ accept
+}
+```
+
+**关键**：玩家不需要 MentalModel 存储。NPC 认知系统从 player speech 合成 incoming MentalModel——认为玩家是 `TaughtByNpc(PLAYER_ENTITY_ID)` 来源。零新 trait。零新跨模块依赖。
 
 ---
 
@@ -1237,24 +1455,120 @@ impl MemoryStore {
         (-lambda * days_since).exp()
     }
 
-    /// 记忆压缩 — 衰减 <0.05 → 摘要化后移入冷记忆
-    pub fn compress_cold_memories(&mut self) {
+    /// ★ v1.1 (CHG-057): 信息密度驱动的连续压缩率
+    /// 替代二元 cold/hot 分界。sqrt(access_count) 隐式承载叙事偏置。
+    pub fn compression_rate(memory: &EventMemory, days_since: f32) -> f32 {
+        let information_density = memory.impact_score
+            * (0.3 + memory.emotional_encoding.arousal * 0.7)
+            * (1.0 + memory.access_count as f32).sqrt()   // sqrt递减——防反刍支配
+            / (days_since + 1.0).ln_1p();                  // 对数时间衰减
+        1.0 / (1.0 + information_density * 10.0)
+    }
+
+    /// ★ v1.1: source_confidence 与 decay_factor 同步衰减
+    pub fn update_source_confidence(&mut self) {
+        for mem in &mut self.events {
+            mem.source_confidence *= mem.decay_factor;
+        }
+    }
+
+    /// ★ v1.1 (CHG-057): 四层记忆压缩级联 — 信息密度驱动
+    ///
+    /// L0→L1: decay_factor < 0.05 → 摘要化后移入 cold_memory_summaries
+    /// L1→L2: L1 > 500 条 → 最低 density 条目聚合提升到 era_digests (≤20)
+    /// L2→L3: L2 > 20 条 → 最低 density 条目聚合提升到 life_abstracts (≤5)
+    ///
+    /// 压缩由 information_density() 公式驱动——无硬编码主题分类。
+    /// 每一层提升时做聚合（不是逐条搬运），减少噪声保留信号。
+    pub fn compress_memories_cascade(&mut self, current_day: GameDay) {
+        // ── L0 → L1: 衰减记忆移入冷存储 ──
         let cold: Vec<_> = self.events.iter()
             .filter(|m| self.decay_factor(m.impact_score, 0.3, m.access_count,
-                  (self.current_day - m.game_day) as f32) < 0.05
+                  (current_day - m.game_day) as f32) < 0.05
                   && !self.important_event_ids.contains(&m.id))
             .cloned()
             .collect();
 
         for mem in cold {
+            let density = Self::compression_rate(&mem, (current_day - mem.game_day) as f32);
             self.events.retain(|m| m.id != mem.id);
             self.cold_memory_summaries.push(ColdMemorySummary {
                 original_id: mem.id,
                 summary: mem.summary.clone(),
                 event_type: mem.event_type.clone(),
-                compressed_at: self.current_day,
+                compressed_at: current_day,
+                density_at_compression: density,
             });
         }
+
+        // ── L1 → L2: 超上限时最低密度条目提升到 Era Digest ──
+        const L1_CAPACITY: usize = 500;
+        const L2_CAPACITY: usize = 20;
+        const L3_CAPACITY: usize = 5;
+
+        if self.cold_memory_summaries.len() > L1_CAPACITY {
+            // 按 density 升序——最低密度首先提升
+            self.cold_memory_summaries
+                .sort_by(|a, b| a.density_at_compression.partial_cmp(&b.density_at_compression)
+                    .unwrap_or(std::cmp::Ordering::Equal));
+
+            let overflow: Vec<_> = self.cold_memory_summaries
+                .drain(..(self.cold_memory_summaries.len() - L1_CAPACITY))
+                .collect();
+
+            if !overflow.is_empty() {
+                let tone: f32 = overflow.iter()
+                    .map(|c| 0.0) // 从原 EventMemory 的 emotional_encoding 推导（实现时填充）
+                    .sum::<f32>() / overflow.len() as f32;
+
+                self.era_digests.push(EraDigest {
+                    id: new_memory_id(),
+                    theme: Self::derive_era_theme(&overflow),
+                    era_start: overflow.iter().map(|c| c.compressed_at).min().unwrap_or(current_day),
+                    era_end: current_day,
+                    source_ids: overflow.iter().map(|c| c.original_id).collect(),
+                    emotional_tone: tone,
+                    density_at_compression: overflow.iter()
+                        .map(|c| c.density_at_compression).sum::<f32>() / overflow.len() as f32,
+                });
+            }
+        }
+
+        // ── L2 → L3: 超上限时最低密度条目聚合提升到 Life Abstract ──
+        if self.era_digests.len() > L2_CAPACITY {
+            self.era_digests
+                .sort_by(|a, b| a.density_at_compression.partial_cmp(&b.density_at_compression)
+                    .unwrap_or(std::cmp::Ordering::Equal));
+
+            let overflow: Vec<_> = self.era_digests
+                .drain(..(self.era_digests.len() - L2_CAPACITY))
+                .collect();
+
+            if !overflow.is_empty() && self.life_abstracts.len() < L3_CAPACITY {
+                self.life_abstracts.push(LifeAbstract {
+                    id: new_memory_id(),
+                    life_theme: Self::derive_life_theme(&overflow),
+                    source_era_ids: overflow.iter().map(|e| e.id).collect(),
+                    formed_at_age: 0.0, // 从 NPC identity.age 填充（实现时）
+                    is_revised: false,
+                });
+            }
+        }
+    }
+
+    /// ★ v1.1: 从 L1 摘要集合推导时代主题——涌现式聚类，非硬编码
+    fn derive_era_theme(summaries: &[ColdMemorySummary]) -> String {
+        // 实现: 按 event_type 频率聚类——最常见的类型 = 时代标签
+        // 例如: Combat 占主导 → "war_years"
+        //       Construction+Ceremony 占主导 → "prosperity"
+        //       WeatherExtreme+ResourceCompetition → "hardship"
+        "unlabeled".to_string() // 占位——实际由事件类型频率聚类推导
+    }
+
+    /// ★ v1.1: 从 L2 时代集合推导人生主题——涌现式聚类
+    fn derive_life_theme(eras: &[EraDigest]) -> String {
+        // 实现: 按 era.theme 频率聚类——最有支配力的主题 = 人生标签
+        "unlabeled".to_string()
     }
 
     /// v3: 重要记忆优先保留

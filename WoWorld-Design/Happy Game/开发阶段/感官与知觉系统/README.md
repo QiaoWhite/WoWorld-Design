@@ -1,7 +1,7 @@
 # 感官与知觉系统 — README
 
 > **开发代号**: WoWorld (Wonder World)
-> **状态**: 开发规格 v1.0
+> **状态**: 开发规格 v1.1
 > **关联**: [[001-感官系统总纲|总纲]] · [[000-外部依赖与接口审计|外部审计]] · [[../NPC活人感模块/NPC活人感开发文档ver2.0|NPC ver2.0]]
 
 ---
@@ -58,7 +58,10 @@
 | 模块 | 消费内容 |
 |------|---------|
 | NPC 活人感 | PerceptBatch → GOAP 世界状态更新 |
-| 战斗 | VisionQuery (战术感知) + 显著性 (威胁优先) |
+| 战斗 | VisionQuery (战术感知) + 显著性 (威胁优先) + EnrichedPerceptBatch (士气/威胁评估) |
 | 审美 | AestheticSignal (环境美/人物美) |
 | 历史 | 大日志——重要事件感知记录 |
 | 音频 | AudioQuery——声音空间化+掩蔽 |
+| 认知与智慧 | EnrichedPerceptBatch (gaze_estimates + emotional_readings + bound_entities) — 认知管线输入 |
+| 经济 | EnrichedPerceptBatch — 市场感知 |
+| 权力 | EnrichedPerceptBatch — 权力符号感知 |

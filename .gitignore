@@ -6,8 +6,11 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Claude
-.claude/
+# Claude (runtime artifacts only — skills & hooks are tracked)
+.claude/audit-reports/
+.claude/temp/
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
 
 # Logs
 *.log

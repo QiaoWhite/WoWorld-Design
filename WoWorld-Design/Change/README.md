@@ -92,6 +92,10 @@ CHG-XXX-简短描述-YYYYMMDD.md
 | CHG-054 | [CHG-054-世界生成v2.1五Pass重构与RelationshipNorms集成-20260621.md](CHG-054-世界生成v2.1五Pass重构与RelationshipNorms集成-20260621.md) | 2026-06-21 | 世界生成 v2.1：P8 Phase B 五Pass混合构造(祖先创建+配偶池合并+社会关系初始化含同性/多配偶/非婚生+已故子女+DAG验证)。消除7个一致性bug。P9a事件驱动优化(~10x加速)。新增FertilityNorms方法+RelationshipNorms struct(文化系统004)。P13 FamilyTree校验+死因装饰。SettlementData.founding_year。性能总预算5-13s→3-10s | 完成 |
 | CHG-055 | [CHG-055-存档系统v1.0创建-20260621.md](CHG-055-存档系统v1.0创建-20260621.md) | 2026-06-21 | 存档系统 v1.0 创建：全量快照+脏增量·SaveableModule trait(8方法·2必覆·6默认)·LMDB单文件多named_db·崩溃恢复三件套(临时文件+原子重命名/覆盖前备份/session.lock)·版本迁移(模块级)·Mod兼容(冻结/替换)·玩家继承(PendingInheritance+灵魂转世)·世界发现(目录扫描)。6篇正式规格+7篇参考/接头文档·9文档联动修改·11轮审计 | 完成 |
 | CHG-056 | [CHG-056-存档系统深度审计与修正-20260621.md](CHG-056-存档系统深度审计与修正-20260621.md) | 2026-06-21 | 存档系统深度审计与修正（10轮迭代审计·24问题全修复）——SaveableModule trait 8→14方法(4必覆+10默认)·LoadContext渐进加载上下文·named_dbs键前缀冲突检测·write_dirty流式增量写入·write_initial Initial直写路径·惰性迁移(ConsumableEffect)·死亡存档最高优先级·SaveQueue调度模式·UUID去重·全遍历写入后验证·World.mod_modules Mod预留 | 完成 |
+| CHG-057 | [CHG-057-NPC认知系统深度设计-20260622.md](CHG-057-NPC认知系统深度设计-20260622.md) | 2026-06-22 | NPC认知系统 v1.1 深度设计：PatternExpression数学地基（AlgebraicClosure七算子·PatternSignature u64·扩展ConsequenceGraph）·事件记忆12字段·信息密度连续压缩·crowd_suggestibility群体可暗示性·rhetorical_ability修辞能力·domain_sig跨域概念检测 | 完成 |
+| CHG-058 | [CHG-058-NPC认知系统自审修正-20260622.md](CHG-058-NPC认知系统自审修正-20260622.md) | 2026-06-22 | NPC认知系统 v1.1 自审修正：MentalModel评估管道·慢性中毒追踪·玩家话语→NPC信念桥接·cognitive_aging三函数派生（crystallized_factor+cognitive_engagement_score+health_burden→pathological_annual_degradation）·PrenatalAccumulator交互·决策点counterfactual_regret·内部一致性审计 | 完成 |
+| CHG-059 | [CHG-059-NPC认知v1.1传播审计-20260622.md](CHG-059-NPC认知v1.1传播审计-20260622.md) | 2026-06-22 | NPC认知v1.1全模块传播审计——8大修正·PatternExpression+MentalModel+认知老化+群集心理+认知潮汐+修辞能力+counterfactual_regret+玩家话语认知管道·CLAUDE-INTERFACES.md全面同步 | 完成 |
+| CHG-060 | [CHG-060-开发路线图优化-20260622.md](CHG-060-开发路线图优化-20260622.md) | 2026-06-22 | 开发路线图优化（/grill-me 17问审核）——四轨重定义·NPC L4拉入原型·AgentSnapshot归属core·属性注册表升格·孤儿接口修复·CLAUDE-INTERFACES.md同步·Phase 1-4修正 | 完成 |
 
 ---
 
@@ -130,4 +134,4 @@ CHG-XXX-简短描述-YYYYMMDD.md
 
 > **注意**：`开发阶段/Change/` 文件夹中包含早期变更记录（NPC 数量目标变更），后续所有变更请使用此顶层 Change 文件夹。
 
-> **最后更新**: 2026-06-20 — CHG-051/052 已登记。CHG-045从编号缺口移除（✓接头总览CHG-XXX已替换），CHG-048 Wave A基础设施清理完成。
+> **最后更新**: 2026-06-22 — CHG-057/058/059/060 已登记。CHG-060 开发路线图优化（/grill-me 17问审核）——四轨重定义·AgentSnapshot归属core·孤儿接口修复·CLAUDE-INTERFACES.md同步。

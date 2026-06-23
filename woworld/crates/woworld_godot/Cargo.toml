@@ -1,0 +1,20 @@
+[package]
+name = "woworld_godot"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# GDExtension Rust 绑定
+godot = "0.5"
+
+# SIMD 向量
+glam = "0.28"
+
+# 核心类型（workspace 内部依赖）
+woworld_core = { path = "../woworld_core" }
+woworld_worldgen = { path = "../woworld_worldgen" }

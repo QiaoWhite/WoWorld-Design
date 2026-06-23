@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/woworld_core",
     "crates/woworld_spatial",
+    "crates/woworld_worldgen",
     "crates/woworld_godot",
 ]
 

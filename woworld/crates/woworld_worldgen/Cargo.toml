@@ -1,0 +1,11 @@
+[package]
+name = "woworld_worldgen"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+woworld_core = { path = "../woworld_core" }
+glam = "0.28"
+noise = "0.9"

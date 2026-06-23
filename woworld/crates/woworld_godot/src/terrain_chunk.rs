@@ -1,16 +1,14 @@
 //! TerrainChunk — Godot Node3D GDExtension 类
 //!
-//! 暴露 HeightfieldTerrain 的高度/材质查询给 GDScript。
-//! GDScript 侧用 SurfaceTool 构建 ArrayMesh。
+//! 在 Rust 侧生成地形网格，通过 GDExtension 直接构建 Godot ArrayMesh。
 
+use godot::classes::mesh::PrimitiveType;
+use godot::classes::{ArrayMesh, MeshInstance3D};
 use godot::prelude::*;
+use woworld_core::prelude::WorldPos;
 use woworld_core::spatial::TerrainQuery;
 use woworld_worldgen::HeightfieldTerrain;
 
-/// Godot GDExtension 类：地形块
-///
-/// 持有 Rust 侧 HeightfieldTerrain，暴露 `query_height(x, z)` 和
-/// `query_material(x, z)` 给 GDScript。
 #[derive(GodotClass)]
 #[class(base = Node3D, init)]
 pub struct TerrainChunk {
@@ -23,53 +21,95 @@ pub struct TerrainChunk {
 #[godot_api]
 impl INode3D for TerrainChunk {
     fn ready(&mut self) {
-        godot_print!("TerrainChunk: terrain ready (seed=42)");
+        let grid_size: i32 = 128;
+        let spacing: f64 = 2.0;
+        let origin_x: f64 = -128.0;
+        let origin_z: f64 = -128.0;
+
+        // 生成顶点 + 颜色
+        let mut vertices = PackedVector3Array::new();
+        let mut colors = PackedColorArray::new();
+
+        for iz in 0..grid_size {
+            let wz = origin_z + iz as f64 * spacing;
+            for ix in 0..grid_size {
+                let wx = origin_x + ix as f64 * spacing;
+                let pos = WorldPos {
+                    x: wx,
+                    y: 0.0,
+                    z: wz,
+                };
+                let h = self.terrain.height_at(pos);
+                let mat = self.terrain.surface_material_at(pos);
+
+                vertices.push(Vector3::new(wx as f32, h, wz as f32));
+                colors.push(material_color(mat, h));
+            }
+        }
+
+        // 生成索引
+        let mut indices = PackedInt32Array::new();
+        for iz in 0..(grid_size - 1) {
+            for ix in 0..(grid_size - 1) {
+                let tl = iz * grid_size + ix;
+                let tr = iz * grid_size + ix + 1;
+                let bl = (iz + 1) * grid_size + ix;
+                let br = (iz + 1) * grid_size + ix + 1;
+                indices.push(tl);
+                indices.push(bl);
+                indices.push(tr);
+                indices.push(tr);
+                indices.push(bl);
+                indices.push(br);
+            }
+        }
+
+        // 构建 ArrayMesh: add_surface_from_arrays(primitive, &AnyArray) — 仅 2 参数
+        let mut arrays = Array::new();
+        let v = vertices.to_variant();
+        arrays.push(&v);
+        let c = colors.to_variant();
+        arrays.push(&c);
+        let i = indices.to_variant();
+        arrays.push(&i);
+
+        let mut array_mesh = ArrayMesh::new_gd();
+        array_mesh.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
+
+        // MeshInstance3D
+        let mut mesh_instance = MeshInstance3D::new_alloc();
+        mesh_instance.set_name("GeneratedTerrain");
+
+        // upcast MeshInstance3D → Node, then add_child
+        let child = mesh_instance.upcast::<Node>();
+        self.base_mut().add_child(&child);
+
+        godot_print!(
+            "TerrainChunk: {} vertices, {} triangles",
+            vertices.len(),
+            indices.len() / 3
+        );
     }
 }
 
-#[godot_api]
-impl TerrainChunk {
-    /// 查询 (x, z) 处的地形高度（米）
-    #[func]
-    fn query_height(&self, x: f64, z: f64) -> f32 {
-        let pos = woworld_core::prelude::WorldPos { x, y: 0.0, z };
-        self.terrain.height_at(pos)
-    }
-
-    /// 查询 (x, z) 处的地表材质
-    /// 返回值: 0=Grass, 1=Sand, 2=Rock, 3=Stone, 4=Water, ...
-    #[func]
-    fn query_material(&self, x: f64, z: f64) -> i32 {
-        let pos = woworld_core::prelude::WorldPos { x, y: 0.0, z };
-        let mat = self.terrain.surface_material_at(pos);
-        material_to_i32(mat)
-    }
-}
-
-/// SurfaceMaterial → GDScript 材质索引
-fn material_to_i32(mat: woworld_core::material::SurfaceMaterial) -> i32 {
+fn material_color(mat: woworld_core::material::SurfaceMaterial, height: f32) -> Color {
     use woworld_core::material::SurfaceMaterial::*;
     match mat {
-        Grass => 0,
-        Sand => 1,
-        Rock => 2,
-        Stone => 3,
-        Wood => 4,
-        Metal => 5,
-        Water => 6,
-        Ice => 7,
-        Mud => 8,
-        Snow => 9,
-        Gravel => 10,
-        Clay => 11,
-        Moss => 12,
-        LeafLitter => 13,
-        Cobblestone => 14,
-        Marble => 15,
-        Glass => 16,
-        Fabric => 17,
-        Thatch => 18,
-        Bone => 19,
-        Flesh => 20,
+        Water => Color::from_rgb(0.1, 0.3, 0.8),
+        Sand => Color::from_rgb(0.76, 0.7, 0.5),
+        Grass => {
+            if height > 100.0 {
+                Color::from_rgb(0.2, 0.55, 0.2)
+            } else {
+                Color::from_rgb(0.3, 0.65, 0.25)
+            }
+        }
+        Rock => Color::from_rgb(0.45, 0.42, 0.38),
+        Stone => Color::from_rgb(0.35, 0.35, 0.35),
+        Gravel => Color::from_rgb(0.5, 0.45, 0.4),
+        Snow => Color::from_rgb(0.95, 0.95, 0.95),
+        Ice => Color::from_rgb(0.9, 0.95, 1.0),
+        Mud => Color::from_rgb(0.4, 0.3, 0.2),
+        _ => Color::from_rgb(0.4, 0.5, 0.3),
     }
 }

@@ -15,6 +15,14 @@ pub struct HeightfieldTerrain {
     noise: WorldNoise,
 }
 
+impl Default for HeightfieldTerrain {
+    fn default() -> Self {
+        Self {
+            noise: WorldNoise::new(42),
+        }
+    }
+}
+
 impl HeightfieldTerrain {
     pub fn new(seed: u32) -> Self {
         Self {

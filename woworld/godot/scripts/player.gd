@@ -1,25 +1,23 @@
 extends CharacterBody3D
 ## 玩家控制器 — WASD 移动 + 鼠标环顾 + Space 跳跃
+## 用 Input.get_vector 配合 UI action，不依赖 Input Map 预配置
 
-@export var speed: float = 8.0
-@export var jump_velocity: float = 5.0
-@export var mouse_sensitivity: float = 0.003
-@export var gravity: float = 20.0
+const SPEED: float = 8.0
+const JUMP_VELOCITY: float = 5.0
+const MOUSE_SENS: float = 0.003
+const GRAVITY: float = 20.0
 
 var _mouse_captured: bool = false
 
 func _ready():
-	# 捕获鼠标
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	_mouse_captured = true
 
 func _input(event):
 	if event is InputEventMouseMotion and _mouse_captured:
-		# 水平旋转 (Y 轴) — 整个 Player 旋转
-		rotate_y(-event.relative.x * mouse_sensitivity)
-		# 垂直旋转 (X 轴) — 仅 Camera 旋转，限制角度
+		rotate_y(-event.relative.x * MOUSE_SENS)
 		var cam = $Camera3D
-		cam.rotate_x(-event.relative.y * mouse_sensitivity)
+		cam.rotate_x(-event.relative.y * MOUSE_SENS)
 		cam.rotation.x = clamp(cam.rotation.x, deg_to_rad(-89), deg_to_rad(89))
 
 	if event is InputEventKey and event.pressed:
@@ -32,27 +30,26 @@ func _input(event):
 				_mouse_captured = true
 
 func _physics_process(delta):
-	# 重力
 	if not is_on_floor():
-		velocity.y -= gravity * delta
+		velocity.y -= GRAVITY * delta
 
-	# 跳跃
-	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = jump_velocity
+	if Input.is_key_pressed(KEY_SPACE) and is_on_floor():
+		velocity.y = JUMP_VELOCITY
 
-	# WASD 移动
-	var input_dir = Input.get_vector("left", "right", "forward", "backward")
+	# WASD — 直接读按键，不依赖 Input Map
+	var input_dir = Vector2.ZERO
+	if Input.is_key_pressed(KEY_W): input_dir.y -= 1.0
+	if Input.is_key_pressed(KEY_S): input_dir.y += 1.0
+	if Input.is_key_pressed(KEY_A): input_dir.x -= 1.0
+	if Input.is_key_pressed(KEY_D): input_dir.x += 1.0
+
 	var direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 
 	if direction:
-		velocity.x = direction.x * speed
-		velocity.z = direction.z * speed
+		velocity.x = direction.x * SPEED
+		velocity.z = direction.z * SPEED
 	else:
-		velocity.x = move_toward(velocity.x, 0, speed)
-		velocity.z = move_toward(velocity.z, 0, speed)
+		velocity.x = move_toward(velocity.x, 0, SPEED)
+		velocity.z = move_toward(velocity.z, 0, SPEED)
 
 	move_and_slide()
-
-	# 玩家 Y 跟随地形高度
-	if is_on_floor():
-		pass  # 未来: raycast 查询 HeightfieldTerrain

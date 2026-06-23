@@ -12,6 +12,7 @@ config_version=5
 
 config/name="WoWorld"
 config/version="0.1.0"
+run/main_scene="uid://main001"
 config/features=PackedStringArray("4.7")
 
 [physics]

@@ -1,0 +1,11 @@
+[package]
+name = "woworld_core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+# 核心 crate 保持最少依赖
+# glam: SIMD 加速向量/矩阵运算（f32 Vec3/Quat + f64 DVec3）
+glam = { version = "0.28", features = ["bytemuck", "serde"] }

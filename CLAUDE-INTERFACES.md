@@ -117,7 +117,7 @@
 | 市场权力 (PowerAtom/MarketAuthority) | **经济系统** `006` | 政治系统(待)/法律系统(待) | 权力=PowerAtom集合(~15种原子操作)。四种来源(正式/购买/事实垄断/暴力)。玩家和NPC走同一exercise_power() |
 | 行为经济学×NPC心智映射 | **经济系统** `007` | NPC | 十个行为经济学概念全部从NPC已有字段派生——**不新增人格维度**。EconomicCognition为计算缓存(从人格×技能×经验派生) |
 | 货币总量 (MoneySupply) | **经济系统** `008` | 世界生成/物品系统 | 三条管道(铸币/消费回收/跨区流动)。五大自动稳定器。货币总量增速与商品总量增速对齐 |
-| 职业标签 (ProfessionTag) | **世界生成**(初始分配)/**NPC身份系统**(运行时) | 经济系统(消费收入来源类型) | ~80-100个原子标签——TOML数据驱动+预留新增接口。proficiency从技能系统派生。任意2-4个排列组合→职业涌现。incongruity标记不寻常组合(不阻止) |
+| 职业标签 (ProfessionTag) | **经济系统**(概念Owner——TOML schema/标签目录/incongruity规则) · 类型定义在 **woworld_core** (`ProfessionTagId(u32)`) | 世界生成(P8初始分配)·NPC身份系统(运行时维护)·技能系统(proficiency派生) | ★ CHG-061: ~80-100个原子标签——TOML数据驱动+预留新增接口。任意2-4个排列组合→职业涌现。proficiency从技能系统派生。incongruity标记不寻常组合(不阻止)。类型与其他ID并列woworld_core。 |
 | LLM经济增强 | **经济系统** `009` | 语言表达系统 | LLM不参与任何经济计算。结构化数据注入→自然语言包装。模板回退覆盖100%事件类型 |
 
 ## CHG-023 新增契约（权力系统 v1.0）
@@ -222,8 +222,8 @@
 | libido (Vitals) | **Life.Vitals** | NPC Physiology(直通)、概率决策器 | bio-signal——非生存生命值。归零不死亡。周期波动由 LibidoType 决定 |
 | blood_element_ratio[8] | **Life.RaceTraits** | Life(ingest_food 瓶颈模型)、(预留)Magic | 种族血元素的八元素合成配比。种子生成，Σ≈1.0 |
 | libido_type / libido_cycle_days | **Life.RaceTraits** | Life(compute_libido) | 三种周期模式：Continuous(持续型)/Seasonal(季节型)/EventTriggered(触发型) |
-| social_deficit | **NPC.NpcData** | NPC 决策器(need_action_match)、情绪引擎 | 心理状态——不是生物性的,不属于 Physiology。累积+0.02/游戏日,社交互动恢复-0.03~0.15 |
-| NeedSensitivity | **NPC.NpcData** | NPC 决策器(need_action_match) | 大五人格一次性派生——终身不变。★ v2.0: 8 个 f32 字段覆盖 hunger/thirst/fatigue/element_balance/libido/social/esteem/competence |
+| social_deficit | **03-基本需求.NeedColumn** (SoA) | NPC 决策器(need_action_match)、情绪引擎、跨需求耦合 | 心理状态——不是生物性的,不属于 Physiology。累积+0.02/游戏日,社交互动恢复-0.03~0.15。★ v1.1 方案D: 从 NpcData AoS 迁移至独立 SoA 列族 |
+| NeedSensitivity | **03-基本需求.NeedColumn** (SoA) | NPC 决策器(need_action_match)、04-进阶需求(frustration_regression) | 大五人格一次性派生——终身不变。★ v2.0: 8 个 f32 字段覆盖 hunger/thirst/fatigue/element_balance/libido/social/esteem/competence。★ v1.1 方案D: 从 NpcData 迁移至 NeedColumn |
 | need_action_match | **NPC 决策器** | 概率决策器权重链 | 替代 physiology_modifier——统一 7 维需求的 urgency→行动权重映射。公式: avg_urgency×sensitivity → 权重 1.0~2.0 |
 | element_balance_urgency | **NPC.Physiology** | NPC 决策器、情绪引擎 | 从 Vitals.element_surplus 派生：max(surplus)×0.5 + avg(surplus)×0.5 |
 | GOAP 安全网边界 | **NPC GOAP** | 全部模块 | 基本需求系统**不修改 GOAP** ——只有 survival 需求(hunger/thirst/fatigue/health/combat)进安全网。新增元素平衡/libido/social 不进 |
@@ -233,11 +233,12 @@
 
 | 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
 |------|-----------|-------------------|---------|
-| `esteem_deficit` | **NPC.NpcData** | NPC 决策器(need_action_match)、情绪引擎 | 心理状态——不入 Life.Vitals。+0.01/游戏日被动累积，社交钦佩事件恢复。**零新跨模块推送**——钦佩信号从已有社交管道检测 |
-| `competence_frustration` | **NPC.NpcData** | NPC 决策器、情绪引擎、SelfNarrative | Allostatic 模型——设定点 = aspiration skill gap。每游戏日更新。无 SkillMastery aspiration → 恒为 0。通过 `npc.skills` 内部查询 |
+| `esteem_deficit` | **04-进阶需求.GrowthColumn** (SoA) | NPC 决策器(need_action_match)、情绪引擎、社交系统(detect_admiration)、SelfNarrative | 心理状态——不入 Life.Vitals。+0.01/游戏日被动累积，社交钦佩事件恢复。**零新跨模块推送**——钦佩信号从已有社交管道检测。★ v2.1 方案D: 从 NpcData AoS 迁移至独立 SoA 列族 |
+| `competence_frustration` | **04-进阶需求.GrowthColumn** (SoA) | NPC 决策器、情绪引擎、SelfNarrative、每日更新(update_competence_frustration) | Allostatic 模型——设定点 = aspiration skill gap。每游戏日更新。无 SkillMastery aspiration → 恒为 0。通过 `npc.skills` 内部查询。★ v2.1 方案D: 从 NpcData AoS 迁移至独立 SoA 列族 |
+| `competence_frustration_chronic_days` | **04-进阶需求.GrowthColumn** (SoA) | 每日更新(update_competence_frustration)、决策器(chronic factor) | 慢性追踪——gap>0.3的天数。>30天→×1.5放大。|
 | `honor_weight_for_domain()` | **文化系统**（CultureQueryExt 新增方法） | NPC 模块（esteem 计算） | ★ **唯一新跨模块方法**。`domain_code: u8` 参数——零类型依赖。从已有 CultureCoreParams 派生——零新存储 |
-| `NeedSensitivity::esteem` | **NPC 模块** | NPC 决策器 | `0.2 + E×0.5 + (1-A)×0.3`。终身不变 |
-| `NeedSensitivity::competence` | **NPC 模块** | NPC 决策器 | `0.2 + C×0.5 + N×0.3`。终身不变 |
+| `NeedSensitivity::esteem` | **03-基本需求.NeedColumn** (SoA) | NPC 决策器 | `0.2 + E×0.5 + (1-A)×0.3`。终身不变。公式由 04 定义，存储于 NeedColumn——与 NeedSensitivity 其他 6 字段同列 |
+| `NeedSensitivity::competence` | **03-基本需求.NeedColumn** (SoA) | NPC 决策器 | `0.2 + C×0.5 + N×0.3`。终身不变。公式由 04 定义，存储于 NeedColumn |
 | `survival_suppression()` | **NPC 模块**（概率权重链内部） | 仅概率引擎 | sigmoid `1/(1+e^(10(x-0.7)))`——软衰减。**不影响 GOAP** |
 | `frustration_regression()` | **NPC 模块**（决策预处理） | NeedSensitivity 临时调制 | avg_frustration > 0.6 触发——ERG 挫折回归。社交+50%/尊重+40%/饥饿+30%/libido+25%。**不持久化** |
 | `intrinsic_motivation_weight()` | **NPC 模块**（权重链） | 仅概率引擎 | `∏(1 + relevance×commitment×0.5)`, clamp [1,3]。relevance 为纯函数——可编译时优化 |
@@ -250,7 +251,7 @@
 |------|-----------|-------------------|---------|
 | `AestheticSignal` (6维) | **审美系统** `05` | 全部模块（通过 HasAestheticSignal trait） | 审美模块只定义 struct——各实体模块在 trait impl 中计算。6维: fluency/novelty/complexity/harmony/expressiveness/virtuosity |
 | `AestheticJudgment` (4维) | **审美系统** `05` | NPC/经济/战斗/情绪 | judge() 纯函数输出——零副作用。4维: valence/arousal/interest/respect |
-| `AestheticTaste` | **审美系统** `05`（定义+派生公式）→ **NPC 模块**（存储于 NpcData） | NPC 决策器/情绪引擎 | 对标 ReligiousPracticeProfile 模式。32B Copy 类型。青春期 derive_taste()，年更新 mature_taste()，Adopt 事件传播 |
+| `AestheticTaste` | **05-审美与艺术.TasteColumn** (SoA) | NPC 决策器/情绪引擎（通过 `judge()` 间接消费——不直接读 taste 字段） | 40B Copy 类型。青春期 derive_taste()，年更新 mature_taste()，Adopt 事件传播。★ v1.1 方案D: 从 NpcData AoS 迁移至独立 SoA 列族 |
 | `HasAestheticSignal` trait | **审美系统** `05`（定义）→ 各模块（实现） | 全部 | 12 个实现者覆盖 ItemEntId/BuildingId/CreatureId/NpcId/VehicleId/ScenePosition/PerformanceRef/SkillActionRef/CombatExchangeRef/SpellCastRef/MagicConstructRef/RitualRef。对标 ConsumableEffect schema 模式 |
 | `judge()` 纯函数 | **审美系统** `05` | 任何模块 | 零副作用、零 I/O、零分配。确定性 jitter（seed=hash 三元组，存档可复现）。三层门控：注意力层→judge()层(全精度)→效应层(React/Articulate 调制) |
 | `AestheticContext` | **审美系统** `05`（定义）→ 调用方（NPC 感知系统组装） | judge() | familiarity/prior_expectation 由调用方从记忆/文化/物品系统查询后填入——审美模块不查询任何模块 |
@@ -330,15 +331,18 @@
 
 | 契约 | Owner | 消费方 | 关键约定 |
 |------|-------|--------|---------|
-| `CognitiveStyle` | **认知系统**（定义 struct + 派生逻辑）→ **NPC NpcData**（存储） | 决策引擎/MentalModel消化/ThoughtTrigger | 4维（直觉-分析/冲动-反思/具象-抽象/顽固-灵活），从BigFive+wisdom+经历派生，含阻尼年度更新。对标AestheticTaste模式 |
-| `CognitiveTide` | **认知系统**（定义 struct + 每决策周期更新）→ **NPC NpcData**（存储） | 决策引擎/ThinkingCheck | 3维（负载/反刍压力/安静度），对标Physiology从Vitals派生模式。漫游驱动派生不存储 |
+| `CognitiveStyle` | **06-认知与智慧.CognitionColumn** (SoA, HOT) | 决策引擎/MentalModel消化/ThoughtTrigger | 4维（直觉-分析/冲动-反思/具象-抽象/顽固-灵活），从BigFive+wisdom+经历派生，含阻尼年度更新。★ v1.1 方案D: 从 NpcData AoS 迁移至 CognitionColumn |
+| `CognitiveTide` | **06-认知与智慧.CognitionColumn** (SoA, HOT) | 决策引擎/ThinkingCheck/AgentSnapshot | 3维（负载/反刍压力/安静度），每决策周期重算但持久化以保证连续。★ v1.1 方案D: 从 NpcData AoS 迁移至 CognitionColumn |
 | `CognitiveBiases` | **认知系统**（定义纯函数·惰性计算）→ **MentalModel消化**（消费） | 微消化/宏消化/assess_and_integrate | 7种偏误完全从CognitiveStyle+Emotion+Tide派生。零存储——对标Physiology::from_vitals() |
-| `MentalModel` | **认知系统**（定义 struct·≤20条上限）→ **NPC NpcData**（存储） | 决策引擎(权重调制)/语言表达(WisdomSharing)/历史系统(MentalModelRecord)/技能系统(DeepMentorship) | ≤20条(~1.6KB)。跨代传递6路径全部通过已有通道。自有归纳/消化/融合/放弃管线。置信度贝叶斯更新 |
+| `MentalModel` | **06-认知与智慧.CognitionColumn** (SoA, COLD) | 决策引擎(权重调制)/语言表达(WisdomSharing)/历史系统(MentalModelRecord)/技能系统(DeepMentorship) | ≤20条(~2.4KB)。跨代传递6路径全部通过已有通道。★ v1.1 方案D: 从 NpcData AoS 迁移至 CognitionColumn |
 | `ThoughtFragment` | **认知系统**（惰性生成·仅玩家15m内）→ **Godot渲染**（已有通道） | 非语言表达/字幕/物品创建/对话 | 3级清晰度。片段组合模型(~200-300模板)。CognitiveStyle选择表达模式。产生SurfacingType→已有API调用 |
-| `MindAttribution` | **认知系统**（定义 struct·≤16条上限）→ **NPC NpcData**（存储） | 决策引擎/对话系统/欺骗检测 | ≤16条(~960B)。Theory of Mind归因。4种来源(TargetStated/Observed/ToldByThird/Inferred) |
+| `MindAttribution` | **06-认知与智慧.CognitionColumn** (SoA, WARM) | 决策引擎/对话系统/欺骗检测 | ≤16条(~960B)。Theory of Mind归因。4种来源(TargetStated/Observed/ToldByThird/Inferred)。★ v1.1 方案D: 从 NpcData AoS 迁移至 CognitionColumn |
+| `BeliefHistory` | **06-认知与智慧.CognitionColumn** (SoA, COLDEST) | SelfNarrative/叙事系统 | ≤16条(~768B)。信念演变里程碑。★ v1.1 方案D: 从 NpcData AoS 迁移至 CognitionColumn |
+| `mental_model_creation_count` | **06-认知与智慧.CognitionColumn** (SoA, COLD) | 07-生命周期(cognitive_engagement_score) | u32。try_induce_pattern()/creative_leap() 成功时递增。★ v1.1 方案D: 从 NpcData AoS 迁移至 CognitionColumn |
+| `chronic_intoxication_years` | **06-认知与智慧.CognitionColumn** (SoA) ↔ 07-生命周期(写入) | 07-生命周期(health_burden) | f32。年均更新。★ v1.1 方案D: 从 NpcData AoS 迁移至 CognitionColumn。跨模块写入方：07-生命周期 |
 | `SleepCognitiveProcessing` | **认知系统**（定义纯函数·睡眠结束时调用）→ **NPC**（内存/情绪/模型修改） | 记忆/情绪/mental_models | 对标SelfNarrative::reflect()。过拟合大脑假说框架。经验窄度→自适应梦境荒诞度。睡眠质量6因子派生——零新trait |
 | `InnovationPipeline` | **认知系统**（定义6阶段纯函数管线）→ **各领域系统**（消费构造参数） | 战斗/魔法/艺术/建筑/工艺/社会 | formalize_innovation() 返回数据参数——不返回领域crate类型。领域crate已有一切构造API |
-| `cognitive_distress` | **认知系统**（定义派生公式·每游戏日更新）→ **NPC NpcData**（存储1f32） | CognitiveBreak检测/决策随机性 | 完全派生(矛盾+反刍+停滞+神经质)。对标SelfNarrative.stagnation_sense |
+| `cognitive_distress` | **06-认知与智慧.CognitionColumn** (SoA, HOT) | CognitiveBreak检测/决策随机性 | 完全派生(矛盾+反刍+停滞+神经质)。每游戏日更新。★ v1.1 方案D: 从 NpcData AoS 迁移至 CognitionColumn |
 
 ### 已有CHG兼容性
 

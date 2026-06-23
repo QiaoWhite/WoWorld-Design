@@ -96,6 +96,7 @@ CHG-XXX-简短描述-YYYYMMDD.md
 | CHG-058 | [CHG-058-NPC认知系统自审修正-20260622.md](CHG-058-NPC认知系统自审修正-20260622.md) | 2026-06-22 | NPC认知系统 v1.1 自审修正：MentalModel评估管道·慢性中毒追踪·玩家话语→NPC信念桥接·cognitive_aging三函数派生（crystallized_factor+cognitive_engagement_score+health_burden→pathological_annual_degradation）·PrenatalAccumulator交互·决策点counterfactual_regret·内部一致性审计 | 完成 |
 | CHG-059 | [CHG-059-NPC认知v1.1传播审计-20260622.md](CHG-059-NPC认知v1.1传播审计-20260622.md) | 2026-06-22 | NPC认知v1.1全模块传播审计——8大修正·PatternExpression+MentalModel+认知老化+群集心理+认知潮汐+修辞能力+counterfactual_regret+玩家话语认知管道·CLAUDE-INTERFACES.md全面同步 | 完成 |
 | CHG-060 | [CHG-060-开发路线图优化-20260622.md](CHG-060-开发路线图优化-20260622.md) | 2026-06-22 | 开发路线图优化（/grill-me 17问审核）——四轨重定义·NPC L4拉入原型·AgentSnapshot归属core·属性注册表升格·孤儿接口修复·CLAUDE-INTERFACES.md同步·Phase 1-4修正 | 完成 |
+| CHG-061 | [CHG-061-轨C孤儿接口修复-20260624.md](CHG-061-轨C孤儿接口修复-20260624.md) | 2026-06-24 | 轨C 孤儿接口修复——ProfessionTag所有权理顺（类型→woworld_core·概念Owner=经济）+ 12文档脱节补全（WorldGen/AgeClock+InfantDependency+PlantSpecies·Skills/InnovationPipeline·跨模块进口8项）·CLAUDE-INTERFACES.md同步·接头总览更新 | 完成 |
 
 ---
 
@@ -134,4 +135,4 @@ CHG-XXX-简短描述-YYYYMMDD.md
 
 > **注意**：`开发阶段/Change/` 文件夹中包含早期变更记录（NPC 数量目标变更），后续所有变更请使用此顶层 Change 文件夹。
 
-> **最后更新**: 2026-06-22 — CHG-057/058/059/060 已登记。CHG-060 开发路线图优化（/grill-me 17问审核）——四轨重定义·AgentSnapshot归属core·孤儿接口修复·CLAUDE-INTERFACES.md同步。
+> **最后更新**: 2026-06-24 — CHG-061 已登记。CHG-061 轨C 孤儿接口修复——ProfessionTag 所有权理顺 + 12 文档脱节补全。

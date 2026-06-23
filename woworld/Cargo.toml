@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/woworld_core",
+    "crates/woworld_spatial",
+    "crates/woworld_godot",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT"
+
+[profile.release]
+lto = "fat"           # 链接时优化，跨 crate 边界内联
+codegen-units = 1     # 单代码生成单元，最大化优化（编译时间换运行性能）
+panic = "abort"       # panic 直接终止，无栈展开开销（减二进制 5-15%，热路径提速 5-20%）
+debug = true          # 保留调试符号，用于火焰图/性能分析
+overflow-checks = false

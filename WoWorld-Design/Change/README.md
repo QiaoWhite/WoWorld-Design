@@ -97,6 +97,7 @@ CHG-XXX-简短描述-YYYYMMDD.md
 | CHG-059 | [CHG-059-NPC认知v1.1传播审计-20260622.md](CHG-059-NPC认知v1.1传播审计-20260622.md) | 2026-06-22 | NPC认知v1.1全模块传播审计——8大修正·PatternExpression+MentalModel+认知老化+群集心理+认知潮汐+修辞能力+counterfactual_regret+玩家话语认知管道·CLAUDE-INTERFACES.md全面同步 | 完成 |
 | CHG-060 | [CHG-060-开发路线图优化-20260622.md](CHG-060-开发路线图优化-20260622.md) | 2026-06-22 | 开发路线图优化（/grill-me 17问审核）——四轨重定义·NPC L4拉入原型·AgentSnapshot归属core·属性注册表升格·孤儿接口修复·CLAUDE-INTERFACES.md同步·Phase 1-4修正 | 完成 |
 | CHG-061 | [CHG-061-轨C孤儿接口修复-20260624.md](CHG-061-轨C孤儿接口修复-20260624.md) | 2026-06-24 | 轨C 孤儿接口修复——ProfessionTag所有权理顺（类型→woworld_core·概念Owner=经济）+ 12文档脱节补全（WorldGen/AgeClock+InfantDependency+PlantSpecies·Skills/InnovationPipeline·跨模块进口8项）·CLAUDE-INTERFACES.md同步·接头总览更新 | 完成 |
+| CHG-062 | [CHG-062-UI与UX系统创建-20260624.md](CHG-062-UI与UX系统创建-20260624.md) | 2026-06-24 | 轨B UI/UX 系统创建——6篇799行（信息架构+HUD+对话+面板+接口性能预算）。grill-me 4项裁决。L0-L3信息层级。双输入映射。 | 完成 |
 
 ---
 
@@ -135,4 +136,4 @@ CHG-XXX-简短描述-YYYYMMDD.md
 
 > **注意**：`开发阶段/Change/` 文件夹中包含早期变更记录（NPC 数量目标变更），后续所有变更请使用此顶层 Change 文件夹。
 
-> **最后更新**: 2026-06-24 — CHG-061 已登记。CHG-061 轨C 孤儿接口修复——ProfessionTag 所有权理顺 + 12 文档脱节补全。
+> **最后更新**: 2026-06-24 — CHG-062 已登记。CHG-062 轨B UI/UX 系统创建——6篇799行。

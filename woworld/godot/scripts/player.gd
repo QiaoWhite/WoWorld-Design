@@ -30,13 +30,23 @@ func _input(event):
 				_mouse_captured = true
 
 func _physics_process(delta):
-	if not is_on_floor():
+	# 查询地形高度
+	var terrain = get_node_or_null("../TerrainChunk")
+	var ground_h: float = 0.0
+	if terrain and terrain.has_method("query_height"):
+		ground_h = terrain.query_height(global_position.x, global_position.z)
+	else:
+		ground_h = global_position.y - 10.0  # 回退
+
+	var on_ground = global_position.y <= ground_h + 1.8
+
+	if not on_ground:
 		velocity.y -= GRAVITY * delta
 
-	if Input.is_key_pressed(KEY_SPACE) and is_on_floor():
+	if Input.is_key_pressed(KEY_SPACE) and on_ground:
 		velocity.y = JUMP_VELOCITY
 
-	# WASD — 直接读按键，不依赖 Input Map
+	# WASD
 	var input_dir = Vector2.ZERO
 	if Input.is_key_pressed(KEY_W): input_dir.y -= 1.0
 	if Input.is_key_pressed(KEY_S): input_dir.y += 1.0
@@ -53,3 +63,8 @@ func _physics_process(delta):
 		velocity.z = move_toward(velocity.z, 0, SPEED)
 
 	move_and_slide()
+
+	# 贴地
+	if global_position.y < ground_h + 1.7:
+		global_position.y = ground_h + 1.7
+		velocity.y = 0.0

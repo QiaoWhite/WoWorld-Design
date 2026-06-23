@@ -2,7 +2,7 @@
 //!
 //! 在 Rust 侧生成地形网格，通过 GDExtension 直接构建 Godot ArrayMesh。
 
-use godot::classes::base_material_3d::{Flags, ShadingMode};
+use godot::classes::base_material_3d::{CullMode, Flags, ShadingMode};
 use godot::classes::mesh::PrimitiveType;
 use godot::classes::{ArrayMesh, MeshInstance3D, StandardMaterial3D};
 use godot::prelude::*;
@@ -29,13 +29,13 @@ impl INode3D for TerrainChunk {
             detail_scale: 0.02,
             mountain_scale: 0.002,
             sea_threshold: -0.5,
-            height_amplitude: 350.0,
-            sea_depth: 50.0,
+            height_amplitude: 80.0,
+            sea_depth: 30.0,
         };
         self.terrain = HeightfieldTerrain::with_noise(WorldNoise::with_params(42, params));
 
-        let grid_size: i32 = 128;
-        let spacing: f64 = 4.0;
+        let grid_size: i32 = 256;
+        let spacing: f64 = 2.0;
         let origin_x: f64 = -256.0;
         let origin_z: f64 = -256.0;
 
@@ -105,6 +105,7 @@ impl INode3D for TerrainChunk {
         let mut mat = StandardMaterial3D::new_gd();
         mat.set_flag(Flags::ALBEDO_FROM_VERTEX_COLOR, true);
         mat.set_shading_mode(ShadingMode::UNSHADED);
+        mat.set_cull_mode(CullMode::DISABLED);
 
         let mut terrain_instance = MeshInstance3D::new_alloc();
         terrain_instance.set_name("GeneratedTerrain");
@@ -123,24 +124,43 @@ impl INode3D for TerrainChunk {
     }
 }
 
+#[godot_api]
+impl TerrainChunk {
+    /// GDScript 调用：查询 (x, z) 处地形高度
+    #[func]
+    fn query_height(&self, x: f64, z: f64) -> f32 {
+        let pos = WorldPos { x, y: 0.0, z };
+        self.terrain.height_at(pos)
+    }
+}
+
 fn material_color(mat: woworld_core::material::SurfaceMaterial, height: f32) -> Color {
     use woworld_core::material::SurfaceMaterial::*;
     match mat {
-        Water => Color::from_rgb(0.1, 0.3, 0.8),
-        Sand => Color::from_rgb(0.76, 0.7, 0.5),
-        Grass => {
-            if height > 100.0 {
-                Color::from_rgb(0.2, 0.55, 0.2)
+        Water => {
+            // 无真实水面时，水材质映射为湿地色
+            if height < -20.0 {
+                Color::from_rgb(0.3, 0.4, 0.5) // 深海蓝灰
             } else {
-                Color::from_rgb(0.3, 0.65, 0.25)
+                Color::from_rgb(0.55, 0.6, 0.45) // 浅滩湿地绿
             }
         }
-        Rock => Color::from_rgb(0.45, 0.42, 0.38),
-        Stone => Color::from_rgb(0.35, 0.35, 0.35),
-        Gravel => Color::from_rgb(0.5, 0.45, 0.4),
+        Sand => Color::from_rgb(0.76, 0.7, 0.5),
+        Grass => {
+            if height > 150.0 {
+                Color::from_rgb(0.25, 0.5, 0.2) // 高山暗绿
+            } else if height > 50.0 {
+                Color::from_rgb(0.3, 0.6, 0.25) // 丘陵
+            } else {
+                Color::from_rgb(0.35, 0.7, 0.3) // 低地鲜绿
+            }
+        }
+        Rock => Color::from_rgb(0.5, 0.45, 0.4),
+        Stone => Color::from_rgb(0.4, 0.4, 0.4),
+        Gravel => Color::from_rgb(0.55, 0.5, 0.45),
         Snow => Color::from_rgb(0.95, 0.95, 0.95),
-        Ice => Color::from_rgb(0.9, 0.95, 1.0),
-        Mud => Color::from_rgb(0.4, 0.3, 0.2),
+        Ice => Color::from_rgb(0.85, 0.9, 0.95),
+        Mud => Color::from_rgb(0.45, 0.35, 0.25),
         _ => Color::from_rgb(0.4, 0.5, 0.3),
     }
 }

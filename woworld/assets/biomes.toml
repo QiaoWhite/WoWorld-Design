@@ -1,0 +1,72 @@
+# WoWorld 5 群系系统
+# 温度×降水 2D 噪声 → 地表材质映射
+#
+# climate_scale: 气候噪声波长 (默认 0.0005 ≈ 2km)
+#   调大 → 群系区域更大; 调小 → 变化更频繁
+climate_scale = 0.005
+
+# ── 雪原 ─────────────────────────────────
+[[biome]]
+name = "Snowfield"
+temp_min = 0.0
+temp_max = 0.3
+precip_min = 0.0
+precip_max = 0.5
+surface_material = "Snow"
+sub_materials = [
+    { material = "Ice", weight = 0.2, condition = "steep" },
+    { material = "Rock", weight = 0.15, condition = "high" },
+]
+
+# ── 草原 ─────────────────────────────────
+[[biome]]
+name = "Grassland"
+temp_min = 0.3
+temp_max = 0.7
+precip_min = 0.2
+precip_max = 0.6
+surface_material = "Grass"
+sub_materials = [
+    { material = "Mud", weight = 0.1, condition = "low" },
+    { material = "Rock", weight = 0.05, condition = "steep" },
+]
+
+# ── 森林 ─────────────────────────────────
+[[biome]]
+name = "Forest"
+temp_min = 0.3
+temp_max = 0.7
+precip_min = 0.6
+precip_max = 0.9
+surface_material = "Moss"
+sub_materials = [
+    { material = "LeafLitter", weight = 0.5, condition = "flat" },
+    { material = "Mud", weight = 0.2, condition = "low" },
+    { material = "Rock", weight = 0.1, condition = "steep" },
+]
+
+# ── 沙漠 ─────────────────────────────────
+[[biome]]
+name = "Desert"
+temp_min = 0.7
+temp_max = 1.0
+precip_min = 0.0
+precip_max = 0.2
+surface_material = "Sand"
+sub_materials = [
+    { material = "Rock", weight = 0.15, condition = "steep" },
+    { material = "Gravel", weight = 0.2, condition = "flat" },
+]
+
+# ── 沼泽 ─────────────────────────────────
+[[biome]]
+name = "Swamp"
+temp_min = 0.3
+temp_max = 0.7
+precip_min = 0.7
+precip_max = 1.0
+surface_material = "Mud"
+sub_materials = [
+    { material = "Moss", weight = 0.3, condition = "any" },
+    { material = "Water", weight = 0.2, condition = "low" },
+]

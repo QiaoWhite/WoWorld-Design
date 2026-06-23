@@ -16,6 +16,7 @@ pub struct NoiseParams {
     pub sea_threshold: f64,    // 默认 0.3 (海:陆≈7:3)
     pub height_amplitude: f64, // 默认 350.0 (最高~700m)
     pub sea_depth: f64,        // 默认 200.0 (最深-200m)
+    pub climate_scale: f64,    // 默认 0.0005 (~2km 波长, 温度/降水噪声)
 }
 
 impl Default for NoiseParams {
@@ -27,6 +28,7 @@ impl Default for NoiseParams {
             sea_threshold: 0.3,
             height_amplitude: 350.0,
             sea_depth: 200.0,
+            climate_scale: 0.0005,
         }
     }
 }
@@ -37,6 +39,8 @@ pub struct WorldNoise {
     continent: Perlin,
     detail: Perlin,
     mountain: Perlin,
+    temperature: Perlin,
+    precipitation: Perlin,
     pub params: NoiseParams,
 }
 
@@ -47,6 +51,8 @@ impl WorldNoise {
             continent: Perlin::new(seed),
             detail: Perlin::new(seed.wrapping_add(1)),
             mountain: Perlin::new(seed.wrapping_add(2)),
+            temperature: Perlin::new(seed.wrapping_add(3)),
+            precipitation: Perlin::new(seed.wrapping_add(4)),
             params: NoiseParams::default(),
         }
     }
@@ -56,6 +62,8 @@ impl WorldNoise {
             continent: Perlin::new(seed),
             detail: Perlin::new(seed.wrapping_add(1)),
             mountain: Perlin::new(seed.wrapping_add(2)),
+            temperature: Perlin::new(seed.wrapping_add(3)),
+            precipitation: Perlin::new(seed.wrapping_add(4)),
             params,
         }
     }
@@ -100,6 +108,23 @@ impl WorldNoise {
             let sea_factor = (p.sea_threshold - continent_val) / (p.sea_threshold + 1.0); // 0→1 越远离海岸越深
             -sea_factor * p.sea_depth
         }
+    }
+
+    /// 采样 (x, z) 处的归一化温度 (0.0 = 极寒, 1.0 = 酷热)
+    pub fn sample_temperature(&self, x: f64, z: f64) -> f64 {
+        let raw = self
+            .temperature
+            .get([x * self.params.climate_scale, z * self.params.climate_scale]);
+        // Perlin ∈ [-1, 1] → [0, 1]
+        (raw + 1.0) * 0.5
+    }
+
+    /// 采样 (x, z) 处的归一化降水 (0.0 = 极旱, 1.0 = 极湿)
+    pub fn sample_precipitation(&self, x: f64, z: f64) -> f64 {
+        let raw = self
+            .precipitation
+            .get([x * self.params.climate_scale, z * self.params.climate_scale]);
+        (raw + 1.0) * 0.5
     }
 }
 
@@ -154,5 +179,45 @@ mod tests {
         // 高度范围合理
         assert!(min_h >= -250.0, "min too low: {}", min_h);
         assert!(max_h <= 800.0, "max too high: {}", max_h);
+    }
+
+    #[test]
+    fn test_temperature_range() {
+        let n = WorldNoise::new(42);
+        for x in 0..100 {
+            for z in 0..100 {
+                let t = n.sample_temperature(x as f64 * 50.0, z as f64 * 50.0);
+                assert!(t >= 0.0 && t <= 1.0, "temperature out of [0,1]: {}", t);
+            }
+        }
+    }
+
+    #[test]
+    fn test_precipitation_range() {
+        let n = WorldNoise::new(42);
+        for x in 0..100 {
+            for z in 0..100 {
+                let p = n.sample_precipitation(x as f64 * 50.0, z as f64 * 50.0);
+                assert!(p >= 0.0 && p <= 1.0, "precipitation out of [0,1]: {}", p);
+            }
+        }
+    }
+
+    #[test]
+    fn test_climate_deterministic() {
+        let n1 = WorldNoise::new(42);
+        let n2 = WorldNoise::new(42);
+        for x in (0..100).step_by(10) {
+            for z in (0..100).step_by(10) {
+                assert_eq!(
+                    n1.sample_temperature(x as f64, z as f64),
+                    n2.sample_temperature(x as f64, z as f64)
+                );
+                assert_eq!(
+                    n1.sample_precipitation(x as f64, z as f64),
+                    n2.sample_precipitation(x as f64, z as f64)
+                );
+            }
+        }
     }
 }

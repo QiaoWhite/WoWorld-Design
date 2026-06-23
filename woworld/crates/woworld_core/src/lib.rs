@@ -8,11 +8,13 @@
 pub mod id;
 pub mod material;
 pub mod spatial;
+pub mod time;
 pub mod types;
 
 /// 常用类型统一导入
 pub mod prelude {
     pub use crate::id::*;
     pub use crate::material::*;
+    pub use crate::time::*;
     pub use crate::types::*;
 }

@@ -3,7 +3,7 @@ extends CharacterBody3D
 ## 用 Input.get_vector 配合 UI action，不依赖 Input Map 预配置
 
 const SPEED: float = 8.0
-const JUMP_VELOCITY: float = 5.0
+const JUMP_VELOCITY: float = 50.0
 const MOUSE_SENS: float = 0.003
 const GRAVITY: float = 20.0
 

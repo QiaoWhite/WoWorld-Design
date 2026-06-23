@@ -2,23 +2,33 @@
 //!
 //! 基于双层 Perlin 噪声的高度场地形。
 //! 不存储体素数据——所有查询通过噪声函数实时计算。
+//! 可选集成: WorldClock (昼夜) + BiomeClassifier (群系)
 
 use glam::Vec3;
 use woworld_core::prelude::*;
 use woworld_core::spatial::TerrainQuery;
 
+use crate::biome::BiomeClassifier;
 use crate::noise_gen::WorldNoise;
+use crate::time::WorldClock;
 
 /// 高度场地形——无状态，纯函数式查询
+///
+/// `clock` 和 `biome_classifier` 为 `Option`——向后兼容，
+/// 未设置时退化到当前行为（light=1.0, 高度法选材质）。
 #[derive(Clone, Debug)]
 pub struct HeightfieldTerrain {
     noise: WorldNoise,
+    pub clock: Option<WorldClock>,
+    pub biome_classifier: Option<BiomeClassifier>,
 }
 
 impl Default for HeightfieldTerrain {
     fn default() -> Self {
         Self {
             noise: WorldNoise::new(42),
+            clock: None,
+            biome_classifier: None,
         }
     }
 }
@@ -27,11 +37,29 @@ impl HeightfieldTerrain {
     pub fn new(seed: u32) -> Self {
         Self {
             noise: WorldNoise::new(seed),
+            clock: None,
+            biome_classifier: None,
         }
     }
 
     pub fn with_noise(noise: WorldNoise) -> Self {
-        Self { noise }
+        Self {
+            noise,
+            clock: None,
+            biome_classifier: None,
+        }
+    }
+
+    /// 挂载昼夜时钟——之后 `light_level_at()` 返回实际值
+    pub fn with_clock(mut self, clock: WorldClock) -> Self {
+        self.clock = Some(clock);
+        self
+    }
+
+    /// 挂载群系分类器——之后 `surface_material_at()` 群系优先
+    pub fn with_biomes(mut self, classifier: BiomeClassifier) -> Self {
+        self.biome_classifier = Some(classifier);
+        self
     }
 
     /// 在 (x, z) 采样高度，有限差分计算法线
@@ -132,6 +160,16 @@ impl TerrainQuery for HeightfieldTerrain {
         let h = self.noise.sample_height(pos.x, pos.z);
         let normal = self.calc_normal(pos.x, pos.z, 0.5);
         let steepness = (1.0 - normal.y).abs();
+
+        // 1. 尝试群系分类
+        if let Some(ref classifier) = self.biome_classifier {
+            if let Some(biome) = classifier.classify(pos) {
+                // TODO: 子材质粗粒度混合（区块级而非顶点级）——后续迭代
+                return biome.surface_material;
+            }
+        }
+
+        // 2. 回退：高度/坡度法（兼容无群系场景）
         Self::material_from_height(h, steepness)
     }
 
@@ -145,7 +183,10 @@ impl TerrainQuery for HeightfieldTerrain {
     }
 
     fn light_level_at(&self, _pos: WorldPos) -> f32 {
-        1.0 // 无昼夜系统前全亮
+        self.clock
+            .as_ref()
+            .map(|c| c.current.light_level)
+            .unwrap_or(1.0) // 无时钟 → 全亮
     }
 
     fn sample_horizon(&self, pos: WorldPos, directions: &[Vec3]) -> Vec<f32> {
@@ -250,5 +291,44 @@ mod tests {
         // 可能是 Water 或 Air（取决于在该点是海还是陆）
         // 只验证不 panic
         let _ = medium;
+    }
+
+    // ── 群系集成测试 ─────────────────
+
+    #[test]
+    fn test_surface_material_without_biome_falls_back() {
+        // 无群系 → 高度法
+        let terrain = HeightfieldTerrain::new(42);
+        let mat = terrain.surface_material_at(WorldPos {
+            x: 500.0,
+            y: 0.0,
+            z: 500.0,
+        });
+        // 只要不 panic 且返回有效材质
+        let _ = mat;
+    }
+
+    #[test]
+    fn test_light_level_without_clock_is_full() {
+        let terrain = HeightfieldTerrain::new(42);
+        let light = terrain.light_level_at(WorldPos::default());
+        assert!((light - 1.0).abs() < 0.01, "without clock should be 1.0");
+    }
+
+    #[test]
+    fn test_light_level_with_clock_varies() {
+        // 正午 = 亮
+        let mut noon_clock = crate::time::WorldClock::new(60.0);
+        noon_clock.set_time(0.5);
+        let noon_terrain = HeightfieldTerrain::new(42).with_clock(noon_clock);
+        let noon_light = noon_terrain.light_level_at(WorldPos::default());
+        assert!(noon_light > 0.9, "noon should be bright, got {}", noon_light);
+
+        // 午夜 = 暗
+        let mut mid_clock = crate::time::WorldClock::new(60.0);
+        mid_clock.set_time(0.0);
+        let mid_terrain = HeightfieldTerrain::new(42).with_clock(mid_clock);
+        let mid_light = mid_terrain.light_level_at(WorldPos::default());
+        assert!(mid_light < 0.1, "midnight should be dark, got {}", mid_light);
     }
 }

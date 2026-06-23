@@ -117,7 +117,7 @@
 | 市场权力 (PowerAtom/MarketAuthority) | **经济系统** `006` | 政治系统(待)/法律系统(待) | 权力=PowerAtom集合(~15种原子操作)。四种来源(正式/购买/事实垄断/暴力)。玩家和NPC走同一exercise_power() |
 | 行为经济学×NPC心智映射 | **经济系统** `007` | NPC | 十个行为经济学概念全部从NPC已有字段派生——**不新增人格维度**。EconomicCognition为计算缓存(从人格×技能×经验派生) |
 | 货币总量 (MoneySupply) | **经济系统** `008` | 世界生成/物品系统 | 三条管道(铸币/消费回收/跨区流动)。五大自动稳定器。货币总量增速与商品总量增速对齐 |
-| 职业标签 (ProfessionTag) | **经济系统**(概念Owner——TOML schema/标签目录/incongruity规则) · 类型定义在 **woworld_core** (`ProfessionTagId(u32)`) | 世界生成(P8初始分配)·NPC身份系统(运行时维护)·技能系统(proficiency派生) | ★ CHG-061: ~80-100个原子标签——TOML数据驱动+预留新增接口。任意2-4个排列组合→职业涌现。proficiency从技能系统派生。incongruity标记不寻常组合(不阻止)。类型与其他ID并列woworld_core。 |
+| 职业标签 (ProfessionTag) | **经济系统**(概念Owner——TOML schema/标签目录/incongruity规则) · 类型定义在 **woworld_core** (`ProfessionTagId(u32)`) | 世界生成(P8初始分配)·NPC身份系统(运行时维护)·技能系统(proficiency派生) | ★ CHG-063: ~80-100个原子标签——TOML数据驱动+预留新增接口。任意2-4个排列组合→职业涌现。proficiency从技能系统派生。incongruity标记不寻常组合(不阻止)。类型与其他ID并列woworld_core。 |
 | LLM经济增强 | **经济系统** `009` | 语言表达系统 | LLM不参与任何经济计算。结构化数据注入→自然语言包装。模板回退覆盖100%事件类型 |
 
 ## CHG-023 新增契约（权力系统 v1.0）
@@ -936,3 +936,51 @@ CHG-057/058 在 06-认知与智慧系统中引入根本性架构变更后，CHG-
 | crowd_emotional_field 生产 | 06-认知 | 05-感官与知觉 |
 | EmotionalCharge 生产 | 06-认知 | 05-感官与知觉 |
 | GazeEstimate 生产 | 06-认知 | 05-感官与知觉 |
+
+---
+
+## CHG-063 — 玩家系统新建 (2026-06-24)
+
+> **完整 CHG 文档**: [[WoWorld-Design/Change/CHG-063-玩家系统新建-20260624|CHG-063]]
+
+### 概要
+
+新建独立一级模块 `玩家系统/`（`开发阶段/玩家系统/`），6 篇设计规格（~1,448 行）。原分散在生命模块（011/015）和 NPC 生命周期模块（008）的玩家内容整合、深化、统一入口。
+
+### 关键契约
+
+| 契约 | Owner | Consumer | 说明 |
+|------|-------|----------|------|
+| **Player = SapientMind + ControlMode** | 玩家系统 001 | 全模块 | Player 不是独立实体类型。差异仅在 `SapientMind.control_mode: Option<ControlMode>` |
+| ControlMode 三种 | 玩家系统 003 | NPC生命周期 008 | Auto / Manual / DomainDelegated。6 ActionDomain: Movement/Combat/Speech/ItemUse/Interaction/MagicUse |
+| 玩家操控 = 人格塑造 | 玩家系统 001/003 | NPC生命周期 008 | GOAP假设动作 vs 实际动作差异→自我叙事倾向**合理化**，非认知张力。CHG-063 修订 008 |
+| PlayerGoal → GOAP 长期计划槽 | 玩家系统 004 | NPC活人感 GOAP | PlayerGoal 进入 LongTermGoalSlot，GOAP 自动展开 sub_goals。不同角色不同展开 |
+| 双角色系统 | 玩家系统 003 | 生命/015（stub） | 1-2 可控角色、等权选择、无距离上限、随时切换、远处加载时游戏暂停 |
+| 两种进入模式 | 玩家系统 001/002 | — | 原住民（接管 NPC）/ 穿越者（7步向导创建） |
+| 信息展示边界 | 玩家系统 006 | UI/UX 系统 | 自身数据✅ / 他人内心❌ / 头衔标签❌。认知仅从 NPC 言行涌现 |
+| 死亡继承链 | 玩家系统 005 | 生命/004 · NPC生命周期 007 | 血亲→大日志选择→全新角色。技能/关系不可继承 |
+| 孩子 = Auto NPC | 玩家系统 005 | 生命繁衍系统 | 不因"父母是玩家的角色"而自动成为可控角色 |
+| 引导体系 | 玩家系统 004 | 小精灵系统 | 小精灵不给目标不给任务——仅生存提醒+问答+百科。Minecraft 式引导 |
+| MentalAccess = 1.0 | 玩家系统 006 | 技能系统 | 玩家手动操作不受角色智力属性限制。PhysicalAccess 同理 |
+| **仅玩家 PhysicsServer3D** | 技术栈方案 v4.0 | 玩家系统 006 | 唯一保留 Godot 物理引擎的实体 |
+| 玩家永远 LOD0 | LOD 架构 | 玩家系统 006 | 非操控角色退正常 LOD 层级 |
+| 非操控角色远距离退回 L2/L3 | 玩家系统 006 | LODCoordinator | 和其他 NPC 相同 |
+
+### 迁移影响
+
+| 原文件 | 操作 |
+|--------|------|
+| 生命/011-玩家.md | → stub，指向玩家系统 |
+| 生命/015-玩家角色管理与继承.md | → stub，指向玩家系统 |
+| NPC生命周期/008-玩家生命周期.md | §一/§四 修订：认知张力→合理化 |
+
+### 跨模块影响
+
+| 受影响模块 | 影响 |
+|-----------|------|
+| 生命系统 (011/015) | stub |
+| NPC 生命周期 (008) | ControlMode 对齐 + 认知张力修订 |
+| UI/UX 系统 | 信息展示边界 + 输入动作清单作为设计输入 |
+| 技能系统 | MentalAccess/PhysicalAccess 均 1.0 确认 |
+| 小精灵系统 | 引导体系主入口——被 004 消费 |
+| 模块接头总览 | 新建 28-玩家系统 |

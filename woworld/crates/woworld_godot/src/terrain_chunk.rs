@@ -2,8 +2,9 @@
 //!
 //! 在 Rust 侧生成地形网格，通过 GDExtension 直接构建 Godot ArrayMesh。
 
+use godot::classes::base_material_3d::{Flags, ShadingMode};
 use godot::classes::mesh::PrimitiveType;
-use godot::classes::{ArrayMesh, MeshInstance3D};
+use godot::classes::{ArrayMesh, MeshInstance3D, StandardMaterial3D};
 use godot::prelude::*;
 use woworld_core::prelude::WorldPos;
 use woworld_core::spatial::TerrainQuery;
@@ -21,15 +22,30 @@ pub struct TerrainChunk {
 #[godot_api]
 impl INode3D for TerrainChunk {
     fn ready(&mut self) {
-        let grid_size: i32 = 128;
-        let spacing: f64 = 2.0;
-        let origin_x: f64 = -128.0;
-        let origin_z: f64 = -128.0;
+        // Demo 参数：缩短噪声波长使 512m 网格内可见起伏
+        use woworld_worldgen::{NoiseParams, WorldNoise};
+        let params = NoiseParams {
+            continent_scale: 0.001,
+            detail_scale: 0.02,
+            mountain_scale: 0.002,
+            sea_threshold: -0.5,
+            height_amplitude: 350.0,
+            sea_depth: 50.0,
+        };
+        self.terrain = HeightfieldTerrain::with_noise(WorldNoise::with_params(42, params));
 
-        // 生成顶点 + 法线 + 颜色
+        let grid_size: i32 = 128;
+        let spacing: f64 = 4.0;
+        let origin_x: f64 = -256.0;
+        let origin_z: f64 = -256.0;
+
+        // 生成顶点、法线、颜色
         let mut vertices = PackedVector3Array::new();
         let mut normals = PackedVector3Array::new();
         let mut colors = PackedColorArray::new();
+        let mut min_h: f32 = f32::MAX;
+        let mut max_h: f32 = f32::MIN;
+
         for iz in 0..grid_size {
             let wz = origin_z + iz as f64 * spacing;
             for ix in 0..grid_size {
@@ -46,6 +62,8 @@ impl INode3D for TerrainChunk {
                 vertices.push(Vector3::new(wx as f32, h, wz as f32));
                 normals.push(Vector3::new(n.x, n.y, n.z));
                 colors.push(material_color(mat, h));
+                min_h = min_h.min(h);
+                max_h = max_h.max(h);
             }
         }
 
@@ -66,35 +84,41 @@ impl INode3D for TerrainChunk {
             }
         }
 
-        // 构建 ArrayMesh — arrays 必须按 ARRAY_* 索引排列 (ARRAY_MAX=13)
-        //   [0]=VERTEX, [1]=NORMAL, [3]=COLOR, [12]=INDEX
+        // ArrayMesh: arrays 按 ARRAY_* 索引排列
+        // [0]=VERTEX, [1]=NORMAL, [3]=COLOR, [12]=INDEX
         let mut arrays = Array::new();
         let nil = Variant::nil();
-        arrays.resize(13, &nil); // ARRAY_MAX = 13
+        arrays.resize(13, &nil);
         let v = vertices.to_variant();
-        arrays.set(0, &v); // ARRAY_VERTEX (必须)
+        arrays.set(0, &v);
         let n = normals.to_variant();
-        arrays.set(1, &n); // ARRAY_NORMAL (光照必需)
+        arrays.set(1, &n);
         let c = colors.to_variant();
-        arrays.set(3, &c); // ARRAY_COLOR
+        arrays.set(3, &c);
         let i = indices.to_variant();
-        arrays.set(12, &i); // ARRAY_INDEX
+        arrays.set(12, &i);
 
         let mut array_mesh = ArrayMesh::new_gd();
         array_mesh.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
 
-        // MeshInstance3D
-        let mut mesh_instance = MeshInstance3D::new_alloc();
-        mesh_instance.set_name("GeneratedTerrain");
+        // 顶点色材质
+        let mut mat = StandardMaterial3D::new_gd();
+        mat.set_flag(Flags::ALBEDO_FROM_VERTEX_COLOR, true);
+        mat.set_shading_mode(ShadingMode::UNSHADED);
 
-        // upcast MeshInstance3D → Node, then add_child
-        let child = mesh_instance.upcast::<Node>();
-        self.base_mut().add_child(&child);
+        let mut terrain_instance = MeshInstance3D::new_alloc();
+        terrain_instance.set_name("GeneratedTerrain");
+        terrain_instance.set_mesh(&array_mesh);
+        terrain_instance.set_surface_override_material(0, &mat);
+        let t = terrain_instance.upcast::<Node>();
+        self.base_mut().add_child(&t);
 
         godot_print!(
-            "TerrainChunk: {} vertices, {} triangles",
+            "TerrainChunk: {} vertices, {} triangles, height [{:.1}, {:.1}]",
             vertices.len(),
-            indices.len() / 3
+            indices.len() / 3,
+            min_h,
+            max_h
         );
     }
 }

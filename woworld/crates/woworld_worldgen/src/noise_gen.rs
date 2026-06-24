@@ -14,8 +14,8 @@ pub struct NoiseParams {
     pub detail_scale: f64,     // 默认 0.01 (100m 波长)
     pub mountain_scale: f64,   // 默认 0.002 (500m 波长)
     pub sea_threshold: f64,    // 默认 0.3 (海:陆≈7:3)
-    pub height_amplitude: f64, // 默认 350.0 (最高~700m)
-    pub sea_depth: f64,        // 默认 200.0 (最深-200m)
+    pub height_amplitude: f64, // 默认 350.0 (最高~700m, v3.0 spec)
+    pub sea_depth: f64,        // 默认 400.0 (最深-400m)
     pub climate_scale: f64,    // 默认 0.0005 (~2km 波长, 温度/降水噪声)
 }
 
@@ -27,7 +27,7 @@ impl Default for NoiseParams {
             mountain_scale: 0.002,
             sea_threshold: 0.3,
             height_amplitude: 350.0,
-            sea_depth: 200.0,
+            sea_depth: 400.0,
             climate_scale: 0.0005,
         }
     }
@@ -98,7 +98,7 @@ impl WorldNoise {
                 0.0
             };
 
-            let base_height = land_factor * 100.0; // 海岸→内陆基准上升
+            let base_height = land_factor * 280.0; // 海岸→内陆基准上升 (~280m 内陆平原)
             let detail_height = detail_val * p.height_amplitude * 0.6;
             let mountain_height = mountain_val * mountain_factor * p.height_amplitude * 0.4;
 
@@ -176,8 +176,8 @@ mod tests {
                 max_h = max_h.max(h);
             }
         }
-        // 高度范围合理
-        assert!(min_h >= -250.0, "min too low: {}", min_h);
+        // 高度范围合理（新参数：最高 ~630m, 最深 ~-400m）
+        assert!(min_h >= -450.0, "min too low: {}", min_h);
         assert!(max_h <= 800.0, "max too high: {}", max_h);
     }
 

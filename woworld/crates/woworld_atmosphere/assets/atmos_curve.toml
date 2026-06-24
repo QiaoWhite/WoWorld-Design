@@ -1,0 +1,73 @@
+# 大气曲线 — 太阳高度角驱动的 TOML 锚点数组
+#
+# sun_elevation: 太阳高度角（度）
+#   -90°  = 午夜天底（太阳在脚下）
+#     0°  = 地平线（日出/日落——锚点此处确保与天文学同步）
+#   +90°  = 正午天顶
+#
+# 归一化映射: (elev + 90) / 180 → [0, 1]
+# 增删锚点只需修改此文件，零 Rust 代码变动。
+
+[[anchors]]
+sun_elevation = -90.0
+sky_zenith = [0.04, 0.04, 0.12]
+sky_horizon = [0.02, 0.02, 0.05]
+ambient = [0.03, 0.03, 0.06]
+sun_color = [0.04, 0.04, 0.08]
+sun_energy = 0.02
+
+[[anchors]]
+sun_elevation = -18.0
+sky_zenith = [0.05, 0.04, 0.16]
+sky_horizon = [0.03, 0.03, 0.08]
+ambient = [0.04, 0.04, 0.09]
+sun_color = [0.05, 0.04, 0.10]
+sun_energy = 0.03
+
+[[anchors]]
+sun_elevation = -6.0
+sky_zenith = [0.08, 0.06, 0.22]
+sky_horizon = [0.12, 0.08, 0.12]
+ambient = [0.06, 0.05, 0.12]
+sun_color = [0.15, 0.10, 0.12]
+sun_energy = 0.08
+
+[[anchors]]
+sun_elevation = 0.0
+sky_zenith = [0.30, 0.35, 0.55]
+sky_horizon = [0.70, 0.45, 0.30]
+ambient = [0.18, 0.10, 0.14]
+sun_color = [0.95, 0.55, 0.30]
+sun_energy = 0.60
+
+[[anchors]]
+sun_elevation = 5.0
+sky_zenith = [0.33, 0.45, 0.70]
+sky_horizon = [0.65, 0.62, 0.78]
+ambient = [0.30, 0.25, 0.35]
+sun_color = [1.0, 0.85, 0.60]
+sun_energy = 0.80
+
+[[anchors]]
+sun_elevation = 30.0
+sky_zenith = [0.30, 0.50, 0.88]
+sky_horizon = [0.60, 0.68, 0.88]
+ambient = [0.55, 0.55, 0.60]
+sun_color = [1.0, 0.97, 0.90]
+sun_energy = 0.95
+
+[[anchors]]
+sun_elevation = 60.0
+sky_zenith = [0.28, 0.48, 0.90]
+sky_horizon = [0.58, 0.67, 0.90]
+ambient = [0.60, 0.60, 0.65]
+sun_color = [1.0, 0.98, 0.95]
+sun_energy = 1.0
+
+[[anchors]]
+sun_elevation = 90.0
+sky_zenith = [0.28, 0.48, 0.90]
+sky_horizon = [0.58, 0.67, 0.90]
+ambient = [0.60, 0.60, 0.65]
+sun_color = [1.0, 0.98, 0.95]
+sun_energy = 1.0

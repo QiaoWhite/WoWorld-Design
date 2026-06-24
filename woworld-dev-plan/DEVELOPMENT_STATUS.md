@@ -1,6 +1,6 @@
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-06-23
+> **最后更新**: 2026-06-25
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `../WoWorld-Design/开发路线图/` · `../CLAUDE-INTERFACES.md`
 
@@ -12,11 +12,12 @@
 |------|-----|
 | 设计规格行数 | ~107,000 行（~300+ 文件） |
 | 完成模块数 | 25 独立系统 + 1 子模块（家具与放置物品） |
-| 游戏代码 | **零** — `woworld/` 目录不存在 |
-| Rust toolchain | 未安装 |
-| Godot 项目 | 未创建 |
-| 当前冲刺 | 元冲刺 — 宪法系统搭建中 |
-| 最新 CHG | CHG-060（2026-06-22） |
+| 游戏代码 | **5 crates, 74 tests** — Rust workspace: core + spatial + worldgen + atmosphere + godot |
+| Rust toolchain | 已安装（stable 1.80+） |
+| Godot 项目 | 已创建（Godot 4.7 + GDExtension，**轨A A.6 可运行原型 ✅**） |
+| 当前冲刺 | Sprint-005: A.6 里程碑收尾（地形尺度 + 海洋 + 玩家调优） |
+| 最新 CHG | CHG-064（2026-06-24）— 轨A 昼夜循环 + 5群系系统 |
+| 轨A 状态 | ★ A.6 完成: 地形(630m山)+Clipmap LOD(1024m)+MC+海洋(Gerstner)+昼夜+玩家漫游 |
 
 ## 模块准入等级一览
 
@@ -133,18 +134,24 @@
 
 ## 当前冲刺
 
-**元冲刺 (2026-06-23)** ✅ 已完成 — 宪法 v1.1 + 全部附属文档 + CLAUDE.md 更新 + woworld/Cargo.toml release profile
+**CHG-064 偏离修复 (2026-06-24)** ✅ 已完成 — D01(GDScript→Rust) + D02(serde feature-gate) + D03(_process 恢复) + 架构重构(sun_elevation 物理驱动, AtmosCurve 数组化, WorldClock 下沉, woworld_atmosphere 新建)
 
-**下一个冲刺**: 待用户启动 — 建议 Sprint-001: GDExtension 端到端链路验证 + woworld_core 最小启动类型
+**下一个冲刺**: 待用户启动 — 建议: 名声系统补全 / 法律涌现 / 轨A 阶段三·体素 Transvoxel / UI·UX 扩展
 
 ---
 
 ## 子组件进展追踪
 
-> 审计缺口 3。模块实现跨多个冲刺时展开子组件。暂无进行中的模块实现——第一份子组件追踪将在 Sprint-001 后建立。
+| 组件 | Sprint | 状态 |
+|------|--------|------|
+| woworld_core (时间/ID/trait/材质) | CHG-064 | ✅ WorldClock+WorldTime+4 spatial traits+21 SurfaceMaterial+serde feature-gate |
+| woworld_atmosphere (大气曲线) | CHG-064偏离修复 | ✅ AtmosCurve(太阳高度角驱动)+AtmosphereSynthesizer+ResolvedAtmosphere(35 floats) |
+| woworld_worldgen (噪声/地形/群系/时间) | CHG-064 | ✅ 高度场地形+5群系+WorldClock(已下沉至core重导出) |
+| woworld_spatial (实体索引/可见性/事件总线) | 轨A S3 | ✅ GridEntityIndex+DdaVisibility+RingEventBus |
+| woworld_godot (GDExtension桥接) | CHG-064偏离修复 | ✅ TerrainChunk(process直接操控Godot节点)+terrain_mesh(纯Rust) |
 
 ---
 
 ## 最近交接摘要
 
-[handoff-20260623-001.md](handoff/handoff-20260623-001.md) — 元冲刺完成，宪法 v1.1 就位，待第一个正式冲刺。
+[handoff-20260624-002.md](handoff/handoff-20260624-002.md) — CHG-064 偏离修复完成 + 架构重构。上接: [handoff-20260623-001.md](handoff/archived/handoff-20260623-001.md)（元冲刺·宪法建立，已归档）

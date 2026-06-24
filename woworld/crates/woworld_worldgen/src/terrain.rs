@@ -10,7 +10,7 @@ use woworld_core::spatial::TerrainQuery;
 
 use crate::biome::BiomeClassifier;
 use crate::noise_gen::WorldNoise;
-use crate::time::WorldClock;
+use woworld_core::time::WorldClock;
 
 /// 高度场地形——无状态，纯函数式查询
 ///
@@ -48,6 +48,11 @@ impl HeightfieldTerrain {
             clock: None,
             biome_classifier: None,
         }
+    }
+
+    /// 获取噪声参数（用于重建等 seed 的 DensityField）
+    pub fn noise_params(&self) -> crate::noise_gen::NoiseParams {
+        self.noise.params.clone()
     }
 
     /// 挂载昼夜时钟——之后 `light_level_at()` 返回实际值
@@ -318,14 +323,14 @@ mod tests {
     #[test]
     fn test_light_level_with_clock_varies() {
         // 正午 = 亮
-        let mut noon_clock = crate::time::WorldClock::new(60.0);
+        let mut noon_clock = WorldClock::new(60.0);
         noon_clock.set_time(0.5);
         let noon_terrain = HeightfieldTerrain::new(42).with_clock(noon_clock);
         let noon_light = noon_terrain.light_level_at(WorldPos::default());
         assert!(noon_light > 0.9, "noon should be bright, got {}", noon_light);
 
         // 午夜 = 暗
-        let mut mid_clock = crate::time::WorldClock::new(60.0);
+        let mut mid_clock = WorldClock::new(60.0);
         mid_clock.set_time(0.0);
         let mid_terrain = HeightfieldTerrain::new(42).with_clock(mid_clock);
         let mid_light = mid_terrain.light_level_at(WorldPos::default());

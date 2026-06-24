@@ -18,3 +18,4 @@ glam = "0.28"
 # 核心类型（workspace 内部依赖）
 woworld_core = { path = "../woworld_core" }
 woworld_worldgen = { path = "../woworld_worldgen" }
+woworld_atmosphere = { path = "../woworld_atmosphere" }

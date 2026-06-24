@@ -344,6 +344,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "woworld_atmosphere"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "toml",
+ "woworld_core",
+]
+
+[[package]]
 name = "woworld_core"
 version = "0.1.0"
 dependencies = [
@@ -357,6 +366,7 @@ version = "0.1.0"
 dependencies = [
  "glam 0.28.0",
  "godot",
+ "woworld_atmosphere",
  "woworld_core",
  "woworld_worldgen",
 ]

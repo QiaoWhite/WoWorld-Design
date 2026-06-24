@@ -115,100 +115,50 @@ pub struct NpcData {
     pub construction_task: Option<ConstructionTask>, // 施工任务
 
     // ── 性别与吸引力系统（02-性别与吸引力系统.md）──
-    pub mental: MentalAttributes,               // 心智属性（过渡方案——融合后迁移至 LifeEntity）
-    pub physical: PhysicalAttributes,           // 身体属性（已融合至 LifeEntity.physical，此处为计算视图引用）
-    pub appearance: PhysicalAppearance,         // 外貌视觉特征（过渡方案）
-    pub attraction_template: AttractionTemplate, // 吸引力偏好模板
+    pub mental: MentalAttributes,               // ⚠️ 过渡方案——待 LifeEntity 融合后迁移。目前暂留 NpcData
+    pub physical: PhysicalAttributes,           // ⚠️ 已融合至 LifeEntity.physical，此处为计算视图引用。待清理
+    pub appearance: PhysicalAppearance,         // ⚠️ 过渡方案——待 LifeEntity 融合后迁移。目前暂留 NpcData
+    //    → 永久持久化字段已迁移至 AttractionColumn (SoA): attraction_template + norm_internalizations
+    //    详见 [[02-性别与吸引力系统#§SoA 列族架构|02 方案D]]
 
-    // ── 审美系统（05-审美与艺术系统.md v1.0）──
-    pub aesthetic_taste: AestheticTaste,          // 审美品味（32B，青春期初始化，年更新+Adopt演化）
-    pub norm_internalizations: BTreeMap<NormId, NormInternalization>, // 规范内化（稀疏存储）
+    // ── 审美系统（05-审美与艺术系统.md）──
+    //    → 持久化字段已迁移至 TasteColumn (SoA): aesthetic_taste
+    //    详见 [[05-审美与艺术/审美与艺术系统概览#§SoA 列族架构|05 方案D]]
+    //    决策时从 NpcStore 按 NpcId 索引取 TasteColumn 引用——不存储于 NpcData
 
     // ── ★ v1.0 基本需求系统 (03-基本需求系统.md) ──
-    /// 社交匮乏 (0.0=社交充足, 1.0=极度孤独)
-    /// 心理状态——不是生物性的, 不属于 Physiology
-    /// 累积: 无社交 +0.02/游戏日, 50天独居才满
-    /// 恢复: 有意义社交互动 -0.03~0.15
-    /// 仅进概率决策器, 不进 GOAP
-    pub social_deficit: f32,
+    //    → 持久化字段已迁移至 NeedColumn (SoA): social_deficit + need_sensitivity
+    //    详见 [[03-基本需求系统/基本需求系统概览#§13|03 §13 SoA 列族架构]]
+    //    决策时从 NpcStore 按 NpcId 索引取 NeedColumn 引用——不存储于 NpcData
 
     // ── ★ v2.0 进阶需求系统 (04-进阶需求系统.md) ──
-    /// 尊重/认可匮乏 (0.0=被充分认可, 1.0=极度渴求认可)
-    /// 心理状态——不入 Life.Vitals
-    /// 累积: +0.01/游戏日 (100天充满)
-    /// 恢复: 社交钦佩事件 (通过已有社交管道检测, 零新跨模块推送)
-    /// 仅进概率决策器, 不进 GOAP
-    pub esteem_deficit: f32,
+    //    → 持久化字段已迁移至 GrowthColumn (SoA): esteem_deficit + competence_frustration + competence_frustration_chronic_days
+    //    详见 [[04-进阶需求系统/进阶需求系统概览#§方案D SoA 列族架构|04 方案D]]
+    //    决策时从 NpcStore 按 NpcId 索引取 GrowthColumn 引用——不存储于 NpcData
 
-    /// 胜任挫折 (0.0=无挫败, 1.0=严重挫败)
-    /// Allostatic 心理变量——设定点 = aspiration skill gap
-    /// 更新: 每游戏日一次 (非热路径)
-    /// 无 SkillMastery aspiration → 恒为 0
-    /// 仅进概率决策器, 不进 GOAP
-    pub competence_frustration: f32,
-
-    /// 胜任挫折的持续天数 (gap>0.3 的天数累计)
-    /// 用于慢性放大: 30天持续 → ×1.5
-    /// gap 缩小到 0.3 以下 → 每天 -2 快速消退
-    pub competence_frustration_chronic_days: u16,
-
-    /// ★ 需求敏感性——从大五人格派生。初始一次性计算。缓存防重复查表。
-    /// ★ BigFive 在极端冲击后漂移 → NeedSensitivity 随之重算
-    /// (创伤>0.9 或 长期环境冲突>100日)
-    pub need_sensitivity: NeedSensitivity,
+    // ── ★ NeedSensitivity 已迁移至 NeedColumn (03-基本需求系统 §13) ──
+    //    初始一次性从 BigFive 派生，BigFive 极端冲击后重算。
+    //    决策时从 NeedColumn 读取——不存储于 NpcData。
 
     // ── ★ v1.0 感官与知觉系统 ([[../感官与知觉系统/001-感官系统总纲|感官系统]]) ──
     /// 感官状态——组合各子模块定义的感官参数
-    /// NPC crate 定义结构做组合，各子模块拥有字段定义权
-    /// 对标已有的 NpcData 组合模式
+    /// ⚠️ 保留在 NpcData：SensoryState 是状态机（含 6KB 瞬态 PerceptualCache），不是纯数据记录。
+    ///     perceive() 以 &mut SensoryState 为整体输入——SoA 拆分破坏缓存局部性。
     pub sensory: SensoryState,
 
-    // ── ★ v1.0 感官与知觉系统 — 个人知识 ([[../感官与知觉系统/001-感官系统总纲|感官系统]]) ──
-    /// 仅存超出文化基线的个人知识(~64条)
-    /// 文化基线通过 CulturalKnowledgeBase trait 查询——不重复存储
-    /// 来源: LearnedFromExperience / Taught / Discovered
-    pub knowledge: Knowledge,
-
-    // ── ★ v1.0 感官与知觉系统 — 审美框架 ([[../感官与知觉系统/001-感官系统总纲|感官系统]]) ──
-    /// 审美框架集——native(文化初始)+personal(个人发展)+adopted(跨文化接触)
-    /// 四独立过程: 获取(intelligence+openness门槛)/深化/衰减(永不完全归零)/激活
-    /// 无硬上限——adopted数量 = learn_rate/decay_rate的自然均衡
-    pub aesthetic_frameworks: AestheticFrameworks,
+    // ── 感官与知觉系统 — 持久化数据已迁移至 PerceptionColumn (SoA) ──
+    //    → knowledge (~2.5KB) + aesthetic_frameworks (~120B)
+    //    详见 [[../感官与知觉系统/001-感官系统总纲#§SoA 列族架构|感官系统 方案D]]
+    //    决策时从 NpcStore 按 NpcId 索引取 PerceptionColumn 引用——不存储于 NpcData
 
     // ── ★ v1.0 认知与智慧系统 ([[06-认知与智慧系统/001-认知与智慧系统总纲|认知与智慧系统]]) ──
-    /// 认知风格——NPC"如何思考"（4维：直觉-分析/冲动-反思/具象-抽象/顽固-灵活）
-    /// 对标 AestheticTaste（青春期派生→年度成熟）。从BigFive+wisdom+经历派生，随人生变化
-    pub cognitive_style: CognitiveStyle,
-
-    /// 认知潮汐——心智此刻的状态（3维：认知负载/反刍压力/心智安静度）
-    /// 对标 Physiology（从已有数据每决策周期派生）
-    pub cognitive_tide: CognitiveTide,
-
-    /// 世界运作模型——NPC持有的信念（≤20条，约1.6KB）
-    /// 对标 Knowledge（~64条个人知识）。MentalModel是粗粒度"信念"，Knowledge是细粒度"事实"
-    pub mental_models: ArrayVec<MentalModel, 20>,
-
-    /// 他人心智归因——Theory of Mind（≤16条，约960B）
-    /// 对标 MentalModel：关于"另一个NPC在想什么"的归因
-    pub mind_attributions: ArrayVec<MindAttribution, 16>,
-
-    /// 信念演变里程碑——回顾性叙事的基础（≤16条，约768B）
-    /// 对标 SelfNarrative.life_chapters
-    pub belief_history: BeliefHistory,
-
-    /// 认知压力指数——0=认知健康，1=认知崩溃边缘
-    /// 对标 self_narrative.stagnation_sense。完全派生，每游戏日更新
-    pub cognitive_distress: f32,
-
-    /// ★ v1.2 (CHG-058): 终身创建的 MentalModel 总数
-    /// try_induce_pattern() 或 creative_leap() 成功产出时递增
-    /// 用于认知老化路径推导——4 字节，无显著持久化成本
-    pub mental_model_creation_count: u32,
-
-    /// ★ v1.2 (CHG-058): 慢性 intoxication 积累——年
-    /// 年均更新：avg_daily_intox × (days_since_last_update / 365)
-    /// 用于健康负担评估（health_burden）
-    pub chronic_intoxication_years: f32,
+    //    → 持久化字段已迁移至 CognitionColumn (SoA):
+    //      cognitive_style + cognitive_tide + cognitive_distress (HOT, 32B, 每决策周期)
+    //      mental_models + mental_model_creation_count (COLD, ~2.4KB, 每日/7日/睡眠)
+    //      mind_attributions (WARM, ~960B, 社交上下文)
+    //      belief_history + chronic_intoxication_years (COLDEST, ~772B, 叙事/年度)
+    //    详见 [[06-认知与智慧系统/001-认知与智慧系统总纲#§SoA 列族架构|06 方案D]]
+    //    决策时从 NpcStore 按 NpcId 索引取 CognitionColumn 引用——不存储于 NpcData
 }
 ```
 
@@ -286,7 +236,7 @@ impl BigFive {
 
 ```rust
 /// NPC 对各个需求的个体敏感度——从大五人格一次性派生
-/// 存储于 NpcData.need_sensitivity, 仅在人格极端冲击后重新计算
+/// 存储于 NeedColumn.need_sensitivity (SoA), 仅在人格极端冲击后重新计算
 /// 每决策周期消费——不新增每帧计算
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NeedSensitivity {
@@ -917,10 +867,14 @@ impl Default for NormInternalization {
 ```rust
 /// 行为决策引擎 — NPC 心智的核心接口
 pub trait DecisionEngine: Send + Sync {
-    /// 给定 NPC 当前状态和主观世界感知，返回所选行动
+    /// 给定 NPC 当前状态、需求列族和主观世界感知，返回所选行动
+    /// ★ v1.1 (方案D): 列族从 NpcStore 按 NpcId 索引传入——不挂在 NpcData 上
     fn select_action(
         &self,
         npc: &NpcData,
+        need_col: &NeedColumn,           // ← 03-基本需求系统 own 的 SoA 列族
+        growth_col: &GrowthColumn,       // ← 04-进阶需求系统 own 的 SoA 列族
+        cognition_col: &CognitionColumn, // ← 06-认知与智慧系统 own 的 SoA 列族
         world: &SubjectiveWorld,
         rng: &mut impl Rng,
     ) -> Action;
@@ -1145,12 +1099,14 @@ impl EmotionState {
     /// 生理+心理拉扯 — 身体状态和心理状态影响情绪轴
     /// v1.0 基本需求系统 (03-基本需求系统.md) — 扩展: 新增 3 个需求维度的情绪影响
     /// ★ v2.0 进阶需求系统 (04-进阶需求系统.md) — 扩展: 新增 esteem+competence 心理牵引
+    /// ★ v1.1 (方案D): social_deficit 从 NeedColumn 传入, esteem/competence 从 GrowthColumn 传入
+    ///    所有心理需求值均不存储在 NpcData 上
     pub fn apply_physiological_pull(
         &mut self,
         phys: &Physiology,
-        social_deficit: f32,
-        esteem_deficit: f32,              // ★ v2.0
-        competence_frustration: f32,      // ★ v2.0
+        social_deficit: f32,              // ← NeedColumn.social_deficit (03 own)
+        esteem_deficit: f32,              // ← GrowthColumn.esteem_deficit (04 own)
+        competence_frustration: f32,      // ← GrowthColumn.competence_frustration (04 own)
     ) {
         // === 已有, 不改 ===
         if phys.hunger < 0.4 { self.pleasure -= 0.001 * (0.4 - phys.hunger); }
@@ -1282,11 +1238,15 @@ pub enum CollectiveEmotionPhase {
 ```rust
 /// 群体可暗示性 —— 情绪传染系统输出，信念评估系统消费
 /// 从 PerceptBatch.environment.crowd_emotional_field 派生
-pub fn crowd_suggestibility(npc: &NpcData) -> f32 {
+/// ★ v1.1 (方案D): cognitive_tide 从 CognitionColumn 读取
+pub fn crowd_suggestibility(
+    npc: &NpcData,
+    cognition_col: &CognitionColumn, // ← 06-认知与智慧 own 的 SoA 列族
+) -> f32 {
     let field = npc.latest_percept_batch()
         .map(|pb| pb.environment.crowd_emotional_field)
         .unwrap_or(0.0);
-    (field * (1.0 - npc.cognition_tide.mind_quietude)).clamp(0.0, 1.0)
+    (field * (1.0 - cognition_col.cognitive_tide.mind_quietude)).clamp(0.0, 1.0)
 }
 
 /// ★ v1.1: assess_and_integrate_mental_model() 的 trust evaluation 被 crowd_suggestibility 调制
@@ -1362,11 +1322,12 @@ fn receive_player_speech(npc: &mut NpcData, utterance: &Utterance, player_reputa
     //    source: ModelSource::TaughtByNpc(PLAYER_ENTITY_ID)
     
     // 2. 走已有管道——和 NPC↔NPC 完全相同
+    // ★ v1.1 (方案D): mental_models + cognitive_style 从 CognitionColumn 读取
     let result = assess_and_integrate_mental_model(
         &incoming,
         source_credibility: player_credibility(npc, player_reputation),
-        existing_models: &npc.mental_models,
-        cognitive_style: &npc.cognitive_style,
+        existing_models: &cognition_col.mental_models,
+        cognitive_style: &cognition_col.cognitive_style,
         personality: &npc.personality,
         emotion: &npc.emotion,
         self_narrative: &npc.self_narrative,
@@ -1647,12 +1608,15 @@ impl DecisionEngine for ProbabilisticDecisionEngine {
     fn select_action(
         &self,
         npc: &NpcData,
+        need_col: &NeedColumn,          // ★ v1.1 (方案D): SoA 列族——social_deficit + need_sensitivity
+        growth_col: &GrowthColumn,      // ★ v1.1 (方案D): SoA 列族——esteem_deficit + competence_frustration + chronic_days
+        cognition_col: &CognitionColumn, // ★ v1.1 (方案D): SoA 列族——cognitive_style, mental_models, etc.
         world: &SubjectiveWorld,
         rng: &mut impl Rng,
     ) -> Action {
         // ★ v2.0 进阶需求系统：决策前预处理
         // 1. 克隆 sensitivity 用于挫折回归的临时调制（不持久化）
-        let mut effective_sensitivity = npc.need_sensitivity.clone();
+        let mut effective_sensitivity = need_col.need_sensitivity.clone();
         // 2. 应用挫折回归（ERG 桥接）——如果内在目标长期受挫，临时提升基本需求敏感度
         Self::apply_frustration_regression(&npc.active_intrinsic_goals, &mut effective_sensitivity);
 
@@ -1668,17 +1632,19 @@ impl DecisionEngine for ProbabilisticDecisionEngine {
                     // ★ v1.0 基本需求系统 (03-基本需求系统.md):
                     //   physiology_modifier 已重构为 need_action_match
                     //   need_action_match 统一需求 urgency → 行动权重映射
+                    //   函数定义见 [[03-基本需求系统/004-决策器集成方案|03 §7.2]] 和 [[03-基本需求系统/基本需求系统概览#§7|03 概览 §7.2]]
                     // ★ v2.0 进阶需求系统 (04-进阶需求系统.md):
                     //   扩展至 9 维 (+esteem, +competence), 新增 intrinsic 形式化 + survival_suppression
                     //   使用 effective_sensitivity (可能已被 frustration_regression 临时调制)
-                    * self.need_action_match(&action, &npc.physiology, npc.social_deficit, npc.esteem_deficit, npc.competence_frustration, &effective_sensitivity)
+                    // ★ v1.1 (方案D): social_deficit 来自 NeedColumn, esteem/competence 来自 GrowthColumn
+                    * self.need_action_match(&action, &npc.physiology, need_col.social_deficit, growth_col.esteem_deficit, growth_col.competence_frustration, &effective_sensitivity)
                     * self.intrinsic_motivation_weight(&action, &npc.active_intrinsic_goals) // ★ v2.0 形式化: commitment×relevance
                     * self.survival_suppression(&npc.physiology) // ★ v2.0 新增: sigmoid 软衰减
                     * self.time_modifier(&action, world)   // v3: 昼夜修正
                     * self.weather_modifier(&action, world) // v3: 天气修正
                     * self.sky_modifier(&action, &npc.sky_perception) // v3: 天象修正
                     * self.vehicle_modifier(&action, &npc.vehicle_state) // v3: 载具修正
-                    * self.mental_model_modulation(&action, &npc.mental_models); // ★ v1.0 认知与智慧系统：信念→行动调制
+                    * self.mental_model_modulation(&action, &cognition_col.mental_models); // ★ v1.0: 信念→行动调制。v1.1: 从 CognitionColumn 读
                 (action, weight)
             })
             .collect();
@@ -1829,12 +1795,13 @@ impl GoapPlanner {
         }
         // ★ 求爱目标触发（02-性别与吸引力系统.md §5.3）
         // 无伴侣 + 适婚年龄 + 文化婚姻压力 → FindPartner
-        if npc.is_eligible_for_pairing()
+        // ★ v1.1 (方案D): attraction_template 从 AttractionColumn 读取
+        if npc.is_eligible_for_pairing(attraction_col)
             && npc.cultural_marriage_pressure() > 0.3
         {
             return Some(Goal::FindPartner {
                 min_attraction: 0.55,
-                desired_structure: npc.attraction_template.relationship_preference.preferred_structure.clone(),
+                desired_structure: attraction_col.attraction_template.relationship_preference.preferred_structure.clone(),
                 urgency: npc.cultural_marriage_pressure(),
             });
         }
@@ -3892,8 +3859,8 @@ pub struct WorldSnapshot {
    └─ 空间索引重建: BTreeMap<NpcId, Vec3> → SpatialIndex
 
 3. NPC 心智并行更新 (L1: 200/帧 + L2: 500/帧, rayon)
-   └─ select_action(npc, Arc<WorldSnapshot>, rng)  // 共享只读快照
-   └─ 每个 NPC 独立借用 &mut NpcData — 无竞争
+   └─ select_action(npc, need_col, growth_col, cognition_col, Arc<WorldSnapshot>, rng)  // ★ v1.1: 列族从 NpcStore 按 NpcId 取
+   └─ 每个 NPC 独立借用 &mut NpcData — 无竞争。NeedColumn + GrowthColumn + CognitionColumn 只读共享
 
 4. 情绪感染串行执行 (仅 L1, <15m 距离, <0.3ms)
    └─ 明确操作范围: 仅本帧确定的 L1 集合 (升降级已完成)

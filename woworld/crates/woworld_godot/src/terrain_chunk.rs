@@ -1,287 +1,322 @@
-//! TerrainChunk — Godot Node3D GDExtension 类
+//! WorldDriver — 世界驱动 GodotClass
 //!
-//! 在 Rust 侧生成地形网格，通过 GDExtension 直接构建 Godot ArrayMesh。
-//! 管理 WorldClock（昼夜）和 BiomeClassifier（群系）。
+//! 管理多分辨率 LOD 地形渲染 + 昼夜循环 + 大气合成。
+//! 消费纯 Rust ClipmapManager（引擎无关），直接操控 Godot 节点。
+//!
+//! 架构：Rust 权威 → Godot 纯表现（GDScript 铁律 §14.1）
 
-use std::cell::RefCell;
+use std::collections::HashMap;
 
 use godot::classes::base_material_3d::{CullMode, Flags, ShadingMode};
+use godot::classes::light_3d::Param;
 use godot::classes::mesh::PrimitiveType;
-use godot::classes::{ArrayMesh, MeshInstance3D, StandardMaterial3D};
+use godot::classes::{
+    ArrayMesh, DirectionalLight3D, MeshInstance3D, ProceduralSkyMaterial, StandardMaterial3D,
+    WorldEnvironment,
+};
 use godot::prelude::*;
-use woworld_core::prelude::WorldPos;
+use woworld_atmosphere::AtmosphereSynthesizer;
+use woworld_core::prelude::*;
 use woworld_core::spatial::TerrainQuery;
-use woworld_worldgen::{BiomeClassifier, HeightfieldTerrain, WorldClock, WorldNoise};
+use woworld_worldgen::{
+    BiomeClassifier, ClipmapManager, HeightfieldTerrain, LodKey, NoiseParams, TerrainMeshData,
+    TileEvent, WorldNoise,
+};
+
+// ── 缺省参数 ────────────────────
+/// 默认每秒对应的游戏天数（30s/天方便观察，正式 3600s/天）
+const DEFAULT_SECONDS_PER_DAY: f64 = 30.0;
+/// DirectionalLight3D 距离世界原点的距离（米）
+const SUN_ORBIT_RADIUS: f32 = 500.0;
+
+// ── GodotClass ────────────────────
 
 #[derive(GodotClass)]
-#[class(base = Node3D, init)]
-pub struct TerrainChunk {
+#[class(base = Node3D)]
+pub struct WorldDriver {
     terrain: HeightfieldTerrain,
-    /// RefCell: Godot 的 #[func] 方法只能 &self，用内部可变性推进时钟
-    clock: RefCell<WorldClock>,
+    clock: WorldClock,
+    atmosphere: AtmosphereSynthesizer,
+    clipmap: ClipmapManager,
+
+    /// 活跃 Tile → MeshInstance3D 映射
+    active_tiles: HashMap<LodKey, Gd<MeshInstance3D>>,
+    /// 空闲 MeshInstance3D + ArrayMesh 池
+    free_pool: Vec<(Gd<MeshInstance3D>, Gd<ArrayMesh>)>,
+    /// 所有 Tile 共享一份材质
+    shared_material: Option<Gd<StandardMaterial3D>>,
+
+    // 缓存的 Godot 节点引用
+    sun: Option<Gd<DirectionalLight3D>>,
+    world_env: Option<Gd<WorldEnvironment>>,
+    terrain_parent: Option<Gd<Node3D>>,
+    player_node: Option<Gd<Node3D>>,
 
     #[base]
     base: Base<Node3D>,
 }
 
-// ── 昼夜渲染参数（关键帧色板） ──────────────
-
-/// 天空顶色关键帧：dawn / noon / dusk / midnight
-const SKY_TOP_DAWN: (f32, f32, f32) = (0.7, 0.4, 0.3);
-const SKY_TOP_NOON: (f32, f32, f32) = (0.3, 0.5, 0.9);
-const SKY_TOP_DUSK: (f32, f32, f32) = (0.8, 0.35, 0.2);
-const SKY_TOP_NIGHT: (f32, f32, f32) = (0.05, 0.05, 0.15);
-
-/// 天空地平线色关键帧
-const SKY_HORIZON_DAWN: (f32, f32, f32) = (0.9, 0.6, 0.3);
-const SKY_HORIZON_NOON: (f32, f32, f32) = (0.6, 0.7, 0.9);
-const SKY_HORIZON_DUSK: (f32, f32, f32) = (0.95, 0.5, 0.15);
-const SKY_HORIZON_NIGHT: (f32, f32, f32) = (0.02, 0.02, 0.06);
-
-/// 环境光关键帧
-const AMBIENT_DAWN: (f32, f32, f32) = (0.4, 0.3, 0.25);
-const AMBIENT_NOON: (f32, f32, f32) = (0.6, 0.6, 0.65);
-const AMBIENT_DUSK: (f32, f32, f32) = (0.45, 0.3, 0.2);
-const AMBIENT_NIGHT: (f32, f32, f32) = (0.04, 0.04, 0.08);
-
 #[godot_api]
-impl INode3D for TerrainChunk {
+impl INode3D for WorldDriver {
+    fn init(base: Base<Node3D>) -> Self {
+        let terrain = HeightfieldTerrain::default();
+        let clipmap = ClipmapManager::new(terrain.clone());
+        Self {
+            terrain,
+            clock: WorldClock::new(DEFAULT_SECONDS_PER_DAY),
+            atmosphere: AtmosphereSynthesizer::from_embedded_toml()
+                .expect("embedded time_curve.toml must be valid"),
+            clipmap,
+            active_tiles: HashMap::new(),
+            free_pool: Vec::new(),
+            shared_material: None,
+            sun: None,
+            world_env: None,
+            terrain_parent: None,
+            player_node: None,
+            base,
+        }
+    }
+
     fn ready(&mut self) {
-        use woworld_worldgen::NoiseParams;
+        // ── 1. 创建 HeightfieldTerrain（含群系）────
         let seed: u32 = 42;
         let params = NoiseParams {
             continent_scale: 0.001,
             detail_scale: 0.02,
             mountain_scale: 0.002,
             sea_threshold: -0.5,
-            height_amplitude: 80.0,
-            sea_depth: 30.0,
+            height_amplitude: 350.0,
+            sea_depth: 400.0,
             climate_scale: 0.005,
         };
         let noise = WorldNoise::with_params(seed, params);
 
-        // 加载群系
         let biome_toml = include_str!("../../../assets/biomes.toml");
         let biome_classifier = BiomeClassifier::from_toml_str(biome_toml, noise.clone())
             .expect("Failed to parse biomes.toml");
 
-        // 构建地形（带昼夜时钟 + 群系）
-        let clock = WorldClock::new(60.0); // 60s/天用于测试
+        let clock = WorldClock::new(DEFAULT_SECONDS_PER_DAY);
         self.terrain = HeightfieldTerrain::with_noise(noise)
             .with_clock(clock.clone())
             .with_biomes(biome_classifier);
-        self.clock = RefCell::new(clock);
+        self.clock = clock;
 
-        let grid_size: i32 = 256;
-        let spacing: f64 = 2.0;
-        let origin_x: f64 = -256.0;
-        let origin_z: f64 = -256.0;
+        self.clipmap = ClipmapManager::new(self.terrain.clone());
 
-        // 生成顶点、法线、颜色
-        let mut vertices = PackedVector3Array::new();
-        let mut normals = PackedVector3Array::new();
-        let mut colors = PackedColorArray::new();
-        let mut min_h: f32 = f32::MAX;
-        let mut max_h: f32 = f32::MIN;
+        // ── 2. 缓存场景节点引用（零后续查找）──────
+        self.sun = self.base().try_get_node_as::<DirectionalLight3D>("../Sun");
+        self.world_env = self
+            .base()
+            .try_get_node_as::<WorldEnvironment>("../WorldEnvironment");
+        self.terrain_parent = self
+            .base()
+            .try_get_node_as::<Node3D>(".")
+            .or_else(|| Some(self.base().clone().cast::<Node3D>()));
+        self.player_node = self.base().try_get_node_as::<Node3D>("../Player");
 
-        for iz in 0..grid_size {
-            let wz = origin_z + iz as f64 * spacing;
-            for ix in 0..grid_size {
-                let wx = origin_x + ix as f64 * spacing;
-                let pos = WorldPos {
-                    x: wx,
-                    y: 0.0,
-                    z: wz,
-                };
-                let h = self.terrain.height_at(pos);
-                let mat = self.terrain.surface_material_at(pos);
-                let n = self.terrain.normal_at(pos);
-
-                vertices.push(Vector3::new(wx as f32, h, wz as f32));
-                normals.push(Vector3::new(n.x, n.y, n.z));
-                colors.push(material_color(mat, h));
-                min_h = min_h.min(h);
-                max_h = max_h.max(h);
+        match (&self.sun, &self.world_env) {
+            (Some(_), Some(_)) => {
+                godot_print!("WorldDriver: Sun + WorldEnvironment nodes cached")
             }
+            (None, _) => godot_error!("WorldDriver: ../Sun not found — day/night disabled"),
+            (_, None) => godot_error!("WorldDriver: ../WorldEnvironment not found — sky disabled"),
         }
 
-        // 生成索引
-        let mut indices = PackedInt32Array::new();
-        for iz in 0..(grid_size - 1) {
-            for ix in 0..(grid_size - 1) {
-                let tl = iz * grid_size + ix;
-                let tr = iz * grid_size + ix + 1;
-                let bl = (iz + 1) * grid_size + ix;
-                let br = (iz + 1) * grid_size + ix + 1;
-                indices.push(tl);
-                indices.push(bl);
-                indices.push(tr);
-                indices.push(tr);
-                indices.push(bl);
-                indices.push(br);
-            }
-        }
-
-        // ArrayMesh: arrays 按 ARRAY_* 索引排列
-        // [0]=VERTEX, [1]=NORMAL, [3]=COLOR, [12]=INDEX
-        let mut arrays = Array::new();
-        let nil = Variant::nil();
-        arrays.resize(13, &nil);
-        let v = vertices.to_variant();
-        arrays.set(0, &v);
-        let n = normals.to_variant();
-        arrays.set(1, &n);
-        let c = colors.to_variant();
-        arrays.set(3, &c);
-        let i = indices.to_variant();
-        arrays.set(12, &i);
-
-        let mut array_mesh = ArrayMesh::new_gd();
-        array_mesh.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
-
-        // 顶点色材质
+        // ── 3. 共享材质 ──────────────────────────
         let mut mat = StandardMaterial3D::new_gd();
         mat.set_flag(Flags::ALBEDO_FROM_VERTEX_COLOR, true);
         mat.set_shading_mode(ShadingMode::UNSHADED);
         mat.set_cull_mode(CullMode::DISABLED);
+        self.shared_material = Some(mat);
 
-        let mut terrain_instance = MeshInstance3D::new_alloc();
-        terrain_instance.set_name("GeneratedTerrain");
-        terrain_instance.set_mesh(&array_mesh);
-        terrain_instance.set_surface_override_material(0, &mat);
-        let t = terrain_instance.upcast::<Node>();
-        self.base_mut().add_child(&t);
+        // ── 4. 预分配对象池（~70 tiles）──────────
+        let pool_size: usize = 100;
+        self.free_pool.reserve(pool_size);
+        for _ in 0..pool_size {
+            let mi = MeshInstance3D::new_alloc();
+            let am = ArrayMesh::new_gd();
+            self.free_pool.push((mi, am));
+        }
+        godot_print!("WorldDriver: free pool pre-allocated with {} slots", pool_size);
 
-        godot_print!(
-            "TerrainChunk: {} vertices, {} triangles, height [{:.1}, {:.1}]",
-            vertices.len(),
-            indices.len() / 3,
-            min_h,
-            max_h
-        );
+        self.base_mut().set_process(true);
+        godot_print!("WorldDriver: ready complete");
+    }
+
+    fn process(&mut self, delta: f64) {
+        self.clock.advance(delta);
+        let wt = &self.clock.current;
+        self.terrain.clock = Some(self.clock.clone());
+
+        let origin = WorldPos { x: 0.0, y: 0.0, z: 0.0 };
+        let atm = self.atmosphere.resolve(wt, origin);
+        self.update_sun_and_sky(&atm);
+
+        let player_pos = self.get_player_position();
+        let events = self.clipmap.poll(player_pos);
+
+        for event in events {
+            match event {
+                TileEvent::Load { key, mesh } => self.load_tile(key, mesh),
+                TileEvent::Unload { key } => self.unload_tile(key),
+            }
+        }
     }
 }
 
-#[godot_api]
-impl TerrainChunk {
-    /// GDScript 每帧调用：推进世界时钟（用 &self + RefCell 因为 godot-rust #[func] 不支持 &mut self）
-    #[func]
-    fn advance_time(&self, delta: f64) {
-        self.clock.borrow_mut().advance(delta);
+// ── 内部方法 ──────────────────────────
+
+impl WorldDriver {
+    /// 读取玩家位置（使用缓存引用，零场景树查找）
+    fn get_player_position(&self) -> WorldPos {
+        if let Some(ref player) = self.player_node {
+            let pos = player.get_position();
+            WorldPos {
+                x: pos.x as f64,
+                y: pos.y as f64,
+                z: pos.z as f64,
+            }
+        } else {
+            WorldPos::default()
+        }
     }
 
-    /// GDScript 调用：查询 (x, z) 处地形高度
+    /// 从对象池取出 MeshInstance3D → 更新 ArrayMesh → 挂载到场景树
+    fn load_tile(&mut self, key: LodKey, mesh: TerrainMeshData) {
+        let (mut mi, mut am) = self.free_pool.pop().unwrap_or_else(|| {
+            godot_warn!("WorldDriver: free pool exhausted, allocating new slot");
+            (MeshInstance3D::new_alloc(), ArrayMesh::new_gd())
+        });
+
+        Self::update_array_mesh(&mut am, &mesh);
+
+        mi.set_name(&format!("L{}_{}_{}", key.level, key.gx, key.gz));
+        mi.set_mesh(&am);
+        if let Some(ref mat) = self.shared_material {
+            mi.set_surface_override_material(0, mat);
+        }
+
+        if let Some(ref mut parent) = self.terrain_parent {
+            let node = mi.clone().upcast::<Node>();
+            parent.add_child(&node);
+        }
+        self.active_tiles.insert(key, mi);
+    }
+
+    /// 从场景树移除 → 归还对象池
+    fn unload_tile(&mut self, key: LodKey) {
+        if let Some(mut mi) = self.active_tiles.remove(&key) {
+            if let Some(ref mut parent) = self.terrain_parent {
+                parent.remove_child(&mi.clone().upcast::<Node>());
+            }
+            if let Some(am) = mi.get_mesh() {
+                if let Ok(am) = am.try_cast::<ArrayMesh>() {
+                    self.free_pool.push((mi, am));
+                    return;
+                }
+            }
+            mi.queue_free();
+        }
+    }
+
+    /// 原地更新 ArrayMesh 的表面数据（复用已有 Godot 对象）
+    fn update_array_mesh(am: &mut Gd<ArrayMesh>, mesh: &TerrainMeshData) {
+        let mut vertices = PackedVector3Array::new();
+        let mut normals = PackedVector3Array::new();
+        let mut colors = PackedColorArray::new();
+        for i in 0..mesh.vertices.len() {
+            let v = mesh.vertices[i];
+            let n = mesh.normals[i];
+            let c = mesh.colors[i];
+            vertices.push(Vector3::new(v.x, v.y, v.z));
+            normals.push(Vector3::new(n.x, n.y, n.z));
+            colors.push(Color::from_rgb(c.x, c.y, c.z));
+        }
+
+        let mut indices = PackedInt32Array::new();
+        for idx in &mesh.indices {
+            indices.push(*idx as i32);
+        }
+
+        let mut arrays = Array::new();
+        let nil = Variant::nil();
+        arrays.resize(13, &nil);
+        arrays.set(0, &vertices.to_variant());
+        arrays.set(1, &normals.to_variant());
+        arrays.set(3, &colors.to_variant());
+        arrays.set(12, &indices.to_variant());
+
+        am.clear_surfaces();
+        am.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
+    }
+
+    /// 太阳位置 + 天空材质 + 环境光
+    fn update_sun_and_sky(&mut self, atm: &woworld_atmosphere::ResolvedAtmosphere) {
+        let wt = &self.clock.current;
+
+        if let Some(ref mut sun) = self.sun {
+            let radius = SUN_ORBIT_RADIUS;
+            let elev = wt.sun_elevation as f32;
+            let azim = wt.sun_azimuth as f32;
+            let sun_pos = Vector3::new(
+                elev.cos() * azim.sin() * radius,
+                elev.sin() * radius,
+                elev.cos() * azim.cos() * radius,
+            );
+            sun.set_position(sun_pos);
+            sun.look_at(Vector3::ZERO);
+            sun.set_color(Color::from_rgb(
+                atm.sun_color[0],
+                atm.sun_color[1],
+                atm.sun_color[2],
+            ));
+            sun.set_param(Param::ENERGY, atm.sun_energy);
+        }
+
+        if let Some(ref world_env) = self.world_env {
+            if let Some(mut env_res) = world_env.get_environment() {
+                if let Some(sky) = env_res.get_sky() {
+                    if let Some(mat) = sky.get_material() {
+                        if let Ok(mut proc_sky) = mat.try_cast::<ProceduralSkyMaterial>() {
+                            proc_sky.set_sky_top_color(Color::from_rgb(
+                                atm.sky_zenith_color[0],
+                                atm.sky_zenith_color[1],
+                                atm.sky_zenith_color[2],
+                            ));
+                            proc_sky.set_sky_horizon_color(Color::from_rgb(
+                                atm.sky_horizon_color[0],
+                                atm.sky_horizon_color[1],
+                                atm.sky_horizon_color[2],
+                            ));
+                            proc_sky.set_ground_horizon_color(Color::from_rgb(
+                                atm.ground_horizon[0],
+                                atm.ground_horizon[1],
+                                atm.ground_horizon[2],
+                            ));
+                            proc_sky.set_sun_angle_max(5.0);
+                            proc_sky.set_sun_curve(0.5);
+                        }
+                    }
+                }
+                env_res.set_ambient_light_color(Color::from_rgb(
+                    atm.ambient_color[0],
+                    atm.ambient_color[1],
+                    atm.ambient_color[2],
+                ));
+            }
+        }
+    }
+}
+
+// ── GDScript 接口 ──────────────────────
+
+#[godot_api]
+impl WorldDriver {
+    /// GDScript 查询：(x, z) 处地形高度
     #[func]
     fn query_height(&self, x: f64, z: f64) -> f32 {
         let pos = WorldPos { x, y: 0.0, z };
         self.terrain.height_at(pos)
-    }
-
-    /// 太阳在天空中的位置（世界坐标）
-    #[func]
-    fn get_sun_position(&self) -> Vector3 {
-        let clock = self.clock.borrow();
-        let wt = &clock.current;
-        let radius = clock.sun_orbit_radius;
-        let elev = wt.sun_elevation as f32;
-        let azim = wt.sun_azimuth as f32;
-
-        Vector3::new(
-            elev.cos() * azim.sin() * radius,
-            elev.sin() * radius,
-            elev.cos() * azim.cos() * radius,
-        )
-    }
-
-    /// 天空顶色（根据当前时间段 lerp）
-    #[func]
-    fn get_sky_top_color(&self) -> Color {
-        let dp = self.clock.borrow().current.day_progress as f32;
-        sky_color_lerp(dp, SKY_TOP_DAWN, SKY_TOP_NOON, SKY_TOP_DUSK, SKY_TOP_NIGHT)
-    }
-
-    /// 天空地平线色
-    #[func]
-    fn get_sky_horizon_color(&self) -> Color {
-        let dp = self.clock.borrow().current.day_progress as f32;
-        sky_color_lerp(
-            dp,
-            SKY_HORIZON_DAWN,
-            SKY_HORIZON_NOON,
-            SKY_HORIZON_DUSK,
-            SKY_HORIZON_NIGHT,
-        )
-    }
-
-    /// 环境光色
-    #[func]
-    fn get_ambient_light(&self) -> Color {
-        let dp = self.clock.borrow().current.day_progress as f32;
-        sky_color_lerp(dp, AMBIENT_DAWN, AMBIENT_NOON, AMBIENT_DUSK, AMBIENT_NIGHT)
-    }
-}
-
-/// 四关键帧色板 lerp：dawn(0.25) → noon(0.5) → dusk(0.75) → night(0.0/1.0)
-fn sky_color_lerp(
-    day_progress: f32,
-    dawn: (f32, f32, f32),
-    noon: (f32, f32, f32),
-    dusk: (f32, f32, f32),
-    night: (f32, f32, f32),
-) -> Color {
-    let dp = day_progress;
-    let (c1, c2, t) = if dp < 0.25 {
-        // Night → Dawn
-        (rgb(night), rgb(dawn), (dp + 0.75) / 0.25) // dp=0 → t=0 (night), dp=0.25 → t=1 (dawn)
-    } else if dp < 0.5 {
-        // Dawn → Noon
-        (rgb(dawn), rgb(noon), (dp - 0.25) / 0.25)
-    } else if dp < 0.75 {
-        // Noon → Dusk
-        (rgb(noon), rgb(dusk), (dp - 0.5) / 0.25)
-    } else {
-        // Dusk → Night
-        (rgb(dusk), rgb(night), (dp - 0.75) / 0.25)
-    };
-    let t = t.clamp(0.0, 1.0);
-    Color::from_rgb(
-        c1.0 + (c2.0 - c1.0) * t,
-        c1.1 + (c2.1 - c1.1) * t,
-        c1.2 + (c2.2 - c1.2) * t,
-    )
-}
-
-fn rgb(c: (f32, f32, f32)) -> (f32, f32, f32) {
-    c
-}
-
-fn material_color(mat: woworld_core::material::SurfaceMaterial, height: f32) -> Color {
-    use woworld_core::material::SurfaceMaterial::*;
-    match mat {
-        Water => {
-            // 无真实水面时，水材质映射为湿地色
-            if height < -20.0 {
-                Color::from_rgb(0.3, 0.4, 0.5) // 深海蓝灰
-            } else {
-                Color::from_rgb(0.55, 0.6, 0.45) // 浅滩湿地绿
-            }
-        }
-        Sand => Color::from_rgb(0.76, 0.7, 0.5),
-        Grass => {
-            if height > 150.0 {
-                Color::from_rgb(0.25, 0.5, 0.2) // 高山暗绿
-            } else if height > 50.0 {
-                Color::from_rgb(0.3, 0.6, 0.25) // 丘陵
-            } else {
-                Color::from_rgb(0.35, 0.7, 0.3) // 低地鲜绿
-            }
-        }
-        Rock => Color::from_rgb(0.5, 0.45, 0.4),
-        Stone => Color::from_rgb(0.4, 0.4, 0.4),
-        Gravel => Color::from_rgb(0.55, 0.5, 0.45),
-        Snow => Color::from_rgb(0.95, 0.95, 0.95),
-        Ice => Color::from_rgb(0.85, 0.9, 0.95),
-        Mud => Color::from_rgb(0.45, 0.35, 0.25),
-        _ => Color::from_rgb(0.4, 0.5, 0.3),
     }
 }

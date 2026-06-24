@@ -385,11 +385,15 @@ pub enum SilenceIntent {
 
 ```rust
 /// 修辞能力从已有属性派生——不新增技能
-pub fn rhetorical_ability(npc: &NpcData) -> f32 {
+/// ★ 方案D: cognitive_style 从 CognitionColumn 读取——不经过 NpcData
+pub fn rhetorical_ability(
+    npc: &NpcData,                        // mental(过渡) + language_proficiency
+    cognition_col: &CognitionColumn,      // ← 06-认知 own 的 SoA 列族
+) -> f32 {
     // 找到类比的能力：智慧 + 抽象思维 + 认知灵活性
     let find_analogies = npc.mental.wisdom * 0.5
-                       + npc.cognitive_style.abstract_concrete * 0.3
-                       + npc.cognitive_style.rigid_flexible * 0.2;
+                       + cognition_col.cognitive_style.abstract_concrete * 0.3
+                       + cognition_col.cognitive_style.rigid_flexible * 0.2;
     // 表达类比的能力：魅力 + 语言熟练度
     let express_analogies = npc.mental.charisma * 0.6
                           + npc.language_proficiency * 0.4;

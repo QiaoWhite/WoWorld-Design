@@ -1,0 +1,14 @@
+[package]
+name = "woworld_atmosphere"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+# 仅依赖 core（WorldTime, WorldPos）——不依赖 worldgen/godot
+woworld_core = { path = "../woworld_core" }
+
+# TOML 数据文件加载
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"

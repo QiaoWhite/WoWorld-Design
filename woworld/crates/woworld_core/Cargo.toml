@@ -5,9 +5,14 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+default = []
+# 启用 serde 序列化（SurfaceMaterial 需要 Deserialize——worldgen 消费）
+serde = ["dep:serde", "glam/serde"]
+
 [dependencies]
 # 核心 crate 保持最少依赖
-# glam: SIMD 加速向量/矩阵运算（f32 Vec3/Quat + f64 DVec3）
-glam = { version = "0.28", features = ["bytemuck", "serde"] }
-# serde: SurfaceMaterial 等枚举的 TOML 反序列化
-serde = { version = "1", features = ["derive"] }
+# glam: SIMD 加速向量/矩阵运算
+glam = { version = "0.28", features = ["bytemuck"] }
+# serde: 可选——仅 SurfaceMaterial 等枚举需要 TOML 反序列化
+serde = { version = "1", features = ["derive"], optional = true }

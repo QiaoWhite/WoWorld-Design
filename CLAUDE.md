@@ -19,15 +19,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **设计→编码过渡中**：技术方案历经 001→015（v1.0）→016（v2.0）→018（v3.0）→**v4.0（当前权威，经技术栈全量审计升级）** 演进。四轨开发路线图已启动——设计文档与代码脚手架并存。
 
-> ⚠️ **重要说明**：WoWorld 处于**设计+编码并行阶段**。设计文档中的伪代码和数据结构示例用于阐明设计理念，实际 Rust 实现可能根据工程发现重构。`woworld/` 已进入**轨A 阶段二·地形渲染可运行原型**——4 crate workspace，核心类型/trait/空间索引/世界生成/Godot 桥接全部就位。
+> ⚠️ **重要说明**：WoWorld 处于**设计+编码并行阶段**。设计文档中的伪代码和数据结构示例用于阐明设计理念，实际 Rust 实现可能根据工程发现重构。`woworld/` 已进入**轨A 阶段二·地形渲染可运行原型**——5 crate workspace，核心类型/trait/空间索引/世界生成/大气氛围/Godot 桥接全部就位。
 >
 > **仓库构成**：设计文档（`WoWorld-Design/`）+ Rust workspace（`woworld/`）+ 开发治理（`woworld-dev-plan/`）。设计文档用 **Obsidian** 编辑（`[[wikilink]]` 导航），Rust 代码用标准 Cargo 工具链。
 
-**当前规格版本**: v4.0。模块累计 **~26 个独立系统** + 1 个子模块（家具与放置物品）+ 交互配方表系统 + 存档系统 v2.0（CHG-055/056）。★ 2026-06-22 Loop Audit 全量审计完成。★ NPC 认知系统 v1.1（CHG-057/058/059）。★ 开发路线图优化（CHG-060）。★ 轨C 孤儿接口修复（CHG-061）。★ UI/UX 系统创建（CHG-062）。★ 玩家系统新建（CHG-063·6篇~1,448行）。最新 CHG 序列见 `WoWorld-Design/Change/`。
+**当前规格版本**: v4.0。模块累计 **~26 个独立系统** + 1 个子模块（家具与放置物品）+ 交互配方表系统 + 存档系统 v2.0（CHG-055/056）。★ 2026-06-22 Loop Audit 全量审计完成。★ NPC 认知系统 v1.1（CHG-057/058/059）。★ 开发路线图优化（CHG-060）。★ 轨C 孤儿接口修复（CHG-061）。★ UI/UX 系统创建（CHG-062）。★ 玩家系统新建（CHG-063·6篇~1,448行）。★ 轨A 昼夜循环 + 5群系系统（CHG-064）。★ 宪法 v1.4（架构边界合规审计 + 对抗性重新验证 + GDScript 铁律）。最新 CHG 序列见 `WoWorld-Design/Change/`。
 
 ## 快速导航
 
-> 📘 **两份文件的分工**: **CLAUDE.md** = 项目大局观 + 工作约定。**[[CLAUDE-INTERFACES.md]]**（938行）= 跨模块契约完整参考——概念所有权、trait 签名、关键约定。修改跨模块概念时以 CLAUDE-INTERFACES.md 为权威。
+> 📘 **两份文件的分工**: **CLAUDE.md** = 项目大局观 + 工作约定。**[[CLAUDE-INTERFACES.md]]**（986行）= 跨模块契约完整参考——概念所有权、trait 签名、关键约定。修改跨模块概念时以 CLAUDE-INTERFACES.md 为权威。
 
 | 我想… | 去… |
 |------|------|
@@ -40,6 +40,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 查看各模块开发准入状态（🔴🟡🟢） | `woworld-dev-plan/DEVELOPMENT_STATUS.md` |
 | 查中英术语映射 | `woworld-dev-plan/GLOSSARY.md` |
 | 查模块实现依赖图 | `woworld-dev-plan/DEPENDENCY_GRAPH.md` |
+| 查 GPU/CPU/VRAM 性能预算 | `woworld-dev-plan/PERFORMANCE_BUDGET.md` |
 | 查架构决策记录（为什么这样设计） | `woworld-dev-plan/ARCHITECTURE_DECISIONS.md` |
 | 新开发者/新设备接入 | `woworld-dev-plan/ONBOARDING.md` |
 | 看最近的设计变更 | `WoWorld-Design/Change/README.md` |
@@ -121,7 +122,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 开发命令（woworld/ Rust workspace）
 
-项目已进入轨A 阶段二·地形渲染可运行原型。Rust workspace 含 4 个 crate，11 个测试全部通过。
+项目已进入轨A 阶段二·地形渲染可运行原型。Rust workspace 含 5 个 crate，57 个测试全部通过。
 
 ```bash
 cd woworld
@@ -136,7 +137,7 @@ cargo build --release --workspace
 cargo check --workspace
 
 # 运行所有测试（注意：woworld_godot 为 cdylib，需单独测试）
-cargo test --workspace           # woworld_core + woworld_spatial + woworld_worldgen
+cargo test --workspace           # woworld_core + woworld_spatial + woworld_worldgen + woworld_atmosphere
 cargo test -p woworld_godot      # woworld_godot（cdylib 不包含在 workspace 测试中）
 
 # 运行单个 crate 的测试
@@ -152,26 +153,29 @@ cargo clippy --workspace -- -D warnings
 cargo fmt --all
 
 # 启动 Godot 编辑器（Windows — 必须在 woworld/ 目录下执行）
-#   _console.exe 变体可显示 stdout/stderr，调试 GDExtension 加载问题时使用
 ../tools/godot/Godot_v4.7-stable_win64.exe godot/project.godot
+
+# 调试 GDExtension 加载问题 — 使用 _console.exe 变体（显示 stdout/stderr）
+../tools/godot/Godot_v4.7-stable_win64_console.exe godot/project.godot
 ```
 
-> **当前状态**（2026-06-24 验证）：`cargo check --workspace` 通过。`cargo test` 11 个测试全部通过（worldgen 8 + godot 3）。Rust→Godot ArrayMesh 双面渲染地形可用——WASD 移动 + 鼠标环顾 + 地面碰撞。
+> **当前状态**（2026-06-24 验证）：`cargo check --workspace` 通过。`cargo test` 57 个测试全部通过（core 12 + spatial 12 + worldgen 19 + atmosphere 11 + godot 3）。Rust→Godot ArrayMesh 双面渲染地形可用——WASD 移动 + 鼠标环顾 + 地面碰撞。昼夜循环 + 5群系系统就位（CHG-064）。
 
 ### 测试分布
 
 | Crate | 测试数 | 位置 |
 |-------|--------|------|
-| `woworld_core` | 0（仅类型定义） | — |
-| `woworld_spatial` | 0（待填充） | — |
-| `woworld_worldgen` | 8 | `noise_gen.rs` (3) + `terrain.rs` (5) |
+| `woworld_core` | 12 | `time.rs` (12) — WorldTime/WorldClock 昼夜循环 |
+| `woworld_spatial` | 12 | `entity_index.rs` (4) + `event_bus.rs` (4) + `visibility.rs` (4) |
+| `woworld_worldgen` | 19 | `noise_gen.rs` (6) + `terrain.rs` (7) + `biome.rs` (6) |
+| `woworld_atmosphere` | 11 | `synthesizer.rs` (4) + `time_curve.rs` (6) + `resolved_atmosphere.rs` (1) |
 | `woworld_godot` | 3 | `terrain_mesh.rs` (3) |
 
 ## 代码架构（woworld/ Rust workspace）
 
 ```
 woworld/
-├── Cargo.toml                  # workspace 清单（resolver="2", edition=2021, 4 crates）
+├── Cargo.toml                  # workspace 清单（resolver="2", edition=2021, 5 crates）
 ├── crates/
 │   ├── woworld_core/           # 核心类型 + trait 定义（仅 glam 依赖）
 │   │   └── src/
@@ -181,7 +185,8 @@ woworld/
 │   │       ├── id.rs           #   ItemDefId, ItemEntId, SkillId, ProfessionTagId, ChunkCoord
 │   │       ├── spatial.rs      #   4 大 trait: TerrainQuery(9方法), EntityIndex(6方法),
 │   │       │                   #     SpatialEventBus(3方法), VisibilityQuery(2方法)
-│   │       └── material.rs     #   SurfaceMaterial(21变体), Medium(4变体)
+│   │       ├── material.rs     #   SurfaceMaterial(21变体), Medium(4变体)
+│   │       └── time.rs         #   WorldTime, WorldClock, TimeOfDay — 昼夜循环权威定义
 │   ├── woworld_spatial/        # 空间索引实现
 │   │   └── src/
 │   │       ├── lib.rs          #   导出 GridEntityIndex, DdaVisibility, RingEventBus
@@ -192,7 +197,17 @@ woworld/
 │   │   └── src/
 │   │       ├── lib.rs          #   导出 HeightfieldTerrain, WorldNoise, NoiseParams
 │   │       ├── noise_gen.rs    #   双层 Perlin 噪声 (continent+detail+mountain)
+│   │       ├── biome.rs        #   温度×降水 2D 噪声 → 5 群系硬盒分类 (TOML 数据驱动)
 │   │       └── terrain.rs      #   HeightfieldTerrain — 完整 TerrainQuery trait 实现
+│   ├── woworld_atmosphere/     # 大气与氛围系统 — 17 参数合成 (CHG-064)
+│   │   ├── assets/
+│   │   │   └── atmos_curve.toml#   时间曲线数据 (锚点/插值)
+│   │   └── src/
+│   │       ├── lib.rs          #   模块导出
+│   │       ├── traits.rs       #   BiomeAtmosQuery, WeatherAtmosQuery, SeasonAtmosQuery (trait stub)
+│   │       ├── time_curve.rs   #   AtmosCurve — TOML 驱动的颜色/亮度时间曲线
+│   │       ├── synthesizer.rs  #   AtmosphereSynthesizer → ResolvedAtmosphere (17 字段)
+│   │       └── resolved_atmosphere.rs # ResolvedAtmosphere — PackedFloat32Array 输出
 │   └── woworld_godot/          # GDExtension 桥接（cdylib → Godot 4.7）
 │       └── src/
 │           ├── lib.rs          #   WoWorldExtension GDExtension 入口
@@ -203,8 +218,7 @@ woworld/
 │   ├── WoWorld.gdextension     #   GDExtension 配置（Win/Linux/macOS 动态库路径）
 │   ├── scenes/main.tscn        #   主场景（TerrainChunk + Player + DirectionalLight3D + Camera3D）
 │   └── scripts/
-│       ├── player.gd           #   玩家控制器 — WASD 移动 + 鼠标环顾 + Space 跳跃
-│       └── terrain_renderer.gd #   GDScript 地形渲染（SurfaceTool，备选方案）
+│       └── player.gd           #   玩家控制器 — WASD 移动 + 鼠标环顾 + Space 跳跃
 └── assets/                     # TOML 数据文件（群系、物品等 — 尚未填充）
 ```
 
@@ -214,6 +228,7 @@ woworld/
 woworld_core (glam 0.28)
   ├── woworld_spatial (woworld_core, glam)
   ├── woworld_worldgen (woworld_core, glam, noise 0.9)
+  ├── woworld_atmosphere (woworld_core, serde, toml)
   └── woworld_godot (woworld_core, woworld_worldgen, godot 0.5)
 ```
 
@@ -221,10 +236,11 @@ woworld_core (glam 0.28)
 
 - **`woworld_core` — 最少依赖**：所有 ID 类型（`ItemDefId`, `SkillId`, `EntityId`, `ProfessionTagId`）、空间查询 trait（`TerrainQuery`, `EntityIndex`, `SpatialEventBus`, `VisibilityQuery`）、共享数据结构均在此定义。仅依赖 `glam`（SIMD 向量运算）。引擎无关，不依赖 Godot。
 - **`woworld_spatial` — 空间索引实现**：实现 `woworld_core` 中的空间查询 trait。稀疏网格实体索引、DDA 射线可见性、环形缓冲区事件总线。依赖 `woworld_core`。
-- **`woworld_worldgen` — 世界生成**：双层 Perlin 噪声高度场 + `TerrainQuery` trait 完整实现。依赖 `woworld_core` + `noise` crate。当前为高度场阶段（无体素/Transvoxel）。
+- **`woworld_worldgen` — 世界生成**：双层 Perlin 噪声高度场 + 5 群系硬盒分类（温度×降水 TOML 数据驱动）+ `TerrainQuery` trait 完整实现。依赖 `woworld_core` + `noise` crate。当前为高度场阶段（无体素/Transvoxel）。
+- **`woworld_atmosphere` — 大气与氛围系统**：合成 `ResolvedAtmosphere`（17 参数：天空色/雾/环境光/曝光/太阳色等），输出 `PackedFloat32Array` 供 Godot shader 消费。时间曲线优先——群系/天气/季节调制预留 trait stub。依赖仅 `woworld_core`（WorldTime, WorldPos）。引擎无关。
 - **`woworld_godot` — 薄桥接层**：Rust 类型 ↔ Godot GDExtension API 的转换。不包含游戏逻辑。编译为 `cdylib`，由 Godot 运行时动态加载。包含纯 Rust 网格生成器（引擎无关）和 GodotClass 封装。
 - **Godot 项目 — 纯表现层**：渲染、UI、音频、输入、玩家物理（仅玩家保留 `PhysicsServer3D`——其他全部 Rust 侧空间查询）。
-- **数据流**：`TOML 数据文件` → `woworld_core`（加载 & 验证）→ `woworld_godot`（序列化桥接）→ Godot 场景树。
+- **数据流**：`TOML 数据文件` → 各 crate 通过 `include_str!()` 平等加载 → `woworld_godot`（桥接层）→ Godot 场景树。
 - **godot-rust 版本**：`godot` crate 0.5.x（GDExtension API）。
 
 ### 关键跨层契约（代码侧）

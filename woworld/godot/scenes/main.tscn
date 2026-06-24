@@ -1,7 +1,6 @@
-[gd_scene load_steps=7 format=3 uid="uid://main001"]
+[gd_scene load_steps=5 format=3 uid="uid://main001"]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
-[ext_resource type="Script" path="res://scripts/time_manager.gd" id="2_time"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.3, 0.45, 0.65, 1)
@@ -22,9 +21,6 @@ height = 1.8
 
 [node name="Main" type="Node3D"]
 
-[node name="TimeManager" type="Node" parent="."]
-script = ExtResource("2_time")
-
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Env")
 
@@ -32,7 +28,9 @@ environment = SubResource("Env")
 transform = Transform3D(0.707107, 0.353553, -0.612372, 0, 0.866025, 0.5, 0.707107, -0.353553, 0.612372, 0, 20, 0)
 shadow_enabled = true
 
-[node name="TerrainChunk" type="TerrainChunk" parent="."]
+[node name="WorldDriver" type="WorldDriver" parent="."]
+
+[node name="OceanPlane" type="OceanPlane" parent="."]
 
 [node name="Player" type="CharacterBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 120, 0)

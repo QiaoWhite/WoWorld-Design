@@ -5,8 +5,8 @@
 //!
 //! 参见 godot-rust 文档: https://godot-rust.github.io/book/
 
+mod ocean;
 mod terrain_chunk;
-pub mod terrain_mesh;
 
 use godot::prelude::*;
 

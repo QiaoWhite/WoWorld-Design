@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "参考文档/042-属性注册表与状态系统-20260622/002-开放问题与风险清单.md",
+                "file": "Happy Game/开发阶段/模块接头总览/02-NPC活人感/000-变更日志.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "002-开放问题与风险清单"
+              "title": "000-变更日志"
             }
           },
           {
@@ -82,7 +82,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "特质能力：一辈子不变的思考倾向",
+                "query": "agentsnap",
                 "matchingCase": false,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -185,55 +185,37 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "未命名 1.base",
+                "file": "开发路线图/002-轨A-正式开发.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "未命名 1 的大纲"
-            }
-          },
-          {
-            "id": "e0421fc6f88c5180",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Happy Game/想法/WoW World/生命/神明/NPC信仰系统.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "NPC信仰系统"
+              "title": "002-轨A-正式开发 的大纲"
             }
           },
           {
             "id": "2ffae5bc70a0717c",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Happy Game/想法/WoW World/补充内容.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "补充内容"
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "关系图谱"
             }
           },
           {
-            "id": "79265590e5c117f6",
+            "id": "3688534bafafeed6",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "参考文档/023-载具系统设计探讨-20260615/设计草稿/003-操控与导航.md",
+                "file": "开发路线图/001-总纲与背景.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "003-操控与导航"
+              "title": "001-总纲与背景"
             }
           }
         ],
@@ -241,7 +223,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 309.5
+    "width": 438.5
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -254,24 +236,33 @@
       "bases:新建数据库": false
     }
   },
-  "active": "2ffae5bc70a0717c",
+  "active": "9fd2dd038a914461",
   "lastOpenFiles": [
+    "Change/CHG-060-开发路线图优化-20260622.md",
+    "Change/README.md.tmp.36264.17e2e6d658f7",
+    "Change/CHG-060-开发路线图优化-20260622.md.tmp.36264.255d4e5f92bf",
+    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/002-接口入口.md.tmp.36264.e4e9ce825cb1",
+    "Happy Game/开发阶段/模块接头总览/02-NPC活人感/001-接口出口.md.tmp.36264.62414e80bd9e",
+    "Happy Game/开发阶段/模块接头总览/18-物品/002-接口入口.md.tmp.36264.ebe01e8c742b",
+    "Happy Game/开发阶段/模块接头总览/01-生命/002-接口入口.md.tmp.36264.a6dba5f79de4",
+    "文件备份/202606181001/开发阶段 02大修之前/模块接头总览/02-NPC活人感/000-变更日志.md",
+    "文件备份/20260621LOOP前/开发阶段/模块接头总览/02-NPC活人感/000-变更日志.md",
+    "Happy Game/开发阶段/NPC活人感模块/06-认知与智慧系统/README.md",
+    "Change/README.md",
+    "文件备份/20260619skill设计前/开发阶段/模块接头总览/02-NPC活人感/000-变更日志.md",
+    "开发路线图/001-总纲与背景.md",
+    "开发路线图/002-轨A-正式开发.md",
+    "文件备份/20260621LOOP前/开发阶段/世界生成/008-人口投影与家族协同生成.md",
+    "Happy Game/想法/WoW World/补充内容.md",
     "开发路线图/005-轨D-创意探索.md",
     "开发路线图/005-轨D-创意探索.md.tmp.3884.f600cbaae570",
     "开发路线图/004-轨C-问题修复.md",
     "开发路线图/004-轨C-问题修复.md.tmp.3884.668a79447415",
     "开发路线图/003-轨B-文档补全.md",
     "开发路线图/003-轨B-文档补全.md.tmp.3884.cd88b07829af",
-    "开发路线图/002-轨A-正式开发.md",
     "开发路线图/002-轨A-正式开发.md.tmp.3884.82449235d6de",
-    "开发路线图/001-总纲与背景.md",
-    "开发路线图/001-总纲与背景.md.tmp.3884.34bd47943f85",
     "开发路线图/README.md",
-    "开发路线图/README.md.tmp.3884.3ac90eaead79",
-    "开发路线图",
     "参考文档/042-属性注册表与状态系统-20260622/002-开放问题与风险清单.md",
-    "参考文档/042-属性注册表与状态系统-20260622/README.md.tmp.3884.0cda36d7ebba",
-    "参考文档/042-属性注册表与状态系统-20260622/002-开放问题与风险清单.md.tmp.3884.8074b39200a9",
     "参考文档/042-属性注册表与状态系统-20260622/001-属性注册表与状态系统-原型设计.md",
     "Happy Game/开发阶段/历史/001-历史系统总纲.md",
     "Happy Game/开发阶段/小精灵系统/001-小精灵系统总纲.md",
@@ -282,16 +273,6 @@
     "Happy Game/开发阶段/NPC活人感模块/06-认知与智慧系统/001-认知与智慧系统总纲.md",
     "Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md",
     "Happy Game/开发阶段/语言表达/001-语言表达系统总纲.md",
-    "Happy Game/开发阶段/权力系统/001-权力系统总纲.md",
-    "Happy Game/开发阶段/天气与季节系统/001-天气系统总纲.md",
-    "Happy Game/开发阶段/信仰系统/001-信仰系统总纲.md",
-    "Happy Game/开发阶段/小精灵系统/README.md",
-    "Happy Game/想法/WoW World/补充内容.md",
-    "参考文档/README.md.tmp.3884.f8b82c2f3861",
-    "参考文档/042-属性注册表与状态系统-20260622/README.md",
-    "Change/CHG-059-NPC认知v1.1传播审计-20260622.md",
-    "Change/CHG-058-NPC认知系统自审修正-20260622.md",
-    "Happy Game/开发阶段/模块接头总览/00-全局基础设施/000-变更日志.md",
     "Happy Game/想法/WoW World/生命/NPC/角色处理对象时的心理作用.canvas"
   ]
 }

@@ -23,8 +23,10 @@ if ! echo "$FILE_PATH" | grep -qE '开发阶段[/\\]'; then
   exit 0
 fi
 
-# 标记文件路径
-MARKER_DIR="$(dirname "$0")/../.claude/temp"
+# 标记文件路径 —— 从脚本位置推导项目根目录（与 stop-remind.sh 对齐）
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+MARKER_DIR="$PROJECT_ROOT/.claude/temp"
 mkdir -p "$MARKER_DIR"
 MARKER_FILE="$MARKER_DIR/modified_files.txt"
 

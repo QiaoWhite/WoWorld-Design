@@ -70,7 +70,10 @@ impl AtmosphereSynthesizer {
             sky_horizon_color: mul3(ts.sky_horizon, mul3(bio_horizon, wea_sky_mult)),
             ambient_color: mul3(
                 ts.ambient,
-                mul3(bio_ambient, [sea_warmth + 0.5, sea_warmth + 0.5, 1.0 - sea_warmth]),
+                mul3(
+                    bio_ambient,
+                    [sea_warmth + 0.5, sea_warmth + 0.5, 1.0 - sea_warmth],
+                ),
             ),
             sun_color: ts.sun_color,
             sun_energy: ts.sun_energy,

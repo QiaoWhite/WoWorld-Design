@@ -179,7 +179,10 @@ mod tests {
     fn test_horizon_is_warm() {
         let c = curve();
         let s = c.evaluate(0.0); // elev = 0°
-        assert!(s.sun_color[0] > s.sun_color[2], "horizon sun should be warm");
+        assert!(
+            s.sun_color[0] > s.sun_color[2],
+            "horizon sun should be warm"
+        );
     }
 
     #[test]

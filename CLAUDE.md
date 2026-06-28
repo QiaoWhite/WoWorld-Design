@@ -165,7 +165,7 @@ cargo fmt --all
 |-------|--------|------|
 | `woworld_core` | 12 | `time.rs` (12) — WorldTime/WorldClock 昼夜循环 |
 | `woworld_spatial` | 12 | `entity_index.rs` (4) + `event_bus.rs` (4) + `visibility.rs` (4) |
-| `woworld_worldgen` | 39 | `noise_gen.rs` (6) + `terrain.rs` (8) + `biome.rs` (5) + `terrain_mesh.rs` (3) + `marching_cubes.rs` (2) + `chunk_manager.rs` (9) + `clipmap.rs` (6) |
+| `woworld_worldgen` | 76 | `noise_gen.rs` (14) + `terrain.rs` (8) + `biome.rs` (5) + `density.rs` (11) + `terrain_mesh.rs` (5) + `marching_cubes.rs` (3) + `transvoxel.rs` (10) + `clipmap.rs` (13) + `seed.rs` (4) + `transition_tables.rs` (0) |
 | `woworld_atmosphere` | 11 | `synthesizer.rs` (4) + `time_curve.rs` (6) + `resolved_atmosphere.rs` (1) |
 | `woworld_godot` | 0 | （测试已迁移至 woworld_worldgen — cdylib 不便于单元测试） |
 
@@ -198,9 +198,10 @@ woworld/
 │   │       ├── biome.rs        #   温度×降水 2D 噪声 → 5 群系硬盒分类 (TOML 数据驱动)
 │   │       ├── density.rs      #   分层密度场 L0-L10 (Signed Heightfield + 3D 密度查询)
 │   │       ├── terrain.rs      #   HeightfieldTerrain — 完整 TerrainQuery trait 实现
-│   │       ├── marching_cubes.rs # Marching Cubes 等值面提取 → 体素网格
-│   │       ├── terrain_mesh.rs #   纯 Rust 网格生成 (引擎无关, 含测试)
-│   │       ├── chunk_manager.rs#   ChunkManager — 异步 Chunk 生成 + LOD 调度
+│   │       ├── marching_cubes.rs # 等值面查找表 + MC 参考实现（仅供测试）
+│   │       ├── transvoxel.rs    #   ★ Transvoxel 等值面提取（顶点共享 + 过渡单元）
+│   │       ├── transition_tables.rs # 过渡单元查找表（auto-generated）
+│   │       ├── terrain_mesh.rs #   纯 Rust Signed Heightfield 网格生成 (引擎无关)
 │   │       └── clipmap.rs      #   ClipmapManager — 6 层 Clipmap LOD 管理
 │   ├── woworld_atmosphere/     # 大气与氛围系统 — 17 参数合成 (CHG-064)
 │   │   ├── assets/
@@ -239,7 +240,7 @@ woworld_core (glam 0.28)
 
 - **`woworld_core` — 最少依赖**：所有 ID 类型（`ItemDefId`, `SkillId`, `EntityId`, `ProfessionTagId`）、空间查询 trait（`TerrainQuery`, `EntityIndex`, `SpatialEventBus`, `VisibilityQuery`）、共享数据结构均在此定义。仅依赖 `glam`（SIMD 向量运算）。引擎无关，不依赖 Godot。
 - **`woworld_spatial` — 空间索引实现**：实现 `woworld_core` 中的空间查询 trait。稀疏网格实体索引、DDA 射线可见性、环形缓冲区事件总线。依赖 `woworld_core`。
-- **`woworld_worldgen` — 世界生成**：双层 Perlin 噪声高度场 + 5 群系硬盒分类（温度×降水 TOML 数据驱动）+ `TerrainQuery` trait 完整实现。Marching Cubes 等值面体素网格 + 6 层 Clipmap LOD + ChunkManager 异步生成。包含纯 Rust 网格生成器（`terrain_mesh.rs`，引擎无关）。依赖 `woworld_core` + `noise` crate。
+- **`woworld_worldgen` — 世界生成**：双层 Perlin 噪声高度场 + 5 群系硬盒分类（温度×降水 TOML 数据驱动）+ `TerrainQuery` trait 完整实现。Transvoxel 等值面体素网格（顶点共享 + 过渡单元，LOD 0-4）+ Signed Heightfield 远距离网格（LOD 5）+ 6 层 Clipmap LOD。MC 查找表为 Transvoxel 数学地基，`extract_isosurface` 保留为 `pub(crate)` 测试参考。包含纯 Rust 网格生成器（`terrain_mesh.rs`，引擎无关）。依赖 `woworld_core` + `noise` crate。
 - **`woworld_atmosphere` — 大气与氛围系统**：合成 `ResolvedAtmosphere`（17 参数：天空色/雾/环境光/曝光/太阳色等），输出 `PackedFloat32Array` 供 Godot shader 消费。时间曲线优先——群系/天气/季节调制预留 trait stub。依赖仅 `woworld_core`（WorldTime, WorldPos）。引擎无关。
 - **`woworld_godot` — 薄桥接层**：Rust 类型 ↔ Godot GDExtension API 的转换。不包含游戏逻辑。编译为 `cdylib`，由 Godot 运行时动态加载。包含 TerrainChunk GodotClass（消费 ChunkManager/ClipmapManager）和 Ocean GodotClass（Gerstner 波海洋渲染）。
 - **Godot 项目 — 纯表现层**：渲染、UI、音频、输入、玩家物理（仅玩家保留 `PhysicsServer3D`——其他全部 Rust 侧空间查询）。

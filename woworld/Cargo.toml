@@ -6,6 +6,7 @@ members = [
     "crates/woworld_worldgen",
     "crates/woworld_atmosphere",
     "crates/woworld_godot",
+    "crates/woworld_vegetation",
 ]
 
 [workspace.package]

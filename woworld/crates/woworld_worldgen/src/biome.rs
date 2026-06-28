@@ -84,7 +84,10 @@ impl BiomeClassifier {
     /// 按温度+降水值分类（测试用）
     fn classify_tp(&self, temp: f64, precip: f64) -> Option<&BiomeDef> {
         self.biomes.iter().find(|b| {
-            temp >= b.temp_min && temp < b.temp_max && precip >= b.precip_min && precip < b.precip_max
+            temp >= b.temp_min
+                && temp < b.temp_max
+                && precip >= b.precip_min
+                && precip < b.precip_max
         })
     }
 
@@ -103,11 +106,7 @@ impl BiomeClassifier {
     /// `condition`: "steep" | "flat" | "low" | "high" | "any"
     /// `height`: 相对于当前地表的高度（局部高度差）
     /// `steepness`: 坡度 (0.0-1.0, dot(normal, up) 的补)
-    pub fn sub_material_matches(
-        condition: &str,
-        _height: f64,
-        steepness: f32,
-    ) -> bool {
+    pub fn sub_material_matches(condition: &str, _height: f64, steepness: f32) -> bool {
         match condition {
             "steep" => steepness > 0.6,
             "flat" => steepness < 0.15,

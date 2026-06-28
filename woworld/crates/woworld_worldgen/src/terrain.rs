@@ -19,6 +19,7 @@ use woworld_core::time::WorldClock;
 #[derive(Clone, Debug)]
 pub struct HeightfieldTerrain {
     noise: WorldNoise,
+    seed: u64,
     pub clock: Option<WorldClock>,
     pub biome_classifier: Option<BiomeClassifier>,
 }
@@ -27,6 +28,7 @@ impl Default for HeightfieldTerrain {
     fn default() -> Self {
         Self {
             noise: WorldNoise::new(42),
+            seed: 42,
             clock: None,
             biome_classifier: None,
         }
@@ -35,8 +37,10 @@ impl Default for HeightfieldTerrain {
 
 impl HeightfieldTerrain {
     pub fn new(seed: u32) -> Self {
+        let s = seed as u64;
         Self {
-            noise: WorldNoise::new(seed),
+            noise: WorldNoise::new(s),
+            seed: s,
             clock: None,
             biome_classifier: None,
         }
@@ -45,14 +49,47 @@ impl HeightfieldTerrain {
     pub fn with_noise(noise: WorldNoise) -> Self {
         Self {
             noise,
+            seed: 0, // 不透明噪声——无种子可追溯
             clock: None,
             biome_classifier: None,
         }
     }
 
+    /// 获取世界种子（用于派生密度层独立种子）
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+
     /// 获取噪声参数（用于重建等 seed 的 DensityField）
     pub fn noise_params(&self) -> crate::noise_gen::NoiseParams {
         self.noise.params.clone()
+    }
+
+    /// 获取噪声引用（用于构造 DensityField）
+    pub fn noise(&self) -> &WorldNoise {
+        &self.noise
+    }
+
+    /// 合并查询：一次采样得高度、法线、材质（消除冗余噪声调用）
+    ///
+    /// `height_at` + `normal_at` + `surface_material_at` 各自独立调用
+    /// `sample_height` — 每顶点最高 10 次噪声调用。本方法共享结果，降至约 4 次。
+    pub fn sample_vertex(&self, x: f64, z: f64) -> (f32, Vec3, SurfaceMaterial) {
+        let h = self.noise.sample_height(x, z);
+        let normal = self.calc_normal(x, z, 0.5);
+        let steepness = (1.0 - normal.y).abs();
+
+        let mat = if let Some(ref classifier) = self.biome_classifier {
+            if let Some(biome) = classifier.classify(WorldPos { x, y: h, z }) {
+                biome.surface_material
+            } else {
+                Self::material_from_height(h, steepness)
+            }
+        } else {
+            Self::material_from_height(h, steepness)
+        };
+
+        (h as f32, normal, mat)
     }
 
     /// 挂载昼夜时钟——之后 `light_level_at()` 返回实际值
@@ -327,13 +364,21 @@ mod tests {
         noon_clock.set_time(0.5);
         let noon_terrain = HeightfieldTerrain::new(42).with_clock(noon_clock);
         let noon_light = noon_terrain.light_level_at(WorldPos::default());
-        assert!(noon_light > 0.9, "noon should be bright, got {}", noon_light);
+        assert!(
+            noon_light > 0.9,
+            "noon should be bright, got {}",
+            noon_light
+        );
 
         // 午夜 = 暗
         let mut mid_clock = WorldClock::new(60.0);
         mid_clock.set_time(0.0);
         let mid_terrain = HeightfieldTerrain::new(42).with_clock(mid_clock);
         let mid_light = mid_terrain.light_level_at(WorldPos::default());
-        assert!(mid_light < 0.1, "midnight should be dark, got {}", mid_light);
+        assert!(
+            mid_light < 0.1,
+            "midnight should be dark, got {}",
+            mid_light
+        );
     }
 }

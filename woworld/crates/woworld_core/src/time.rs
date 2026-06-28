@@ -75,8 +75,7 @@ impl WorldTime {
 
         // 方位角 日出东(π/2) → 正午南(π) → 日落西(3π/2)
         // 线性：π/2 + angle，归一化到 [0, 2π)
-        let sun_azimuth =
-            (std::f64::consts::FRAC_PI_2 + angle).rem_euclid(std::f64::consts::TAU);
+        let sun_azimuth = (std::f64::consts::FRAC_PI_2 + angle).rem_euclid(std::f64::consts::TAU);
 
         // light_level: smoothstep(0°, 15°, sun_elevation) 缩放 + 夜景基底 0.03
         let light_level = {
@@ -158,8 +157,7 @@ impl WorldClock {
         let new_day_number = old_day_number + whole_days;
         self.accumulator -= whole_days as f64 * self.seconds_per_day;
 
-        self.current =
-            WorldTime::from_progress(fractional, new_day_number, self.days_per_year);
+        self.current = WorldTime::from_progress(fractional, new_day_number, self.days_per_year);
 
         new_day_number > old_day_number
     }
@@ -167,11 +165,8 @@ impl WorldClock {
     /// 快进到特定日内时间（测试用）
     pub fn set_time(&mut self, day_progress: f64) {
         self.accumulator = day_progress * self.seconds_per_day;
-        self.current = WorldTime::from_progress(
-            day_progress,
-            self.current.day_number,
-            self.days_per_year,
-        );
+        self.current =
+            WorldTime::from_progress(day_progress, self.current.day_number, self.days_per_year);
     }
 }
 
@@ -192,16 +187,31 @@ mod tests {
     #[test]
     fn test_midnight_dark() {
         let wt = WorldTime::from_progress(0.0, 0, 120);
-        assert!(wt.light_level < 0.1, "midnight should be dark, got {}", wt.light_level);
-        assert!(wt.sun_elevation < 0.0, "sun should be below horizon at midnight");
+        assert!(
+            wt.light_level < 0.1,
+            "midnight should be dark, got {}",
+            wt.light_level
+        );
+        assert!(
+            wt.sun_elevation < 0.0,
+            "sun should be below horizon at midnight"
+        );
         assert_eq!(wt.phase, TimeOfDay::Night);
     }
 
     #[test]
     fn test_noon_bright() {
         let wt = WorldTime::from_progress(0.5, 0, 120);
-        assert!(wt.light_level > 0.9, "noon should be bright, got {}", wt.light_level);
-        assert!(wt.sun_elevation > 1.0, "sun should be high at noon, got {}", wt.sun_elevation);
+        assert!(
+            wt.light_level > 0.9,
+            "noon should be bright, got {}",
+            wt.light_level
+        );
+        assert!(
+            wt.sun_elevation > 1.0,
+            "sun should be high at noon, got {}",
+            wt.sun_elevation
+        );
         assert_eq!(wt.phase, TimeOfDay::Day);
     }
 

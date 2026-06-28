@@ -10,6 +10,7 @@ pub mod material;
 pub mod spatial;
 pub mod time;
 pub mod types;
+pub mod vegetation;
 
 /// 常用类型统一导入
 pub mod prelude {
@@ -17,4 +18,5 @@ pub mod prelude {
     pub use crate::material::*;
     pub use crate::time::*;
     pub use crate::types::*;
+    pub use crate::vegetation::*;
 }

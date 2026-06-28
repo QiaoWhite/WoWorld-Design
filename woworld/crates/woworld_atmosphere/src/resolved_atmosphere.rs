@@ -99,7 +99,13 @@ impl ResolvedAtmosphere {
         push3!(self.ground_horizon);
         push1!(self.ground_curve);
 
-        assert_eq!(i, array_index::LEN, "wrote {} params, expected {}", i, array_index::LEN);
+        assert_eq!(
+            i,
+            array_index::LEN,
+            "wrote {} params, expected {}",
+            i,
+            array_index::LEN
+        );
         a
     }
 }

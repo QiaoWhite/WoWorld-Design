@@ -1,56 +1,57 @@
-//! Marching Cubes 等值面提取
+//! 等值面查找表与参考实现。
 //!
-//! 标准 256-case Marching Cubes 算法。
-//! 针对高度场密度优化：2D 高度缓存 → 3D 密度解析计算。
+//! 本模块提供 Transvoxel 算法所需的 MC 查找表（EDGE_TABLE, TRI_TABLE, EDGE_ENDPOINTS）
+//! 以及一个标准 Marching Cubes 参考实现（`extract_isosurface`），后者仅用于
+//! `transvoxel` 模块的对比/回归测试。
+//!
+//! **生产路径使用 `transvoxel::extract_isosurface_transvoxel`。**
+//!
+//! `extract_isosurface` 及其私有辅助函数未在生产代码中调用（仅 `#[cfg(test)]` 使用），
+//! 因此本模块使用 `#[allow(dead_code)]` 抑制 `cargo check` 下的预期警告。
+#![allow(dead_code)]
 
 use glam::Vec3;
 
-use crate::terrain::HeightfieldTerrain;
+use crate::density::{
+    DensityField, VOXEL_DIRT, VOXEL_GRANITE, VOXEL_GRASS, VOXEL_GRAVEL, VOXEL_ICE, VOXEL_SAND,
+    VOXEL_SNOW, VOXEL_STONE, VOXEL_WATER,
+};
 use crate::terrain_mesh::TerrainMeshData;
+use crate::transvoxel::IsoSurfaceParams;
 
 // ── 常量 ─────────────────────────────
-const THRESHOLD: f32 = 0.5;
-const GRADIENT_EPS: f64 = 0.25;
+pub(crate) const THRESHOLD: f32 = 0.5;
+pub(crate) const GRADIENT_EPS: f64 = 0.25;
 
 // ── 边表 ────────────────────────────
-static EDGE_TABLE: [u16; 256] = [
-    0x000, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
-    0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
-    0x190, 0x099, 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c,
-    0x99c, 0x895, 0xb9f, 0xa96, 0xd9a, 0xc93, 0xf99, 0xe90,
-    0x230, 0x339, 0x033, 0x13a, 0x636, 0x73f, 0x435, 0x53c,
-    0xa3c, 0xb35, 0x83f, 0x936, 0xe3a, 0xf33, 0xc39, 0xd30,
-    0x3a0, 0x2a9, 0x1a3, 0x0aa, 0x7a6, 0x6af, 0x5a5, 0x4ac,
-    0xbac, 0xaa5, 0x9af, 0x8a6, 0xfaa, 0xea3, 0xda9, 0xca0,
-    0x460, 0x569, 0x663, 0x76a, 0x066, 0x16f, 0x265, 0x36c,
-    0xc6c, 0xd65, 0xe6f, 0xf66, 0x86a, 0x963, 0xa69, 0xb60,
-    0x5f0, 0x4f9, 0x7f3, 0x6fa, 0x1f6, 0x0ff, 0x3f5, 0x2fc,
-    0xdfc, 0xcf5, 0xfff, 0xef6, 0x9fa, 0x8f3, 0xbf9, 0xaf0,
-    0x650, 0x759, 0x453, 0x55a, 0x256, 0x35f, 0x055, 0x15c,
-    0xe5c, 0xf55, 0xc5f, 0xd56, 0xa5a, 0xb53, 0x859, 0x950,
-    0x7c0, 0x6c9, 0x5c3, 0x4ca, 0x3c6, 0x2cf, 0x1c5, 0x0cc,
-    0xfcc, 0xec5, 0xdcf, 0xcc6, 0xbca, 0xac3, 0x9c9, 0x8c0,
-    0x8c0, 0x9c9, 0xac3, 0xbca, 0xcc6, 0xdcf, 0xec5, 0xfcc,
-    0x0cc, 0x1c5, 0x2cf, 0x3c6, 0x4ca, 0x5c3, 0x6c9, 0x7c0,
-    0x950, 0x859, 0xb53, 0xa5a, 0xd56, 0xc5f, 0xf55, 0xe5c,
-    0x15c, 0x055, 0x35f, 0x256, 0x55a, 0x453, 0x759, 0x650,
-    0xaf0, 0xbf9, 0x8f3, 0x9fa, 0xef6, 0xfff, 0xcf5, 0xdfc,
-    0x2fc, 0x3f5, 0x0ff, 0x1f6, 0x6fa, 0x7f3, 0x4f9, 0x5f0,
-    0xb60, 0xa69, 0x963, 0x86a, 0xf66, 0xe6f, 0xd65, 0xc6c,
-    0x36c, 0x265, 0x16f, 0x066, 0x76a, 0x663, 0x569, 0x460,
-    0xca0, 0xda9, 0xea3, 0xfaa, 0x8a6, 0x9af, 0xaa5, 0xbac,
-    0x4ac, 0x5a5, 0x6af, 0x7a6, 0x0aa, 0x1a3, 0x2a9, 0x3a0,
-    0xd30, 0xc39, 0xf33, 0xe3a, 0x936, 0x83f, 0xb35, 0xa3c,
-    0x53c, 0x435, 0x73f, 0x636, 0x13a, 0x033, 0x339, 0x230,
-    0xe90, 0xf99, 0xc93, 0xd9a, 0xa96, 0xb9f, 0x895, 0x99c,
-    0x69c, 0x795, 0x49f, 0x596, 0x29a, 0x393, 0x099, 0x190,
-    0xf00, 0xe09, 0xd03, 0xc0a, 0xb06, 0xa0f, 0x905, 0x80c,
-    0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x000,
+pub(crate) static EDGE_TABLE: [u16; 256] = [
+    0x000, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c, 0x80c, 0x905, 0xa0f, 0xb06, 0xc0a,
+    0xd03, 0xe09, 0xf00, 0x190, 0x099, 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c, 0x99c, 0x895,
+    0xb9f, 0xa96, 0xd9a, 0xc93, 0xf99, 0xe90, 0x230, 0x339, 0x033, 0x13a, 0x636, 0x73f, 0x435,
+    0x53c, 0xa3c, 0xb35, 0x83f, 0x936, 0xe3a, 0xf33, 0xc39, 0xd30, 0x3a0, 0x2a9, 0x1a3, 0x0aa,
+    0x7a6, 0x6af, 0x5a5, 0x4ac, 0xbac, 0xaa5, 0x9af, 0x8a6, 0xfaa, 0xea3, 0xda9, 0xca0, 0x460,
+    0x569, 0x663, 0x76a, 0x066, 0x16f, 0x265, 0x36c, 0xc6c, 0xd65, 0xe6f, 0xf66, 0x86a, 0x963,
+    0xa69, 0xb60, 0x5f0, 0x4f9, 0x7f3, 0x6fa, 0x1f6, 0x0ff, 0x3f5, 0x2fc, 0xdfc, 0xcf5, 0xfff,
+    0xef6, 0x9fa, 0x8f3, 0xbf9, 0xaf0, 0x650, 0x759, 0x453, 0x55a, 0x256, 0x35f, 0x055, 0x15c,
+    0xe5c, 0xf55, 0xc5f, 0xd56, 0xa5a, 0xb53, 0x859, 0x950, 0x7c0, 0x6c9, 0x5c3, 0x4ca, 0x3c6,
+    0x2cf, 0x1c5, 0x0cc, 0xfcc, 0xec5, 0xdcf, 0xcc6, 0xbca, 0xac3, 0x9c9, 0x8c0, 0x8c0, 0x9c9,
+    0xac3, 0xbca, 0xcc6, 0xdcf, 0xec5, 0xfcc, 0x0cc, 0x1c5, 0x2cf, 0x3c6, 0x4ca, 0x5c3, 0x6c9,
+    0x7c0, 0x950, 0x859, 0xb53, 0xa5a, 0xd56, 0xc5f, 0xf55, 0xe5c, 0x15c, 0x055, 0x35f, 0x256,
+    0x55a, 0x453, 0x759, 0x650, 0xaf0, 0xbf9, 0x8f3, 0x9fa, 0xef6, 0xfff, 0xcf5, 0xdfc, 0x2fc,
+    0x3f5, 0x0ff, 0x1f6, 0x6fa, 0x7f3, 0x4f9, 0x5f0, 0xb60, 0xa69, 0x963, 0x86a, 0xf66, 0xe6f,
+    0xd65, 0xc6c, 0x36c, 0x265, 0x16f, 0x066, 0x76a, 0x663, 0x569, 0x460, 0xca0, 0xda9, 0xea3,
+    0xfaa, 0x8a6, 0x9af, 0xaa5, 0xbac, 0x4ac, 0x5a5, 0x6af, 0x7a6, 0x0aa, 0x1a3, 0x2a9, 0x3a0,
+    0xd30, 0xc39, 0xf33, 0xe3a, 0x936, 0x83f, 0xb35, 0xa3c, 0x53c, 0x435, 0x73f, 0x636, 0x13a,
+    0x033, 0x339, 0x230, 0xe90, 0xf99, 0xc93, 0xd9a, 0xa96, 0xb9f, 0x895, 0x99c, 0x69c, 0x795,
+    0x49f, 0x596, 0x29a, 0x393, 0x099, 0x190, 0xf00, 0xe09, 0xd03, 0xc0a, 0xb06, 0xa0f, 0x905,
+    0x80c, 0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x000,
 ];
 
 // ── 三角表 ───────────────────────────
-static TRI_TABLE: [[i8; 16]; 256] = [
-    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+pub(crate) static TRI_TABLE: [[i8; 16]; 256] = [
+    [
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    ],
     [0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [1, 8, 3, 9, 8, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
@@ -101,7 +102,7 @@ static TRI_TABLE: [[i8; 16]; 256] = [
     [9, 7, 8, 5, 7, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [9, 3, 0, 9, 5, 3, 5, 7, 3, -1, -1, -1, -1, -1, -1, -1],
     [0, 7, 8, 0, 1, 7, 1, 5, 7, -1, -1, -1, -1, -1, -1, -1],
-    [1, 5, 3, 3, 5, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+    [1, 5, 7, 3, 1, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [9, 7, 8, 9, 5, 7, 10, 1, 2, -1, -1, -1, -1, -1, -1, -1],
     [10, 1, 2, 9, 5, 0, 5, 3, 0, 5, 7, 3, -1, -1, -1, -1],
     [8, 0, 2, 8, 2, 5, 8, 5, 7, 10, 2, 5, -1, -1, -1, -1],
@@ -305,138 +306,128 @@ static TRI_TABLE: [[i8; 16]; 256] = [
     [1, 3, 8, 9, 1, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [0, 9, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+    [
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    ],
 ];
 
 // ── 边端点索引 ──────────────────────
-const EDGE_ENDPOINTS: [(usize, usize); 12] = [
-    (0, 1), (1, 2), (2, 3), (3, 0),
-    (4, 5), (5, 6), (6, 7), (7, 4),
-    (0, 4), (1, 5), (2, 6), (3, 7),
+pub(crate) const EDGE_ENDPOINTS: [(usize, usize); 12] = [
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 0),
+    (4, 5),
+    (5, 6),
+    (6, 7),
+    (7, 4),
+    (0, 4),
+    (1, 5),
+    (2, 6),
+    (3, 7),
 ];
-
-// ── 等值面提取参数 ──────────────────
-pub struct IsoSurfaceParams {
-    pub ox: f64,
-    pub oz: f64,
-    pub bottom_y: f64,
-    pub voxels_x: u32,
-    pub voxels_y: u32,
-    pub voxels_z: u32,
-    pub voxel_size: f64,
-}
 
 // ── 插值与梯度 ──────────────────────
 
 fn interpolate(p1: Vec3, p2: Vec3, d1: f32, d2: f32) -> Vec3 {
-    if (d1 - THRESHOLD).abs() < f32::EPSILON { return p1; }
-    if (d2 - THRESHOLD).abs() < f32::EPSILON { return p2; }
-    if d1 == d2 { return (p1 + p2) * 0.5; }
+    if (d1 - THRESHOLD).abs() < f32::EPSILON {
+        return p1;
+    }
+    if (d2 - THRESHOLD).abs() < f32::EPSILON {
+        return p2;
+    }
+    if d1 == d2 {
+        return (p1 + p2) * 0.5;
+    }
     let t = (THRESHOLD - d1) / (d2 - d1);
     p1 + (p2 - p1) * t
 }
 
-/// 从高度场+2D高度缓存计算 3D 密度（解析式，零额外噪声调用）
-fn heightfield_density(height_at_xz: f64, y: f64, half_band: f64) -> f32 {
-    let dist = height_at_xz - y;
-    let t = (dist + half_band) / (2.0 * half_band);
-    t.clamp(0.0, 1.0) as f32
-}
-
-/// 3D 梯度：在 2D 高度网格上查周围点
-#[allow(clippy::too_many_arguments)]
-fn gradient_from_heights(
-    heights: &[f64], nx: usize, nz: usize,
-    ix: usize, iz: usize, wy: f64,
-    ox: f64, oz: f64, voxel_size: f64, half_band: f64,
-) -> Vec3 {
+/// 3D 有限差分梯度（不依赖高度场）
+fn gradient_from_density(density: &dyn DensityField, x: f64, y: f64, z: f64) -> Vec3 {
     let eps = GRADIENT_EPS;
-
-    let sample_d = |wx: f64, wz: f64| -> f32 {
-        // 双线性插值高度
-        let fx = (wx - ox) / voxel_size;
-        let fz = (wz - oz) / voxel_size;
-        let cx = fx.floor().max(0.0).min(nx as f64 - 2.0) as usize;
-        let cz = fz.floor().max(0.0).min(nz as f64 - 2.0) as usize;
-        let tx = fx - cx as f64;
-        let tz = fz - cz as f64;
-        let h00 = heights[cz * nx + cx];
-        let h10 = heights[cz * nx + cx + 1];
-        let h01 = heights[(cz + 1) * nx + cx];
-        let h11 = heights[(cz + 1) * nx + cx + 1];
-        let h = (1.0 - tx) * (1.0 - tz) * h00 + tx * (1.0 - tz) * h10
-            + (1.0 - tx) * tz * h01 + tx * tz * h11;
-        heightfield_density(h, wy, half_band)
-    };
-
-    let dx = sample_d(ox + (ix as f64 + 0.5) * voxel_size + eps, oz + (iz as f64 + 0.5) * voxel_size)
-        - sample_d(ox + (ix as f64 + 0.5) * voxel_size - eps, oz + (iz as f64 + 0.5) * voxel_size);
-    let dy = heightfield_density(
-        heights[iz * nx + ix], wy + eps, half_band,
-    ) - heightfield_density(heights[iz * nx + ix], wy - eps, half_band);
-    let dz = sample_d(ox + (ix as f64 + 0.5) * voxel_size, oz + (iz as f64 + 0.5) * voxel_size + eps)
-        - sample_d(ox + (ix as f64 + 0.5) * voxel_size, oz + (iz as f64 + 0.5) * voxel_size - eps);
-
+    let dx = density.sample(x + eps, y, z) - density.sample(x - eps, y, z);
+    let dy = density.sample(x, y + eps, z) - density.sample(x, y - eps, z);
+    let dz = density.sample(x, y, z + eps) - density.sample(x, y, z - eps);
     let v = Vec3::new(dx, dy, dz);
-    if v.length_squared() < 1e-12 { Vec3::Y } else { v.normalize() }
+    if v.length_squared() < 1e-12 {
+        Vec3::Y
+    } else {
+        v.normalize()
+    }
 }
 
 // ── 公开 API ────────────────────────
 
-/// 从 HeightfieldTerrain 用 Marching Cubes 提取等值面。
+/// 从 DensityField 用 Marching Cubes 提取等值面。
 ///
-/// **性能优化**: 2D 高度缓存——仅采样 `(voxels_x+1)×(voxels_z+1)` 次噪声，
-/// 垂直密度由 smoothstep 解析计算。总噪声调用与分辨率无关。
-pub fn extract_isosurface(
-    terrain: &HeightfieldTerrain,
+/// 纯 3D 采样——不依赖高度场特化路径。
+/// 梯度通过有限差分计算。
+pub(crate) fn extract_isosurface(
+    density: &dyn DensityField,
     params: &IsoSurfaceParams,
 ) -> TerrainMeshData {
     let sx = params.voxels_x as usize;
     let sy = params.voxels_y as usize;
     let sz = params.voxels_z as usize;
     let nx = sx + 1;
-    let nz = sz + 1;
     let ny = sy + 1;
-    let half_band = 1.0;
+    let nz = sz + 1;
 
-    use woworld_core::prelude::WorldPos;
-    use woworld_core::spatial::TerrainQuery;
-
-    // ── 1. 2D 高度缓存 ────────────────
-    let mut heights = vec![0.0f64; nx * nz];
-    for iz in 0..nz {
-        let wz = params.oz + iz as f64 * params.voxel_size;
-        for ix in 0..nx {
-            let wx = params.ox + ix as f64 * params.voxel_size;
-            heights[iz * nx + ix] = terrain.height_at(WorldPos { x: wx, y: 0.0, z: wz }) as f64;
-        }
-    }
-
-    // ── 2. 3D 密度角点（解析计算）────
+    // ── 1. 密度角点 ──────────────
     let mut corner_density = vec![0.0f32; nx * ny * nz];
-    let mut min_h = f64::MAX;
-    let mut max_h = f64::MIN;
 
-    for iz in 0..nz {
-        for iy in 0..ny {
-            let wy = params.bottom_y + iy as f64 * params.voxel_size;
+    // 尝试 2D 高度缓存快速路径（高度场 → O(N²) 噪声调用）
+    if let Some(test_h) = density.height_at(params.ox, params.oz) {
+        let _ = test_h; // 已验证可用，触发快速路径
+
+        // 预计算 2D 高度缓存
+        let mut heights = vec![0.0f64; nx * nz];
+        for iz in 0..nz {
+            let wz = params.oz + iz as f64 * params.voxel_size;
             for ix in 0..nx {
-                let h = heights[iz * nx + ix];
-                min_h = min_h.min(h);
-                max_h = max_h.max(h);
-                let idx = iz * ny * nx + iy * nx + ix;
-                corner_density[idx] = heightfield_density(h, wy, half_band);
+                let wx = params.ox + ix as f64 * params.voxel_size;
+                // Safety: height_at returned Some above, all subsequent calls also return Some
+                heights[iz * nx + ix] = density.height_at(wx, wz).unwrap();
+            }
+        }
+
+        // 解析密度计算（仅 smoothstep，零额外噪声调用）
+        let half_band = 1.0;
+        for iz in 0..nz {
+            for iy in 0..ny {
+                let wy = params.bottom_y + iy as f64 * params.voxel_size;
+                for ix in 0..nx {
+                    let h = heights[iz * nx + ix];
+                    let dist = h - wy;
+                    let t = ((dist + half_band) / (2.0 * half_band)).clamp(0.0, 1.0);
+                    let idx = iz * ny * nx + iy * nx + ix;
+                    corner_density[idx] = t as f32;
+                }
+            }
+        }
+    } else {
+        // 纯 3D 密度场——逐点采样（O(N³)，用于洞穴/SDF 等）
+        for iz in 0..nz {
+            let wz = params.oz + iz as f64 * params.voxel_size;
+            for iy in 0..ny {
+                let wy = params.bottom_y + iy as f64 * params.voxel_size;
+                for ix in 0..nx {
+                    let wx = params.ox + ix as f64 * params.voxel_size;
+                    let idx = iz * ny * nx + iy * nx + ix;
+                    corner_density[idx] = density.sample(wx, wy, wz);
+                }
             }
         }
     }
 
-    // ── 3. 颜色映射 ──────────────────
+    // ── 2. 顶点收集 ──────────────────
     let mut vertices: Vec<Vec3> = Vec::new();
     let mut normals: Vec<Vec3> = Vec::new();
     let mut colors: Vec<Vec3> = Vec::new();
     let mut indices: Vec<u32> = Vec::new();
 
-    // ── 4. MC 遍历 ────────────────────
+    // ── 3. MC 遍历 ────────────────────
     for iz in 0..sz {
         let wz_base = params.oz + iz as f64 * params.voxel_size;
         for iy in 0..sy {
@@ -458,11 +449,15 @@ pub fn extract_isosurface(
 
                 let mut case_idx: usize = 0;
                 for (i, &di) in d.iter().enumerate() {
-                    if di >= THRESHOLD { case_idx |= 1 << i; }
+                    if di >= THRESHOLD {
+                        case_idx |= 1 << i;
+                    }
                 }
 
                 let edge_mask = EDGE_TABLE[case_idx];
-                if edge_mask == 0 { continue; }
+                if edge_mask == 0 {
+                    continue;
+                }
 
                 let vs = params.voxel_size as f32;
                 let corners: [Vec3; 8] = [
@@ -472,20 +467,23 @@ pub fn extract_isosurface(
                     Vec3::new(wx_base as f32, wy_base as f32 + vs, wz_base as f32),
                     Vec3::new(wx_base as f32, wy_base as f32, wz_base as f32 + vs),
                     Vec3::new(wx_base as f32 + vs, wy_base as f32, wz_base as f32 + vs),
-                    Vec3::new(wx_base as f32 + vs, wy_base as f32 + vs, wz_base as f32 + vs),
+                    Vec3::new(
+                        wx_base as f32 + vs,
+                        wy_base as f32 + vs,
+                        wz_base as f32 + vs,
+                    ),
                     Vec3::new(wx_base as f32, wy_base as f32 + vs, wz_base as f32 + vs),
                 ];
 
                 let mut edge_verts: [Option<(Vec3, Vec3)>; 12] = [None; 12];
                 for e in 0..12 {
-                    if edge_mask & (1 << e) == 0 { continue; }
+                    if edge_mask & (1 << e) == 0 {
+                        continue;
+                    }
                     let (c0, c1) = EDGE_ENDPOINTS[e];
                     let pos = interpolate(corners[c0], corners[c1], d[c0], d[c1]);
-                    let n = gradient_from_heights(
-                        &heights, nx, nz,
-                        ix + (c0 & 1), iz + (c0 >> 2), pos.y as f64,
-                        params.ox, params.oz, params.voxel_size, half_band,
-                    );
+                    let n =
+                        gradient_from_density(density, pos.x as f64, pos.y as f64, pos.z as f64);
                     edge_verts[e] = Some((pos, n));
                 }
 
@@ -501,49 +499,64 @@ pub fn extract_isosurface(
                         (&edge_verts[e0], &edge_verts[e1], &edge_verts[e2])
                     {
                         let base = vertices.len() as u32;
-                        vertices.push(*p0); vertices.push(*p1); vertices.push(*p2);
-                        normals.push(*n0); normals.push(*n1); normals.push(*n2);
-                        indices.push(base); indices.push(base + 1); indices.push(base + 2);
+                        vertices.push(*p0);
+                        vertices.push(*p1);
+                        vertices.push(*p2);
+                        normals.push(*n0);
+                        normals.push(*n1);
+                        normals.push(*n2);
+                        indices.push(base);
+                        indices.push(base + 1);
+                        indices.push(base + 2);
 
-                        // 颜色：基于材质查找（消费群系分类器）
-                        let c = material_color_at(terrain, p0.x as f64, p0.z as f64, p0.y);
-                        colors.push(c); colors.push(c); colors.push(c);
+                        // 颜色：基于体素材质 ID
+                        let material_id =
+                            density.material_at(p0.x as f64, p0.y as f64, p0.z as f64);
+                        let c = voxel_color(material_id, p0.y);
+                        colors.push(c);
+                        colors.push(c);
+                        colors.push(c);
                     }
                 }
             }
         }
     }
 
-    TerrainMeshData { vertices, normals, indices, colors }
+    TerrainMeshData {
+        vertices,
+        normals,
+        indices,
+        colors,
+    }
 }
 
-/// 材质→顶点色映射（复用 terrain_chunk.rs 的 color 逻辑）
-fn material_color_at(terrain: &HeightfieldTerrain, x: f64, z: f64, y: f32) -> Vec3 {
-    use woworld_core::prelude::WorldPos;
-    use woworld_core::spatial::TerrainQuery;
-    use woworld_core::material::SurfaceMaterial::*;
-
-    let pos = WorldPos { x, y: y as f64, z };
-    let mat = terrain.surface_material_at(pos);
-    let h = y;
-    match mat {
-        Water => {
-            if h < -20.0 { Vec3::new(0.3, 0.4, 0.5) }
-            else { Vec3::new(0.55, 0.6, 0.45) }
+/// 体素材质 ID → 顶点色映射
+fn voxel_color(material_id: u8, height: f32) -> Vec3 {
+    match material_id {
+        VOXEL_WATER => {
+            if height < -20.0 {
+                Vec3::new(0.1, 0.3, 0.8)
+            } else {
+                Vec3::new(0.3, 0.55, 0.7)
+            }
         }
-        Sand => Vec3::new(0.76, 0.7, 0.5),
-        Grass => {
-            if h > 150.0 { Vec3::new(0.25, 0.5, 0.2) }
-            else if h > 50.0 { Vec3::new(0.3, 0.6, 0.25) }
-            else { Vec3::new(0.35, 0.7, 0.3) }
+        VOXEL_SAND => Vec3::new(0.76, 0.7, 0.5),
+        VOXEL_GRASS => {
+            if height > 150.0 {
+                Vec3::new(0.25, 0.5, 0.2)
+            } else if height > 50.0 {
+                Vec3::new(0.3, 0.6, 0.25)
+            } else {
+                Vec3::new(0.35, 0.7, 0.3)
+            }
         }
-        Rock => Vec3::new(0.5, 0.45, 0.4),
-        Stone => Vec3::new(0.4, 0.4, 0.4),
-        Gravel => Vec3::new(0.55, 0.5, 0.45),
-        Snow => Vec3::new(0.95, 0.95, 0.95),
-        Ice => Vec3::new(0.85, 0.9, 0.95),
-        Mud => Vec3::new(0.45, 0.35, 0.25),
-        _ => Vec3::new(0.4, 0.5, 0.3),
+        VOXEL_GRANITE => Vec3::new(0.5, 0.45, 0.4),
+        VOXEL_STONE => Vec3::new(0.4, 0.4, 0.4),
+        VOXEL_GRAVEL => Vec3::new(0.55, 0.5, 0.45),
+        VOXEL_SNOW => Vec3::new(0.95, 0.95, 0.95),
+        VOXEL_ICE => Vec3::new(0.85, 0.9, 0.95),
+        VOXEL_DIRT => Vec3::new(0.45, 0.35, 0.25),
+        _ => Vec3::new(0.4, 0.5, 0.3), // 默认绿
     }
 }
 
@@ -552,14 +565,28 @@ fn material_color_at(terrain: &HeightfieldTerrain, x: f64, z: f64, y: f32) -> Ve
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::density::HeightfieldDensity;
+    use crate::noise_gen::WorldNoise;
+    use crate::transvoxel::IsoSurfaceParams;
+
+    fn make_density() -> HeightfieldDensity {
+        HeightfieldDensity::new(WorldNoise::new(42))
+    }
+
     #[test]
-    fn test_mc_with_real_terrain() {
-        let terrain = HeightfieldTerrain::new(42);
+    fn test_mc_with_density_field() {
+        let density = make_density();
         let params = IsoSurfaceParams {
-            ox: 0.0, oz: 0.0, bottom_y: -100.0,
-            voxels_x: 16, voxels_y: 40, voxels_z: 16, voxel_size: 4.0,
+            ox: 0.0,
+            oz: 0.0,
+            bottom_y: -100.0,
+            voxels_x: 16,
+            voxels_y: 40,
+            voxels_z: 16,
+            voxel_size: 4.0,
+            transition_faces: 0,
         };
-        let mesh = extract_isosurface(&terrain, &params);
+        let mesh = extract_isosurface(&density, &params);
         assert!(!mesh.vertices.is_empty(), "should produce mesh");
         assert!(mesh.indices.len() % 3 == 0);
         assert_eq!(mesh.vertices.len(), mesh.normals.len());
@@ -568,15 +595,44 @@ mod tests {
 
     #[test]
     fn test_deterministic() {
-        let t1 = HeightfieldTerrain::new(42);
-        let t2 = HeightfieldTerrain::new(42);
+        let d1 = make_density();
+        let d2 = make_density();
         let params = IsoSurfaceParams {
-            ox: 100.0, oz: 200.0, bottom_y: -100.0,
-            voxels_x: 8, voxels_y: 24, voxels_z: 8, voxel_size: 4.0,
+            ox: 100.0,
+            oz: 200.0,
+            bottom_y: -100.0,
+            voxels_x: 8,
+            voxels_y: 24,
+            voxels_z: 8,
+            voxel_size: 4.0,
+            transition_faces: 0,
         };
-        let m1 = extract_isosurface(&t1, &params);
-        let m2 = extract_isosurface(&t2, &params);
+        let m1 = extract_isosurface(&d1, &params);
+        let m2 = extract_isosurface(&d2, &params);
         assert_eq!(m1.vertices.len(), m2.vertices.len());
         assert_eq!(m1.indices.len(), m2.indices.len());
+    }
+
+    #[test]
+    fn test_mc_colors_from_material_at() {
+        let density = make_density();
+        let params = IsoSurfaceParams {
+            ox: 500.0,
+            oz: 500.0,
+            bottom_y: -100.0,
+            voxels_x: 4,
+            voxels_y: 12,
+            voxels_z: 4,
+            voxel_size: 4.0,
+            transition_faces: 0,
+        };
+        let mesh = extract_isosurface(&density, &params);
+        // 每个顶点都有颜色
+        assert_eq!(mesh.vertices.len(), mesh.colors.len());
+        // 颜色不是全零
+        if !mesh.colors.is_empty() {
+            let sum: f32 = mesh.colors.iter().map(|c| c.x + c.y + c.z).sum();
+            assert!(sum > 0.0, "colors should not be all black");
+        }
     }
 }

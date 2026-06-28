@@ -5,7 +5,6 @@
 use glam::Vec3;
 use woworld_core::prelude::WorldPos;
 use woworld_core::spatial::TerrainQuery;
-use crate::terrain::HeightfieldTerrain;
 
 /// 网格数据——可直接转换为 Godot PackedArray
 #[derive(Debug)]
@@ -20,67 +19,126 @@ pub struct TerrainMeshData {
     pub colors: Vec<Vec3>,
 }
 
-/// 从高度场地形生成规则网格
+/// 生成规则四边形网格的三角形索引。
 ///
-/// - `terrain`: 地形查询器
-/// - `origin_x`, `origin_z`: 网格左下角世界坐标
-/// - `grid_size`: 每边顶点数 (如 128 → 128×128 顶点)
-/// - `spacing`: 顶点间距 (米), 如 2.0 → 256m×256m 覆盖
-pub fn generate_terrain_mesh(
-    terrain: &HeightfieldTerrain,
+/// `n × n` 顶点 → `(n-1)²` 个四边形 → `(n-1)² × 6` 个索引。
+/// 适合 `TRIANGLES` 图元。索引值 ∈ [0, n²)。
+fn generate_quad_indices(grid_size: u32) -> Vec<u32> {
+    let n = grid_size as usize;
+    let total_quads = (n - 1) * (n - 1);
+    let mut indices = Vec::with_capacity(total_quads * 6);
+    for iz in 0..(n - 1) {
+        for ix in 0..(n - 1) {
+            let tl = (iz * n + ix) as u32;
+            let tr = tl + 1;
+            let bl = ((iz + 1) * n + ix) as u32;
+            let br = bl + 1;
+            indices.extend_from_slice(&[tl, bl, tr, tr, bl, br]);
+        }
+    }
+    indices
+}
+
+/// 高度→颜色映射（连续渐变，5 个色键 + lerp）
+///
+/// 为 Signed Heightfield 远距离着色——不依赖 SurfaceMaterial。
+/// 色键锚定现有材质系统的阈值（≤0 沙 / 0-5 滨海 / 5-200 绿 / 200-500 灰褐 / >500 雪山）。
+fn height_to_color(h: f32) -> Vec3 {
+    if h <= 0.0 {
+        Vec3::new(0.76, 0.70, 0.50) // 海床沙色
+    } else if h <= 5.0 {
+        let t = h / 5.0;
+        Vec3::new(0.76, 0.70, 0.50).lerp(Vec3::new(0.42, 0.68, 0.30), t)
+    } else if h <= 200.0 {
+        let t = (h - 5.0) / 195.0;
+        Vec3::new(0.42, 0.68, 0.30).lerp(Vec3::new(0.25, 0.55, 0.25), t)
+    } else if h <= 500.0 {
+        let t = (h - 200.0) / 300.0;
+        Vec3::new(0.25, 0.55, 0.25).lerp(Vec3::new(0.40, 0.37, 0.35), t)
+    } else {
+        let t = ((h - 500.0) / 200.0).min(1.0); // 700m+ 饱和
+        Vec3::new(0.40, 0.37, 0.35).lerp(Vec3::new(0.90, 0.90, 0.90), t)
+    }
+}
+
+/// 从 TerrainQuery 生成 Signed Heightfield 网格
+///
+/// 用于远距离 LOD（scene_lod 5+, 1.5km+）。
+/// 两遍算法：① 采样全部高度到 2D 数组 ② 从网格邻居中心差分计算法线 + 高度着色。
+///
+/// `terrain`: 地形查询 trait object——支持未来建筑/植被高度装饰器。
+/// `grid_size`: 每边顶点数（如 33 → 33×33 顶点）。
+/// `spacing`: 顶点间距（米）。
+pub fn generate_sh_mesh(
+    terrain: &dyn TerrainQuery,
     origin_x: f64,
     origin_z: f64,
     grid_size: u32,
     spacing: f64,
 ) -> TerrainMeshData {
     let n = grid_size as usize;
-    let total_verts = n * n;
+    let s = spacing as f32;
 
-    let mut vertices = Vec::with_capacity(total_verts);
-    let mut normals = Vec::with_capacity(total_verts);
-    let mut colors = Vec::with_capacity(total_verts);
-
-    // 生成顶点
+    // ── 第一遍：采样全部高度 ──
+    let mut heights: Vec<f32> = Vec::with_capacity(n * n);
     for iz in 0..n {
         let wz = origin_z + iz as f64 * spacing;
         for ix in 0..n {
             let wx = origin_x + ix as f64 * spacing;
-            let wp = WorldPos {
+            let h = terrain.height_at(WorldPos {
                 x: wx,
                 y: 0.0,
                 z: wz,
+            });
+            heights.push(h);
+        }
+    }
+
+    // ── 第二遍：法线（中心差分）+ 颜色 + 顶点 ──
+    let mut vertices = Vec::with_capacity(n * n);
+    let mut normals = Vec::with_capacity(n * n);
+    let mut colors = Vec::with_capacity(n * n);
+
+    for iz in 0..n {
+        let wz = origin_z + iz as f64 * spacing;
+        for ix in 0..n {
+            let wx = origin_x + ix as f64 * spacing;
+            let h = heights[iz * n + ix];
+
+            // 中心差分法线（边界用单侧差分）
+            let h_left = if ix > 0 {
+                heights[iz * n + (ix - 1)]
+            } else {
+                h
+            };
+            let h_right = if ix < n - 1 {
+                heights[iz * n + (ix + 1)]
+            } else {
+                h
+            };
+            let h_back = if iz > 0 {
+                heights[(iz - 1) * n + ix]
+            } else {
+                h
+            };
+            let h_front = if iz < n - 1 {
+                heights[(iz + 1) * n + ix]
+            } else {
+                h
             };
 
-            let h = terrain.height_at(wp);
-            let n = terrain.normal_at(wp);
-            let mat = terrain.surface_material_at(wp);
+            let dzdx = (h_right - h_left) / (2.0 * s);
+            let dzdz = (h_front - h_back) / (2.0 * s);
+            let normal = Vec3::new(-dzdx, 1.0, -dzdz).normalize();
 
             vertices.push(Vec3::new(wx as f32, h, wz as f32));
-            normals.push(n);
-
-            // 颜色映射
-            let color = material_color(mat, h);
-            colors.push(color);
+            normals.push(normal);
+            colors.push(height_to_color(h));
         }
     }
 
-    // 生成索引 (每 quad 两个三角形)
-    let total_quads = (n - 1) * (n - 1);
-    let mut indices = Vec::with_capacity(total_quads * 6);
-
-    for iz in 0..(n - 1) {
-        for ix in 0..(n - 1) {
-            let tl = (iz * n + ix) as u32;
-            let tr = (iz * n + ix + 1) as u32;
-            let bl = ((iz + 1) * n + ix) as u32;
-            let br = ((iz + 1) * n + ix + 1) as u32;
-
-            // Triangle 1: top-left, bottom-left, top-right
-            indices.extend_from_slice(&[tl, bl, tr]);
-            // Triangle 2: top-right, bottom-left, bottom-right
-            indices.extend_from_slice(&[tr, bl, br]);
-        }
-    }
+    // ── 第三遍：索引 ──
+    let indices = generate_quad_indices(grid_size);
 
     TerrainMeshData {
         vertices,
@@ -90,47 +148,27 @@ pub fn generate_terrain_mesh(
     }
 }
 
-/// 根据地表材质和高度映射顶点色
-fn material_color(material: woworld_core::material::SurfaceMaterial, height: f32) -> Vec3 {
-    use woworld_core::material::SurfaceMaterial::*;
-    match material {
-        Water => Vec3::new(0.1, 0.3, 0.8),
-        Sand => Vec3::new(0.76, 0.7, 0.5),
-        Grass => {
-            if height > 100.0 {
-                Vec3::new(0.2, 0.55, 0.2) // 高山草甸深绿
-            } else {
-                Vec3::new(0.3, 0.65, 0.25) // 平原浅绿
-            }
-        }
-        Rock => Vec3::new(0.45, 0.42, 0.38),
-        Stone => Vec3::new(0.35, 0.35, 0.35),
-        Gravel => Vec3::new(0.5, 0.45, 0.4),
-        Snow => Vec3::new(0.95, 0.95, 0.95),
-        Mud => Vec3::new(0.4, 0.3, 0.2),
-        _ => Vec3::new(0.4, 0.5, 0.3), // 默认绿
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::terrain::HeightfieldTerrain;
 
+    // ── Signed Heightfield 测试 ─────────
+
     #[test]
-    fn test_mesh_generation() {
+    fn test_sh_mesh_generation() {
         let terrain = HeightfieldTerrain::new(42);
-        let mesh = generate_terrain_mesh(&terrain, 0.0, 0.0, 32, 4.0);
+        let mesh = generate_sh_mesh(&terrain, 0.0, 0.0, 33, 16.0);
 
-        // 32×32 = 1024 顶点
-        assert_eq!(mesh.vertices.len(), 1024);
-        assert_eq!(mesh.normals.len(), 1024);
-        assert_eq!(mesh.colors.len(), 1024);
+        // 33² = 1089 顶点
+        assert_eq!(mesh.vertices.len(), 1089);
+        assert_eq!(mesh.normals.len(), 1089);
+        assert_eq!(mesh.colors.len(), 1089);
 
-        // (32-1)×(32-1) = 961 quads × 6 = 5766 索引
-        assert_eq!(mesh.indices.len(), 961 * 6);
+        // (33-1)² × 6 = 6144 索引
+        assert_eq!(mesh.indices.len(), 6144);
 
-        // 每个法线都是单位向量
+        // 所有法线都是单位向量
         for n in &mesh.normals {
             let len = n.length();
             assert!((len - 1.0).abs() < 0.01, "normal not normalized: {}", len);
@@ -138,30 +176,116 @@ mod tests {
     }
 
     #[test]
-    fn test_mesh_vertices_in_range() {
-        let terrain = HeightfieldTerrain::new(99);
-        let mesh = generate_terrain_mesh(&terrain, 100.0, 200.0, 16, 3.0);
-
-        // 检查顶点范围: x ∈ [100, 145], z ∈ [200, 245]
-        for v in &mesh.vertices {
-            assert!(v.x >= 100.0 && v.x <= 145.5);
-            assert!(v.z >= 200.0 && v.z <= 245.5);
-            // 高度在合理范围
-            assert!(v.y >= -250.0 && v.y <= 800.0);
-        }
-    }
-
-    #[test]
-    fn test_deterministic_mesh() {
+    fn test_sh_mesh_deterministic() {
         let t1 = HeightfieldTerrain::new(42);
         let t2 = HeightfieldTerrain::new(42);
-        let m1 = generate_terrain_mesh(&t1, 0.0, 0.0, 16, 4.0);
-        let m2 = generate_terrain_mesh(&t2, 0.0, 0.0, 16, 4.0);
+        let m1 = generate_sh_mesh(&t1, 0.0, 0.0, 16, 8.0);
+        let m2 = generate_sh_mesh(&t2, 0.0, 0.0, 16, 8.0);
 
         for (a, b) in m1.vertices.iter().zip(m2.vertices.iter()) {
             assert_eq!(a.x, b.x);
             assert_eq!(a.y, b.y);
             assert_eq!(a.z, b.z);
+        }
+        for (a, b) in m1.colors.iter().zip(m2.colors.iter()) {
+            assert_eq!(a.x, b.x);
+            assert_eq!(a.y, b.y);
+            assert_eq!(a.z, b.z);
+        }
+    }
+
+    #[test]
+    fn test_sh_mesh_normals_normalized() {
+        let terrain = HeightfieldTerrain::new(42);
+        let mesh = generate_sh_mesh(&terrain, 500.0, 500.0, 33, 16.0);
+
+        for n in &mesh.normals {
+            let len = n.length();
+            assert!((len - 1.0).abs() < 0.01, "normal len={} not normalized", len);
+        }
+    }
+
+    #[test]
+    fn test_sh_mesh_colors_from_height() {
+        let terrain = HeightfieldTerrain::new(42);
+        let mesh = generate_sh_mesh(&terrain, 0.0, 0.0, 33, 16.0);
+
+        // 找到最低和最高顶点
+        let mut min_h = f32::MAX;
+        let mut max_h = f32::MIN;
+        for v in &mesh.vertices {
+            min_h = min_h.min(v.y);
+            max_h = max_h.max(v.y);
+        }
+
+        // 低海拔应偏绿/沙色（非白非灰）
+        let low_verts: Vec<_> = mesh
+            .vertices
+            .iter()
+            .zip(mesh.colors.iter())
+            .filter(|(v, _)| v.y < 5.0)
+            .collect();
+        if !low_verts.is_empty() {
+            // 低地绿色通道 > 蓝色通道
+            for (_, c) in &low_verts {
+                assert!(
+                    c.y > 0.2,
+                    "lowland color should have green component, got {:?}",
+                    c
+                );
+            }
+        }
+
+        // 高海拔应偏白（高 RGB 值）
+        let high_verts: Vec<_> = mesh
+            .vertices
+            .iter()
+            .zip(mesh.colors.iter())
+            .filter(|(v, _)| v.y > 400.0)
+            .collect();
+        if !high_verts.is_empty() {
+            for (_, c) in &high_verts {
+                let brightness = (c.x + c.y + c.z) / 3.0;
+                assert!(
+                    brightness > 0.35,
+                    "highland color should be bright, got {:?}",
+                    c
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_sh_mesh_vertices_in_range() {
+        let terrain = HeightfieldTerrain::new(99);
+        let spacing = 16.0;
+        let grid_size = 33u32;
+        let ox = 100.0;
+        let oz = 200.0;
+        let mesh = generate_sh_mesh(&terrain, ox, oz, grid_size, spacing);
+
+        let max_coord = (grid_size - 1) as f64 * spacing;
+        for v in &mesh.vertices {
+            assert!(
+                v.x as f64 >= ox && v.x as f64 <= ox + max_coord + 0.01,
+                "x={} out of range [{}, {}]",
+                v.x,
+                ox,
+                ox + max_coord
+            );
+            assert!(
+                v.z as f64 >= oz && v.z as f64 <= oz + max_coord + 0.01,
+                "z={} out of range [{}, {}]",
+                v.z,
+                oz,
+                oz + max_coord
+            );
+            // 高度在合理范围
+            assert!(
+                v.y >= -250.0 && v.y <= 800.0,
+                "height {} out of range",
+                v.y
+            );
         }
     }
 }

@@ -1,6 +1,6 @@
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-06-25
+> **最后更新**: 2026-06-28
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `DEPENDENCY_GRAPH.md` · `../CLAUDE-INTERFACES.md`
 > **审计基准**: `audit-reports/20250625-code-vs-design/README.md`
@@ -12,12 +12,12 @@
 | 指标 | 值 |
 |------|-----|
 | 设计模块总数 | 27 个独立系统 + 1 个子模块（家具与放置物品） |
-| 有代码的模块 | **4 / 27**（世界生成、大气氛围、时间、空间索引） |
-| 零代码的模块 | **23 / 27** — 设计完备，待实现 |
+| 有代码的模块 | **5 / 27**（世界生成、大气氛围、时间、空间索引、**植被**） |
+| 零代码的模块 | **22 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **74 tests 全绿**, cargo clippy 零警告 |
-| Godot 项目 | Godot 4.7 + GDExtension — MC 体素 + Clipmap LOD + 海洋 + 大气 + 昼夜 |
-| 当前冲刺 | Sprint-006 待启动（地基修复） |
+| Rust workspace | 6 crates, **139 tests 全绿**, cargo clippy 零警告 |
+| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 6 级 CHG-049 对齐（0.5m-16m voxel, 4km 视野）+ Signed Heightfield (scene_lod 5) + 海洋 + 大气 + 昼夜 |
+| 当前冲刺 | Sprint-015 完成（Signed Heightfield — scene_lod 5 远距离渲染）→ 下一步待定 |
 | 最新 CHG | CHG-064（2026-06-24）— 轨A 昼夜循环 + 5群系系统 |
 
 ---
@@ -48,31 +48,43 @@
 | `event_bus.rs` | RingEventBus — 环形缓冲区事件总线 | ✅ 完整 |
 | 测试 | 12 tests | ✅ 全绿 |
 
-### woworld_worldgen — 🟡 部分实现（5 个架构偏离）
+### woworld_worldgen — 🟡 部分实现（零架构偏离）
 
 程序化世界生成。依赖 woworld_core + noise crate。
 
 | 文件 | 内容 | 状态 |
 |------|------|------|
-| `noise_gen.rs` | 双层 Perlin 噪声 (continent+detail+mountain) + 气候场 | ✅ 完整 |
+| `noise_gen.rs` | 双层 Perlin 噪声 (continent+detail+mountain) + 气候场 + Worley 3D | ✅ 完整 |
 | `biome.rs` | 温度×降水 2D 噪声 → 5 群系硬盒分类 (TOML 数据驱动) | ⚠️ 硬盒分类 vs 设计规定的连续参数场 |
-| `density.rs` | DensityField trait + HeightfieldDensity | 🔴 trait 残缺 — 缺 material_at/priority |
+| `density.rs` | DensityField trait + DensityStack + CaveDensity 装饰器 | ✅ Sprint-014 多层密度地基 |
 | `terrain.rs` | HeightfieldTerrain — 完整 TerrainQuery trait 实现 | ✅ 完整 |
-| `marching_cubes.rs` | Marching Cubes 等值面提取 | 🔴 标准 MC vs 设计规定的 Transvoxel |
-| `terrain_mesh.rs` | 纯 Rust 网格生成 (引擎无关) | ✅ 完整 |
-| `chunk_manager.rs` | ChunkManager — 保留但未使用 (已被 clipmap 替代) | ⚠️ 僵尸代码 — 待清理或标注 |
-| `clipmap.rs` | ClipmapManager — 4 层 Clipmap LOD | ⚠️ 4 层 vs 设计规定的 8 层 |
-| 测试 | 39 tests | ✅ 全绿 |
+| `marching_cubes.rs` | 等值面查找表 + MC 参考实现（仅供 Transvoxel 对比测试） | ⚠️ 查找表为 Transvoxel 数学地基；`extract_isosurface` 降级为 pub(crate) |
+| `transvoxel.rs` | ★ Transvoxel 完整实现（常规+过渡单元，顶点共享） | ✅ Sprint-011 完成 |
+| `transition_tables.rs` | ★ 过渡单元查找表（auto-generated, ~610 行） | ✅ Sprint-011 新增 |
+| `terrain_mesh.rs` | 纯 Rust 网格生成 — SH + 高度场 + 共享索引 | ✅ Sprint-015 SH 新增 |
+| `clipmap.rs` | ClipmapManager — 6 层 Clipmap LOD CHG-049 对齐 | ✅ Transvoxel (LOD 0-4) + SH (LOD 5) |
+| 测试 | 76 tests（Sprint-016 清理 -12 死代码测试） | ✅ 全绿 |
 
-**5 个红色架构偏离（阻塞后续开发）**：
+**架构偏离：零（5/5 已修复）**：
 
-| # | 偏离 | 设计规定 | 影响 | 计划 |
-|---|------|---------|------|------|
-| 🔴1 | DensityField trait 残缺 | trait 需 material_at(pos)→u8 + priority()→u8 | 多层密度组合不可能 | Sprint-006 |
-| 🔴2 | Seed 类型 u32 | u64 + stage/chunk hash 派生 | 确定性生成不可靠 | Sprint-006 |
-| 🔴3 | Chunk 大小 128m | 32m（LMDB 存储 + Clipmap tile 基本单元） | 持久化/Clipmap 对齐 | Sprint-007 |
-| 🔴4 | 标准 Marching Cubes | Transvoxel（LOD 过渡需 transition cell） | LOD 接缝无法消除 | Sprint-007+ |
-| 🔴5 | 单层密度 (HeightfieldDensity) | 11 层 L0-L10 可插拔 DensityProvider | 洞穴/矿脉/地基/NPC编辑/玩家SDF | Sprint-008+ |
+| # | 偏离 | 状态 |
+|---|------|------|
+| ✅1 | DensityField trait 残缺 | Sprint-006 |
+| ✅2 | Seed u32 | Sprint-006 |
+| ✅3 | Chunk 128m | Sprint-012 |
+| ✅4 | MC vs Transvoxel | Sprint-011 |
+| ✅5 | 单层密度 vs 11 层 | Sprint-014 — DensityStack + CaveDensity |
+
+**LOD 偏差（vs CHG-049）**：
+
+| # | 偏差 | 状态 |
+|---|------|------|
+| ✅1 | 缺 scene_lod 0 (0.5m) | Sprint-013 |
+| ✅2 | LOD 距离带偏移 | Sprint-013 |
+| 🟡3 | 远距离全 Transvoxel (应为 SH) | **Sprint-015: scene_lod 5 SH ✓ / scene_lod 6-7 仍缺** |
+| 🟡4 | 缺 scene_lod 6-7 (4km+) | 后续——复用 SH 代码路径 |
+| 🟡5 | 缺 LODCoordinator | 后续 |
+| 🟡6 | 远距离人造结构不可见 | 需灯光烘焙 + 建筑群轮廓系统，等待建筑模块 |
 
 ### woworld_atmosphere — 🟡 部分实现
 
@@ -174,14 +186,38 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 ---
 
+### woworld_vegetation — 🟡 部分实现（基础设施就位）
+
+植被覆盖层。依赖 woworld_core + woworld_worldgen。
+
+| 文件 | 内容 | 状态 |
+|------|------|------|
+| `community.rs` | Shannon 熵优势种筛选（纯函数） | ✅ 完整 — 6 测试 |
+| `species.rs` | TOML 物种表 + 高斯适应度计算 | ✅ 完整 — 4 测试 |
+| `noise.rs` | VegetationNoise（3 层 Perlin） | ✅ 完整 — 3 测试 |
+| `provider.rs` | VegetationStub 存根实现 | ⚠️ 存根 — 所有方法返回默认值 |
+| 测试 | 16 tests | ✅ 全绿 |
+
+---
+
 ## 三、当前冲刺
 
-**Sprint-006 待启动** — 地基修复：DensityField trait + Seed u64（详见 `sprint-proposals/`）
+**下一个冲刺**: 多层密度 L0-L10 — 最后一个架构偏离（🔴5），解锁洞穴/矿脉/地基/NPC 编辑/玩家 SDF。详见最新交接摘要 `handoff/handoff-20260628-007.md`。
 
-**上次冲刺历史**：
+**本次会话冲刺历史**：
 
 | Sprint | 日期 | 目标 | 状态 |
 |--------|------|------|------|
+| Sprint-015 | 2026-06-28 | ★ Signed Heightfield — scene_lod 5 远距离渲染 | ✅ 完成 |
+| Sprint-014 | 2026-06-28 | ★ 多层密度 L0-L10 — DensityStack + CaveDensity | ✅ 完成 |
+| Sprint-013 | 2026-06-28 | ★ LOD 重构 — CHG-049 6 级对齐 + scene_lod 0 (0.5m) | ✅ 完成 |
+| Sprint-012 | 2026-06-28 | ★ Chunk 128m→32m + LOD 5 级全 Transvoxel (2048m) | ✅ 完成 |
+| Sprint-011 | 2026-06-25 | ★ Transvoxel 过渡单元 + L1 Transvoxel 化 | ✅ 完成 |
+| Sprint-010 | 2026-06-25 | Transvoxel 常规单元提取（顶点共享） | ✅ 完成 |
+| Sprint-009 | 2026-06-25 | 植被 P2.25 基础设施（trait + Shannon 熵 + 物种表） | ✅ 完成 |
+| Sprint-008 | 2026-06-25 | Async 后台 mesh 生成（rayon + mpsc） | ✅ 完成 |
+| Sprint-007 | 2026-06-25 | 性能修复（poll 帧预算 + 合并查询 + 海洋着色） | ✅ 完成 |
+| Sprint-006 | 2026-06-25 | 地基修复（DensityField trait + Seed u64） | ✅ 完成 |
 | Sprint-005 | 2026-06-25 | A.6 里程碑收尾（地形尺度 + 海洋 + 玩家调优） | ✅ 完成 |
 | Sprint-004 | 2026-06-25 | Clipmap LOD 4 层 | ✅ 完成 |
 | Sprint-003 | 2026-06-25 | MC 体素提取 | ✅ 完成 |
@@ -194,6 +230,8 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 ### 红色架构偏离（阻塞后续）— 详见 §一 woworld_worldgen
 
 🔴1 DensityField trait · 🔴2 Seed u32 · 🔴3 Chunk 128m · 🔴4 MC vs Transvoxel · 🔴5 单层密度
+
+> ✅1-4 已修复（Sprint-006, 011, 012）。仅剩 🔴5 单层密度。
 
 ### 轨 C 遗留（设计债务）
 
@@ -208,7 +246,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 - [ ] 宪法 v1.4 用户审批（自 v1.1 起待审批）
 - [ ] 根目录 `session-handoff.md` 归档（旧格式，已过时）
-- [ ] `chunk_manager.rs` 僵尸代码标注（保留但未使用）
+- [x] `chunk_manager.rs` 删除 → ✅ Sprint-016 退役
 
 ---
 
@@ -216,9 +254,12 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | 文件 | 内容 |
 |------|------|
-| [handoff-20260625-003.md](handoff/handoff-20260625-003.md) | ★ 最新 — Sprint-002~005 全量推进（MC+Clipmap+海洋） |
-| [handoff-20260624-002.md](handoff/archived/handoff-20260624-002.md) | CHG-064 偏离修复 + 架构重构 |
-| [handoff-20260623-001.md](handoff/archived/handoff-20260623-001.md) | 元冲刺·宪法 v1.1 建立 |
+| [handoff-20260628-009.md](handoff/handoff-20260628-009.md) | ★ 最新 — Sprint-015（Signed Heightfield — scene_lod 5 远距离渲染）|
+| [handoff-20260628-008.md](handoff/handoff-20260628-008.md) | Sprint-013（LOD 重构 CHG-049 6 级对齐 + scene_lod 0）|
+| [handoff-20260628-007.md](handoff/handoff-20260628-007.md) | Sprint-012（Chunk 32m 对齐 + LOD 5 级全 Transvoxel + 2048m 视野）|
+| [handoff-20260625-005.md](handoff/handoff-20260625-005.md) | Sprint-008~010（Async + 植被基础设施 + Transvoxel 常规单元）→ 下一步 Transvoxel 过渡单元 |
+| [handoff-20260625-004.md](handoff/handoff-20260625-004.md) | Sprint-006+007 全量推进（地基修复+性能优化） |
+| [handoff-20260625-003.md](handoff/handoff-20260625-003.md) | Sprint-002~005 全量推进（MC+Clipmap+海洋） |
 
 ---
 

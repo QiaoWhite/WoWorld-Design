@@ -6,13 +6,14 @@
 //! 架构：Rust 权威 → Godot 纯表现（GDScript 铁律 §14.1）
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use godot::classes::base_material_3d::{CullMode, Flags, ShadingMode};
 use godot::classes::light_3d::Param;
 use godot::classes::mesh::PrimitiveType;
 use godot::classes::{
-    ArrayMesh, DirectionalLight3D, MeshInstance3D, ProceduralSkyMaterial, StandardMaterial3D,
-    WorldEnvironment,
+    ArrayMesh, DirectionalLight3D, MeshInstance3D, ProceduralSkyMaterial, ShaderMaterial,
+    StandardMaterial3D, WorldEnvironment,
 };
 use godot::prelude::*;
 use woworld_atmosphere::AtmosphereSynthesizer;
@@ -43,6 +44,8 @@ pub struct WorldDriver {
     active_tiles: HashMap<LodKey, Gd<MeshInstance3D>>,
     /// 空闲 MeshInstance3D + ArrayMesh 池
     free_pool: Vec<(Gd<MeshInstance3D>, Gd<ArrayMesh>)>,
+    /// 池耗尽警告已输出标志
+    pool_warned: bool,
     /// 所有 Tile 共享一份材质
     shared_material: Option<Gd<StandardMaterial3D>>,
 
@@ -51,6 +54,7 @@ pub struct WorldDriver {
     world_env: Option<Gd<WorldEnvironment>>,
     terrain_parent: Option<Gd<Node3D>>,
     player_node: Option<Gd<Node3D>>,
+    ocean_mesh: Option<Gd<MeshInstance3D>>,
 
     #[base]
     base: Base<Node3D>,
@@ -60,7 +64,7 @@ pub struct WorldDriver {
 impl INode3D for WorldDriver {
     fn init(base: Base<Node3D>) -> Self {
         let terrain = HeightfieldTerrain::default();
-        let clipmap = ClipmapManager::new(terrain.clone());
+        let clipmap = ClipmapManager::new_async(Arc::new(terrain.clone()));
         Self {
             terrain,
             clock: WorldClock::new(DEFAULT_SECONDS_PER_DAY),
@@ -69,18 +73,20 @@ impl INode3D for WorldDriver {
             clipmap,
             active_tiles: HashMap::new(),
             free_pool: Vec::new(),
+            pool_warned: false,
             shared_material: None,
             sun: None,
             world_env: None,
             terrain_parent: None,
             player_node: None,
+            ocean_mesh: None,
             base,
         }
     }
 
     fn ready(&mut self) {
         // ── 1. 创建 HeightfieldTerrain（含群系）────
-        let seed: u32 = 42;
+        let seed: u64 = 42;
         let params = NoiseParams {
             continent_scale: 0.001,
             detail_scale: 0.02,
@@ -102,7 +108,7 @@ impl INode3D for WorldDriver {
             .with_biomes(biome_classifier);
         self.clock = clock;
 
-        self.clipmap = ClipmapManager::new(self.terrain.clone());
+        self.clipmap = ClipmapManager::new_async(Arc::new(self.terrain.clone()));
 
         // ── 2. 缓存场景节点引用（零后续查找）──────
         self.sun = self.base().try_get_node_as::<DirectionalLight3D>("../Sun");
@@ -114,6 +120,13 @@ impl INode3D for WorldDriver {
             .try_get_node_as::<Node3D>(".")
             .or_else(|| Some(self.base().clone().cast::<Node3D>()));
         self.player_node = self.base().try_get_node_as::<Node3D>("../Player");
+
+        // OceanPlane 的 MeshInstance3D 子节点 —— 用于传水深 uniform
+        self.ocean_mesh = self
+            .base()
+            .try_get_node_as::<Node3D>("../OceanPlane")
+            .and_then(|ocean| ocean.get_node_or_null("OceanPlane"))
+            .and_then(|n| n.try_cast::<MeshInstance3D>().ok());
 
         match (&self.sun, &self.world_env) {
             (Some(_), Some(_)) => {
@@ -130,15 +143,18 @@ impl INode3D for WorldDriver {
         mat.set_cull_mode(CullMode::DISABLED);
         self.shared_material = Some(mat);
 
-        // ── 4. 预分配对象池（~70 tiles）──────────
-        let pool_size: usize = 100;
+        // ── 4. 预分配对象池 ──────────
+        let pool_size: usize = 256;
         self.free_pool.reserve(pool_size);
         for _ in 0..pool_size {
             let mi = MeshInstance3D::new_alloc();
             let am = ArrayMesh::new_gd();
             self.free_pool.push((mi, am));
         }
-        godot_print!("WorldDriver: free pool pre-allocated with {} slots", pool_size);
+        godot_print!(
+            "WorldDriver: free pool pre-allocated with {} slots",
+            pool_size
+        );
 
         self.base_mut().set_process(true);
         godot_print!("WorldDriver: ready complete");
@@ -149,11 +165,31 @@ impl INode3D for WorldDriver {
         let wt = &self.clock.current;
         self.terrain.clock = Some(self.clock.clone());
 
-        let origin = WorldPos { x: 0.0, y: 0.0, z: 0.0 };
+        let origin = WorldPos {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
         let atm = self.atmosphere.resolve(wt, origin);
         self.update_sun_and_sky(&atm);
 
         let player_pos = self.get_player_position();
+
+        // 更新海水深度（传 uniform 给 OceanPlane shader）
+        if let Some(ref ocean_mesh) = self.ocean_mesh {
+            let terrain_h = self.terrain.height_at(player_pos);
+            let water_depth = if terrain_h < 0.0 {
+                (-terrain_h).max(0.1)
+            } else {
+                0.1
+            };
+            if let Some(mat) = ocean_mesh.get_surface_override_material(0) {
+                if let Ok(mut shader_mat) = mat.try_cast::<ShaderMaterial>() {
+                    shader_mat.set_shader_parameter("water_depth", &Variant::from(water_depth));
+                }
+            }
+        }
+
         let events = self.clipmap.poll(player_pos);
 
         for event in events {
@@ -184,8 +220,19 @@ impl WorldDriver {
 
     /// 从对象池取出 MeshInstance3D → 更新 ArrayMesh → 挂载到场景树
     fn load_tile(&mut self, key: LodKey, mesh: TerrainMeshData) {
+        // 空网格（纯水下/纯空气 tile）：跳过上传，归还池对象
+        if mesh.vertices.is_empty() {
+            return;
+        }
+
         let (mut mi, mut am) = self.free_pool.pop().unwrap_or_else(|| {
-            godot_warn!("WorldDriver: free pool exhausted, allocating new slot");
+            if !self.pool_warned {
+                godot_print!(
+                    "WorldDriver: pool exhausted ({} active), dynamic alloc active",
+                    self.active_tiles.len()
+                );
+                self.pool_warned = true;
+            }
             (MeshInstance3D::new_alloc(), ArrayMesh::new_gd())
         });
 

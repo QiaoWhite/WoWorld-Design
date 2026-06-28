@@ -37,6 +37,17 @@ pub struct SkillId(pub u64);
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ProfessionTagId(pub u32);
 
+// ── 物种 ID ────────────────────────────────────────
+
+/// 物种全局标识符（植物/动物/怪物/菌类共享 64-bit 空间）
+///
+/// 位布局: category(8bit) + def_id(56bit) = u64
+/// 定义于 `woworld_core`——各消费 crate（建筑/NPC/经济/天气）平等引用。
+///
+/// 参见: [[CLAUDE-INTERFACES.md]] CHG-046
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct SpeciesId(pub u64);
+
 // ── 区块坐标 ───────────────────────────────────────
 
 /// 区块坐标（世界生成的基本空间单元）

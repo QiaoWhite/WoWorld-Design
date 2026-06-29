@@ -97,7 +97,7 @@ impl HeightfieldDensity {
     pub fn new(noise: WorldNoise) -> Self {
         Self {
             noise,
-            half_band: 1.0,
+            half_band: 3.0, // 6m 过渡带 — 消除 MC 细胞面拓扑不一致裂缝
             biome_classifier: None,
         }
     }
@@ -105,7 +105,7 @@ impl HeightfieldDensity {
     pub fn new_with_params(noise: WorldNoise, biome_classifier: Option<BiomeClassifier>) -> Self {
         Self {
             noise,
-            half_band: 1.0,
+            half_band: 3.0, // 6m 过渡带 — 消除 MC 细胞面拓扑不一致裂缝
             biome_classifier,
         }
     }

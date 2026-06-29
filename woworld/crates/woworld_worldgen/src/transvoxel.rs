@@ -659,4 +659,95 @@ mod tests {
             mesh_no.vertices.len()
         );
     }
+
+    /// 平坦地形水密性诊断：检查等值面是否包含裂缝
+    #[test]
+    fn test_flat_terrain_watertight() {
+        use crate::density::DensityField;
+        use std::collections::HashMap;
+
+        // 构建 100m 高的完全平坦密度场
+        struct FlatDensity {
+            h: f64,
+        }
+        impl DensityField for FlatDensity {
+            fn sample(&self, _x: f64, y: f64, _z: f64) -> f32 {
+                let dist = self.h - y;
+                let t = (dist + 1.0) / 2.0;
+                t.clamp(0.0, 1.0) as f32
+            }
+            fn material_at(&self, _x: f64, y: f64, _z: f64) -> u8 {
+                if y <= self.h { crate::density::VOXEL_GRASS } else { 0 }
+            }
+            fn height_at(&self, _x: f64, _z: f64) -> Option<f64> {
+                Some(self.h)
+            }
+            fn priority(&self) -> u8 { 0 }
+        }
+
+        let flat = FlatDensity { h: 100.0 };
+        let params = IsoSurfaceParams {
+            ox: 0.0,
+            oz: 0.0,
+            bottom_y: 80.0,
+            voxels_x: 16,
+            voxels_y: 40,
+            voxels_z: 16,
+            voxel_size: 1.0,
+            transition_faces: 0,
+        };
+
+        let mesh = extract_isosurface_transvoxel(&flat, &params);
+        assert!(!mesh.vertices.is_empty(), "flat terrain should produce mesh");
+
+        // 构建边→三角计数映射，检查每条边恰好被 2 个三角形共享
+        let mut edge_faces: HashMap<(u32, u32), u32> = HashMap::new();
+        for t in mesh.indices.chunks(3) {
+            let (a, b, c) = (t[0], t[1], t[2]);
+            for (v0, v1) in [(a, b), (b, c), (c, a)] {
+                let key = if v0 < v1 { (v0, v1) } else { (v1, v0) };
+                *edge_faces.entry(key).or_default() += 1;
+            }
+        }
+
+        // 内部边应恰好被 2 个三角形共享（边界边被 1 个）
+        let boundary_edges: Vec<_> = edge_faces
+            .iter()
+            .filter(|(_, &count)| count != 2)
+            .collect();
+
+        // 平坦地形应该有少量边界边（tile 外边界），但不应有 >2 的内部边（裂缝）
+        let internal_cracks: Vec<_> = boundary_edges
+            .iter()
+            .filter(|(_, &count)| count > 2)
+            .collect();
+
+        let total_edges = edge_faces.len();
+        let boundary_count = boundary_edges.len();
+        let crack_count = internal_cracks.len();
+
+        // 平坦地形的边界比例应 <10%（仅 tile 外边界）
+        let boundary_ratio = boundary_count as f64 / total_edges.max(1) as f64;
+        assert!(
+            boundary_ratio < 0.15,
+            "flat terrain: {}/{} edges are non-manifold ({:.1}%) — possible cracks in isosurface",
+            boundary_count,
+            total_edges,
+            boundary_ratio * 100.0
+        );
+        assert_eq!(
+            crack_count, 0,
+            "flat terrain: {} edges shared by >2 triangles — internal topology error",
+            crack_count
+        );
+
+        // 所有顶点应在 isosurface 附近 (y ≈ 100.5, where density=0.5)
+        for v in &mesh.vertices {
+            assert!(
+                (v.y - 100.5).abs() < 1.5,
+                "flat terrain vertex at y={:.3}, expected ~100.5",
+                v.y
+            );
+        }
+    }
 }

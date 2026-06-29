@@ -249,32 +249,32 @@ impl WorldDriver {
 
     /// 合并某 LOD 级别所有已完成 tile mesh，上传到该级别的 ArrayMesh
     fn merge_and_upload(layer: &mut LodLayer) {
+        // 清理已离开活跃集的 tile 的旧 mesh
+        layer
+            .completed
+            .retain(|k, _| layer.active_keys.contains(k));
+
         if layer.active_keys.is_empty() {
-            // 无活跃 tile —— 清空 mesh
             layer.mesh.clear_surfaces();
             return;
         }
 
-        // 检查是否所有活跃 tile 都已完成（mesh 已收到）
-        let all_ready = layer
+        // 检查是否所有活跃 tile 都已完成
+        if !layer
             .active_keys
             .iter()
-            .all(|k| layer.completed.contains_key(k));
-
-        if !all_ready {
-            return; // 仍待生成，保持当前 mesh
+            .all(|k| layer.completed.contains_key(k))
+        {
+            return; // 仍待生成
         }
 
-        // 合并所有已完成 mesh
-        let meshes: Vec<&TerrainMeshData> =
-            layer.completed.values().collect();
+        let meshes: Vec<&TerrainMeshData> = layer.completed.values().collect();
         if meshes.is_empty() {
             return;
         }
 
         let merged = Self::merge_meshes(&meshes);
         Self::update_array_mesh(&mut layer.mesh, &merged);
-        layer.completed.clear();
     }
 
     /// 合并多个 TerrainMeshData 为一个（顶点+索引拼接）

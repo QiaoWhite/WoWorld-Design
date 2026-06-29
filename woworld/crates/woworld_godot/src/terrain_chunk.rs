@@ -5,7 +5,7 @@
 //!
 //! 架构：Rust 权威 → Godot 纯表现（GDScript 铁律 §14.1）
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use godot::classes::base_material_3d::{CullMode, Flags, ShadingMode};
@@ -30,6 +30,15 @@ const DEFAULT_SECONDS_PER_DAY: f64 = 30.0;
 /// DirectionalLight3D 距离世界原点的距离（米）
 const SUN_ORBIT_RADIUS: f32 = 500.0;
 
+/// 单个 LOD 级别的合并 mesh 状态
+struct LodLayer {
+    #[allow(dead_code)]
+    instance: Gd<MeshInstance3D>,
+    mesh: Gd<ArrayMesh>,
+    active_keys: HashSet<LodKey>,
+    completed: HashMap<LodKey, TerrainMeshData>,
+}
+
 // ── GodotClass ────────────────────
 
 #[derive(GodotClass)]
@@ -40,12 +49,8 @@ pub struct WorldDriver {
     atmosphere: AtmosphereSynthesizer,
     clipmap: ClipmapManager,
 
-    /// 活跃 Tile → MeshInstance3D 映射
-    active_tiles: HashMap<LodKey, Gd<MeshInstance3D>>,
-    /// 空闲 MeshInstance3D + ArrayMesh 池
-    free_pool: Vec<(Gd<MeshInstance3D>, Gd<ArrayMesh>)>,
-    /// 池耗尽警告已输出标志
-    pool_warned: bool,
+    /// 每个 LOD 级别一个合并 MeshInstance3D（索引=level）
+    lod_layers: [Option<LodLayer>; 8],
     /// 所有 Tile 共享一份材质
     shared_material: Option<Gd<StandardMaterial3D>>,
 
@@ -71,9 +76,7 @@ impl INode3D for WorldDriver {
             atmosphere: AtmosphereSynthesizer::from_embedded_toml()
                 .expect("embedded time_curve.toml must be valid"),
             clipmap,
-            active_tiles: HashMap::new(),
-            free_pool: Vec::new(),
-            pool_warned: false,
+            lod_layers: Default::default(),
             shared_material: None,
             sun: None,
             world_env: None,
@@ -143,21 +146,28 @@ impl INode3D for WorldDriver {
         mat.set_cull_mode(CullMode::DISABLED);
         self.shared_material = Some(mat);
 
-        // ── 4. 预分配对象池 ──────────
-        let pool_size: usize = 600;
-        self.free_pool.reserve(pool_size);
-        for _ in 0..pool_size {
-            let mi = MeshInstance3D::new_alloc();
+        // ── 4. 创建每 LOD 级别的合并 MeshInstance3D ──
+        for level in 0..8u8 {
+            let mut mi = MeshInstance3D::new_alloc();
             let am = ArrayMesh::new_gd();
-            self.free_pool.push((mi, am));
+            mi.set_name(&format!("LOD_{}", level));
+            mi.set_mesh(&am);
+            if let Some(ref mat) = self.shared_material {
+                mi.set_surface_override_material(0, mat);
+            }
+            if let Some(ref mut parent) = self.terrain_parent {
+                parent.add_child(&mi.clone().upcast::<Node>());
+            }
+            self.lod_layers[level as usize] = Some(LodLayer {
+                instance: mi,
+                mesh: am,
+                active_keys: HashSet::new(),
+                completed: HashMap::new(),
+            });
         }
-        godot_print!(
-            "WorldDriver: free pool pre-allocated with {} slots",
-            pool_size
-        );
 
         self.base_mut().set_process(true);
-        godot_print!("WorldDriver: ready complete");
+        godot_print!("WorldDriver: 8 LOD layers ready");
     }
 
     fn process(&mut self, delta: f64) {
@@ -175,7 +185,7 @@ impl INode3D for WorldDriver {
 
         let player_pos = self.get_player_position();
 
-        // 更新海水深度（传 uniform 给 OceanPlane shader）
+        // 更新海水深度
         if let Some(ref ocean_mesh) = self.ocean_mesh {
             let terrain_h = self.terrain.height_at(player_pos);
             let water_depth = if terrain_h < 0.0 {
@@ -194,8 +204,27 @@ impl INode3D for WorldDriver {
 
         for event in events {
             match event {
-                TileEvent::Load { key, mesh } => self.load_tile(key, mesh),
-                TileEvent::Unload { key } => self.unload_tile(key),
+                TileEvent::Load { key, mesh } => {
+                    if let Some(ref mut layer) = self.lod_layers[key.level as usize] {
+                        if !mesh.vertices.is_empty() {
+                            layer.completed.insert(key, mesh);
+                        }
+                        layer.active_keys.insert(key);
+                    }
+                }
+                TileEvent::Unload { key } => {
+                    if let Some(ref mut layer) = self.lod_layers[key.level as usize] {
+                        layer.active_keys.remove(&key);
+                        layer.completed.remove(&key);
+                    }
+                }
+            }
+        }
+
+        // 合并各 LOD 级别的 mesh 并上传
+        for level in 0..8u8 {
+            if let Some(ref mut layer) = self.lod_layers[level as usize] {
+                Self::merge_and_upload(layer);
             }
         }
     }
@@ -204,7 +233,7 @@ impl INode3D for WorldDriver {
 // ── 内部方法 ──────────────────────────
 
 impl WorldDriver {
-    /// 读取玩家位置（使用缓存引用，零场景树查找）
+    /// 读取玩家位置
     fn get_player_position(&self) -> WorldPos {
         if let Some(ref player) = self.player_node {
             let pos = player.get_position();
@@ -218,52 +247,61 @@ impl WorldDriver {
         }
     }
 
-    /// 从对象池取出 MeshInstance3D → 更新 ArrayMesh → 挂载到场景树
-    fn load_tile(&mut self, key: LodKey, mesh: TerrainMeshData) {
-        // 空网格（纯水下/纯空气 tile）：跳过上传，归还池对象
-        if mesh.vertices.is_empty() {
+    /// 合并某 LOD 级别所有已完成 tile mesh，上传到该级别的 ArrayMesh
+    fn merge_and_upload(layer: &mut LodLayer) {
+        if layer.active_keys.is_empty() {
+            // 无活跃 tile —— 清空 mesh
+            layer.mesh.clear_surfaces();
             return;
         }
 
-        let (mut mi, mut am) = self.free_pool.pop().unwrap_or_else(|| {
-            if !self.pool_warned {
-                godot_print!(
-                    "WorldDriver: pool exhausted ({} active), dynamic alloc active",
-                    self.active_tiles.len()
-                );
-                self.pool_warned = true;
-            }
-            (MeshInstance3D::new_alloc(), ArrayMesh::new_gd())
-        });
+        // 检查是否所有活跃 tile 都已完成（mesh 已收到）
+        let all_ready = layer
+            .active_keys
+            .iter()
+            .all(|k| layer.completed.contains_key(k));
 
-        Self::update_array_mesh(&mut am, &mesh);
-
-        mi.set_name(&format!("L{}_{}_{}", key.level, key.gx, key.gz));
-        mi.set_mesh(&am);
-        if let Some(ref mat) = self.shared_material {
-            mi.set_surface_override_material(0, mat);
+        if !all_ready {
+            return; // 仍待生成，保持当前 mesh
         }
 
-        if let Some(ref mut parent) = self.terrain_parent {
-            let node = mi.clone().upcast::<Node>();
-            parent.add_child(&node);
+        // 合并所有已完成 mesh
+        let meshes: Vec<&TerrainMeshData> =
+            layer.completed.values().collect();
+        if meshes.is_empty() {
+            return;
         }
-        self.active_tiles.insert(key, mi);
+
+        let merged = Self::merge_meshes(&meshes);
+        Self::update_array_mesh(&mut layer.mesh, &merged);
+        layer.completed.clear();
     }
 
-    /// 从场景树移除 → 归还对象池
-    fn unload_tile(&mut self, key: LodKey) {
-        if let Some(mut mi) = self.active_tiles.remove(&key) {
-            if let Some(ref mut parent) = self.terrain_parent {
-                parent.remove_child(&mi.clone().upcast::<Node>());
+    /// 合并多个 TerrainMeshData 为一个（顶点+索引拼接）
+    fn merge_meshes(meshes: &[&TerrainMeshData]) -> TerrainMeshData {
+        let total_verts: usize = meshes.iter().map(|m| m.vertices.len()).sum();
+        let total_indices: usize = meshes.iter().map(|m| m.indices.len()).sum();
+
+        let mut vertices = Vec::with_capacity(total_verts);
+        let mut normals = Vec::with_capacity(total_verts);
+        let mut colors = Vec::with_capacity(total_verts);
+        let mut indices = Vec::with_capacity(total_indices);
+
+        for mesh in meshes {
+            let base = vertices.len() as u32;
+            vertices.extend_from_slice(&mesh.vertices);
+            normals.extend_from_slice(&mesh.normals);
+            colors.extend_from_slice(&mesh.colors);
+            for &idx in &mesh.indices {
+                indices.push(base + idx);
             }
-            if let Some(am) = mi.get_mesh() {
-                if let Ok(am) = am.try_cast::<ArrayMesh>() {
-                    self.free_pool.push((mi, am));
-                    return;
-                }
-            }
-            mi.queue_free();
+        }
+
+        TerrainMeshData {
+            vertices,
+            normals,
+            indices,
+            colors,
         }
     }
 

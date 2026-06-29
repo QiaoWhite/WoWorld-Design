@@ -51,54 +51,12 @@ pub(crate) struct LodLevel {
 }
 
 const LEVELS: [LodLevel; 6] = [
-    // ── scene_lod 0: 0.5m voxel, 0-30m (CHG-049) ──
-    LodLevel {
-        index: 0,
-        min_range: 0.0,
-        max_range: 30.0,
-        tile_size: 16.0,
-        algorithm: MeshAlgorithm::Transvoxel { voxel_size: 0.5 },
-    },
-    // ── scene_lod 1: 1m voxel, 30-80m (CHG-049) ──
-    LodLevel {
-        index: 1,
-        min_range: 30.0,
-        max_range: 80.0,
-        tile_size: 32.0,
-        algorithm: MeshAlgorithm::Transvoxel { voxel_size: 1.0 },
-    },
-    // ── scene_lod 2: 2m voxel, 80-200m (CHG-049) ──
-    LodLevel {
-        index: 2,
-        min_range: 80.0,
-        max_range: 200.0,
-        tile_size: 64.0,
-        algorithm: MeshAlgorithm::Transvoxel { voxel_size: 2.0 },
-    },
-    // ── scene_lod 3: 4m voxel, 200-500m (CHG-049) ──
-    LodLevel {
-        index: 3,
-        min_range: 200.0,
-        max_range: 500.0,
-        tile_size: 128.0,
-        algorithm: MeshAlgorithm::Transvoxel { voxel_size: 4.0 },
-    },
-    // ── scene_lod 4: 8m voxel, 500m-1.5km (CHG-049) ──
-    LodLevel {
-        index: 4,
-        min_range: 500.0,
-        max_range: 1500.0,
-        tile_size: 256.0,
-        algorithm: MeshAlgorithm::Transvoxel { voxel_size: 8.0 },
-    },
-    // ── scene_lod 5: Signed Heightfield, 1.5-4km (CHG-049) ──
-    LodLevel {
-        index: 5,
-        min_range: 1500.0,
-        max_range: 4000.0,
-        tile_size: 512.0,
-        algorithm: MeshAlgorithm::SignedHeightfield { spacing: 16.0 },
-    },
+    LodLevel { index: 0, min_range: 0.0,    max_range: 30.0,   tile_size: 16.0,   algorithm: MeshAlgorithm::Transvoxel { voxel_size: 0.5 } },
+    LodLevel { index: 1, min_range: 30.0,   max_range: 80.0,   tile_size: 32.0,   algorithm: MeshAlgorithm::Transvoxel { voxel_size: 1.0 } },
+    LodLevel { index: 2, min_range: 80.0,   max_range: 200.0,  tile_size: 64.0,   algorithm: MeshAlgorithm::Transvoxel { voxel_size: 2.0 } },
+    LodLevel { index: 3, min_range: 200.0,  max_range: 500.0,  tile_size: 128.0,  algorithm: MeshAlgorithm::Transvoxel { voxel_size: 4.0 } },
+    LodLevel { index: 4, min_range: 500.0,  max_range: 1500.0, tile_size: 256.0,  algorithm: MeshAlgorithm::Transvoxel { voxel_size: 8.0 } },
+    LodLevel { index: 5, min_range: 1500.0, max_range: 4000.0, tile_size: 512.0,  algorithm: MeshAlgorithm::SignedHeightfield { spacing: 16.0 } },
 ];
 
 /// 每帧最多处理的事件数（跨层共享）
@@ -163,39 +121,47 @@ fn tile_origin(key: LodKey, level: &LodLevel) -> (f64, f64) {
 /// 计算 tile 需要过渡单元的面（位掩码）
 ///
 /// 位定义：bit 0=-X, 1=+X, 2=-Z, 3=+Z
-/// 对每个水平方向，检查相邻位置是否存在更低分辨率的 tile。
-/// 纯查询函数——不依赖 active set，基于 tile 坐标和层级结构推导。
+/// 仅检查紧邻的高层级——Transvoxel transition cell 假设 scale=2。
+///
+/// 额外检查：tile 中心必须在 coarser 层级的有效距离内——否则
+/// coarser tile 不存在，transition cell 会桥接到空无，产生浮空三角形。
 fn compute_transition_faces(key: LodKey) -> u8 {
-    let mut faces: u8 = 0;
     let level = &LEVELS[key.level as usize];
+    let next_level_idx = key.level + 1;
+    if next_level_idx >= LEVELS.len() as u8 {
+        return 0;
+    }
+    let nl_lvl = &LEVELS[next_level_idx as usize];
 
-    for next_level in (key.level + 1)..LEVELS.len() as u8 {
-        let nl_lvl = &LEVELS[next_level as usize];
-        let scale = (nl_lvl.tile_size / level.tile_size) as i64;
-        if scale < 2 {
-            continue;
-        }
+    // 检查本 tile 是否在 coarser 层级的有效范围内
+    let (ox, oz) = tile_origin(key, level);
+    let cx = ox + level.tile_size * 0.5;
+    let cz = oz + level.tile_size * 0.5;
+    let dist = (cx * cx + cz * cz).sqrt();
+    let nl_margin = if matches!(nl_lvl.algorithm, MeshAlgorithm::Transvoxel { .. }) {
+        nl_lvl.tile_size * 0.5
+    } else {
+        0.0
+    };
+    if dist < nl_lvl.min_range - nl_margin || dist > nl_lvl.max_range + nl_margin {
+        return 0; // coarser tile 不存在，无需 transition
+    }
 
-        // 对于给定的 tile (level, gx, gz)，其面是否需要过渡取决于：
-        // 相邻的 tile 区域是否被 lower-res 层覆盖。
-        // 规则：如果 (gx+dx, gz+dz) 对应的 lower-res tile 和本 tile 的 lower-res tile 不同，
-        // 则此面是 LOD 边界。
+    let scale = (nl_lvl.tile_size / level.tile_size) as i64;
+    let mut faces: u8 = 0;
+    if scale >= 2 {
         let self_lo_gx = key.gx.div_euclid(scale);
         let self_lo_gz = key.gz.div_euclid(scale);
 
-        // +X face: 检查 (gx+1, gz) 是否在另一个 lower-res tile 中
         if (key.gx + 1).div_euclid(scale) != self_lo_gx {
             faces |= 0b0010;
         }
-        // -X face
         if (key.gx - 1).div_euclid(scale) != self_lo_gx {
             faces |= 0b0001;
         }
-        // +Z face
         if (key.gz + 1).div_euclid(scale) != self_lo_gz {
             faces |= 0b1000;
         }
-        // -Z face
         if (key.gz - 1).div_euclid(scale) != self_lo_gz {
             faces |= 0b0100;
         }
@@ -229,7 +195,7 @@ fn estimate_vertical(terrain: &HeightfieldTerrain, ox: f64, oz: f64, size: f64) 
 }
 
 /// 为单个 tile 生成网格（纯函数，可在任意线程调用）
-fn generate_tile(terrain: &HeightfieldTerrain, key: LodKey, transition_faces: u8) -> TerrainMeshData {
+fn generate_tile(terrain: &HeightfieldTerrain, key: LodKey, _transition_faces: u8) -> TerrainMeshData {
     let level = &LEVELS[key.level as usize];
     let (ox, oz) = tile_origin(key, level);
 
@@ -246,7 +212,7 @@ fn generate_tile(terrain: &HeightfieldTerrain, key: LodKey, transition_faces: u8
                 voxels_y: vertical_voxels.max(1),
                 voxels_z: voxels_edge,
                 voxel_size,
-                transition_faces,
+                transition_faces: 0, // FIXME: transition cell 几何有问题，暂时禁用；待审计 transvoxel::extract_isosurface_transvoxel + transition_tables
             };
             let base = HeightfieldDensity::new_with_params(
                 terrain.noise().clone(),

@@ -89,10 +89,10 @@ impl INode3D for WorldDriver {
         let seed: u64 = 42;
         let params = NoiseParams {
             continent_scale: 0.001,
-            detail_scale: 0.02,
-            mountain_scale: 0.002,
+            detail_scale: 0.005,
+            mountain_scale: 0.001,
             sea_threshold: -0.5,
-            height_amplitude: 350.0,
+            height_amplitude: 120.0,
             sea_depth: 400.0,
             climate_scale: 0.005,
         };

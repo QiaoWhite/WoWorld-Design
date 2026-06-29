@@ -439,12 +439,12 @@ pub(crate) fn extract_isosurface(
                 let d = [
                     corner_density[idx_base],
                     corner_density[idx_base + 1],
-                    corner_density[idx_base + 1 + nx],
-                    corner_density[idx_base + nx],
-                    corner_density[idx_base + ny * nx],
-                    corner_density[idx_base + 1 + ny * nx],
-                    corner_density[idx_base + 1 + nx + ny * nx],
-                    corner_density[idx_base + nx + ny * nx],
+                    corner_density[idx_base + 1 + ny * nx],       // 2: +z
+                    corner_density[idx_base + ny * nx],           // 3: +z
+                    corner_density[idx_base + nx],                // 4: +y
+                    corner_density[idx_base + 1 + nx],            // 5: +y,+x
+                    corner_density[idx_base + 1 + nx + ny * nx],  // 6
+                    corner_density[idx_base + nx + ny * nx],      // 7
                 ];
 
                 let mut case_idx: usize = 0;

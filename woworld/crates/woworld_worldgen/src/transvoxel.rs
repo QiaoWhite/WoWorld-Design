@@ -54,10 +54,10 @@ fn global_corners(ix: usize, iy: usize, iz: usize, stride_x: usize, stride_y: us
     [
         base as u32,                             // 0: (ix,   iy,   iz)
         (base + 1) as u32,                       // 1: (ix+1, iy,   iz)
-        (base + 1 + stride_x) as u32,            // 2: (ix+1, iy,   iz+1)
-        (base + stride_x) as u32,                // 3: (ix,   iy,   iz+1)
-        (base + stride_y) as u32,                // 4: (ix,   iy+1, iz)
-        (base + 1 + stride_y) as u32,            // 5: (ix+1, iy+1, iz)
+        (base + 1 + stride_y) as u32,            // 2: (ix+1, iy,   iz+1)  stride_y=ny*nx for z
+        (base + stride_y) as u32,                // 3: (ix,   iy,   iz+1)
+        (base + stride_x) as u32,                // 4: (ix,   iy+1, iz)    stride_x=nx for y
+        (base + 1 + stride_x) as u32,            // 5: (ix+1, iy+1, iz)
         (base + 1 + stride_x + stride_y) as u32, // 6: (ix+1, iy+1, iz+1)
         (base + stride_x + stride_y) as u32,     // 7: (ix,   iy+1, iz+1)
     ]
@@ -368,12 +368,12 @@ pub fn extract_isosurface_transvoxel(
                 let d = [
                     corner_density[idx_base],
                     corner_density[idx_base + 1],
-                    corner_density[idx_base + 1 + nx],
-                    corner_density[idx_base + nx],
-                    corner_density[idx_base + ny * nx],
-                    corner_density[idx_base + 1 + ny * nx],
-                    corner_density[idx_base + 1 + nx + ny * nx],
-                    corner_density[idx_base + nx + ny * nx],
+                    corner_density[idx_base + 1 + ny * nx],       // 2: +z
+                    corner_density[idx_base + ny * nx],           // 3: +z
+                    corner_density[idx_base + nx],                // 4: +y
+                    corner_density[idx_base + 1 + nx],            // 5: +y,+x
+                    corner_density[idx_base + 1 + nx + ny * nx],  // 6
+                    corner_density[idx_base + nx + ny * nx],      // 7
                 ];
 
                 let mut case_idx: usize = 0;

@@ -479,6 +479,73 @@ pub fn extract_isosurface_transvoxel(
         }
     }
 
+    // ── 5. 裙边几何（填充 GPU 亚像素裂纹）────
+    {
+        let min_x = params.ox as f32;
+        let max_x = (params.ox + params.voxels_x as f64 * params.voxel_size) as f32;
+        let min_z = params.oz as f32;
+        let max_z = (params.oz + params.voxels_z as f64 * params.voxel_size) as f32;
+        let eps = params.voxel_size as f32 * 0.05;
+        let skirt_bottom = params.bottom_y as f32 - params.voxel_size as f32 * 2.0;
+        let dark = Vec3::new(0.15, 0.12, 0.08);
+
+        // 收集每条边上的边界顶点 (vertex_index, position_along_edge)
+        let mut left: Vec<(u32, f32)> = Vec::new();   // -X, sorted by Z
+        let mut right: Vec<(u32, f32)> = Vec::new();  // +X
+        let mut back: Vec<(u32, f32)> = Vec::new();   // -Z, sorted by X
+        let mut front: Vec<(u32, f32)> = Vec::new();  // +Z
+
+        for (i, v) in vertices.iter().enumerate() {
+            if (v.x - min_x).abs() < eps {
+                left.push((i as u32, v.z));
+            } else if (v.x - max_x).abs() < eps {
+                right.push((i as u32, v.z));
+            }
+            if (v.z - min_z).abs() < eps {
+                back.push((i as u32, v.x));
+            } else if (v.z - max_z).abs() < eps {
+                front.push((i as u32, v.x));
+            }
+        }
+
+        // 沿边排序
+        left.sort_by(|a, b| a.1.total_cmp(&b.1));
+        right.sort_by(|a, b| a.1.total_cmp(&b.1));
+        back.sort_by(|a, b| a.1.total_cmp(&b.1));
+        front.sort_by(|a, b| a.1.total_cmp(&b.1));
+
+        // 辅助：为一条边添加裙边三角形
+        let mut skirt_edge =
+            |edge_verts: &[(u32, f32)], out_normal: Vec3| {
+                for pair in edge_verts.windows(2) {
+                    let i0 = pair[0].0 as usize;
+                    let i1 = pair[1].0 as usize;
+                    let v0 = vertices[i0];
+                    let v1 = vertices[i1];
+                    let sv0 = Vec3::new(v0.x, skirt_bottom, v0.z);
+                    let sv1 = Vec3::new(v1.x, skirt_bottom, v1.z);
+                    let base = vertices.len() as u32;
+                    vertices.push(sv0);
+                    vertices.push(sv1);
+                    normals.push(out_normal);
+                    normals.push(out_normal);
+                    colors.push(dark);
+                    colors.push(dark);
+                    indices.push(i0 as u32);
+                    indices.push(i1 as u32);
+                    indices.push(base);
+                    indices.push(base);
+                    indices.push(i1 as u32);
+                    indices.push(base + 1);
+                }
+            };
+
+        skirt_edge(&left, Vec3::new(-1.0, 0.0, 0.0));
+        skirt_edge(&right, Vec3::new(1.0, 0.0, 0.0));
+        skirt_edge(&back, Vec3::new(0.0, 0.0, -1.0));
+        skirt_edge(&front, Vec3::new(0.0, 0.0, 1.0));
+    }
+
     TerrainMeshData {
         vertices,
         normals,
@@ -535,13 +602,17 @@ mod tests {
 
     #[test]
     fn test_transvoxel_vs_mc_compatible() {
-        // Transvoxel 和 MC 应在相同输入下产生等价的三角形（面数相同）
+        // Transvoxel 主三角形数应 ≥ MC（Transvoxel 含裙边额外三角形）
         let d1 = make_density();
         let d2 = make_density();
         let tv_mesh = extract_isosurface_transvoxel(&d1, &make_params());
         let mc_mesh = extract_isosurface(&d2, &make_params());
-        // 三角形数量应相同
-        assert_eq!(tv_mesh.indices.len(), mc_mesh.indices.len());
+        assert!(
+            tv_mesh.indices.len() >= mc_mesh.indices.len(),
+            "transvoxel (+skirt) indices {} >= MC indices {}",
+            tv_mesh.indices.len(),
+            mc_mesh.indices.len()
+        );
     }
 
     #[test]

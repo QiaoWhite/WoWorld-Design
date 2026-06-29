@@ -126,7 +126,63 @@ pub fn generate_sh_mesh(
     }
 
     // ── 第三遍：索引（仅覆盖 tile 本体区域，重叠行仅供相邻 tile 共享）──
-    let indices = generate_quad_indices_with_offset(grid_size, ov as u32, total_n as u32);
+    let mut indices = generate_quad_indices_with_offset(grid_size, ov as u32, total_n as u32);
+
+    // ── 第四遍：裙边几何（填充 GPU 亚像素裂纹）──
+    if ov > 0 {
+        // 裙边底部：取所有边界顶点高度的最小值再往下偏移
+        let mut boundary_min_h = f32::MAX;
+        for iz in 0..total_n {
+            for ix in 0..total_n {
+                let is_boundary = ix == ov || ix == ov + n - 1 || iz == ov || iz == ov + n - 1;
+                if is_boundary {
+                    let h = heights[iz * total_n + ix];
+                    boundary_min_h = boundary_min_h.min(h);
+                }
+            }
+        }
+        let skirt_bottom = boundary_min_h - s * 2.0;
+
+        // 辅助函数：为边界顶点对生成裙边四边形
+        let mut add_skirt_quad = |i0: usize, i1: usize, out_normal: Vec3| {
+            let v0 = vertices[i0];
+            let v1 = vertices[i1];
+            let sv0 = Vec3::new(v0.x, skirt_bottom, v0.z);
+            let sv1 = Vec3::new(v1.x, skirt_bottom, v1.z);
+            let base = vertices.len() as u32;
+            let dark = Vec3::new(0.15, 0.12, 0.08); // 地下暗色
+            vertices.push(sv0);
+            vertices.push(sv1);
+            normals.push(out_normal);
+            normals.push(out_normal);
+            colors.push(dark);
+            colors.push(dark);
+            // 两个三角形：向下看时正面
+            indices.extend_from_slice(&[i0 as u32, i1 as u32, base, base, i1 as u32, base + 1]);
+        };
+
+        let tn = total_n;
+        // 左边 (-X): 法线指向 -X
+        let left_n = Vec3::new(-1.0, 0.0, 0.0);
+        for iz in ov..ov + n - 1 {
+            add_skirt_quad(iz * tn + ov, (iz + 1) * tn + ov, left_n);
+        }
+        // 右边 (+X): 法线指向 +X
+        let right_n = Vec3::new(1.0, 0.0, 0.0);
+        for iz in ov..ov + n - 1 {
+            add_skirt_quad((iz + 1) * tn + (ov + n - 1), iz * tn + (ov + n - 1), right_n);
+        }
+        // 下边 (-Z): 法线指向 -Z
+        let back_n = Vec3::new(0.0, 0.0, -1.0);
+        for ix in ov..ov + n - 1 {
+            add_skirt_quad(ov * tn + (ix + 1), ov * tn + ix, back_n);
+        }
+        // 上边 (+Z): 法线指向 +Z
+        let front_n = Vec3::new(0.0, 0.0, 1.0);
+        for ix in ov..ov + n - 1 {
+            add_skirt_quad((ov + n - 1) * tn + ix, (ov + n - 1) * tn + (ix + 1), front_n);
+        }
+    }
 
     TerrainMeshData {
         vertices,

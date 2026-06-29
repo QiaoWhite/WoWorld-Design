@@ -178,39 +178,27 @@ fn compute_transition_faces(key: LodKey) -> u8 {
     faces
 }
 
-/// 估算 tile 所在区域的垂直范围，保证相邻 tile 一致性。
+/// 估算某 LOD 级别可见圆环范围内的地形垂直范围。
 ///
-/// **无缝保证**：将 tile origin 对齐到 2 级更粗的 LOD 栅格（锚定区域），
-/// 然后以 1 tile 边距扩展估算范围。同一锚定区域内的所有 tile 共享完全
-/// 相同的 `bottom_y`（snap 到 voxel_size 整数倍），消除 Transvoxel
-/// 共享面上因 Y 栅格偏移导致的顶点位置分叉。
-fn aligned_vertical(
+/// 所有同层 tile 共享同一垂直范围——绝对消除 bottom_y 不一致。
+fn estimate_ring_vertical(
     terrain: &HeightfieldTerrain,
-    ox: f64,
-    oz: f64,
+    player_pos: WorldPos,
     level: &LodLevel,
 ) -> (f64, f64) {
     use woworld_core::spatial::TerrainQuery;
-
-    // 锚定到 2 级更粗的 LOD 栅格——锚定边界每 4+ tile 才出现一次
-    let anchor_idx = ((level.index as usize) + 2).min(LEVELS.len() - 1);
-    let anchor_tile_size = LEVELS[anchor_idx].tile_size;
-    let anchor_ox = (ox / anchor_tile_size).floor() * anchor_tile_size;
-    let anchor_oz = (oz / anchor_tile_size).floor() * anchor_tile_size;
-
-    // 以 1 tile 边距扩展——相邻锚定区域的估算范围有充足重叠
-    let pad = level.tile_size;
-    let est_ox = anchor_ox - pad;
-    let est_oz = anchor_oz - pad;
-    let est_size = anchor_tile_size + 2.0 * pad;
-
     let mut min_h = f64::MAX;
     let mut max_h = f64::MIN;
-    let steps = 8; // 9×9 = 81 采样点（比旧版 25 点更密但范围更大）
-    for i in 0..=steps {
-        let wx = est_ox + i as f64 * est_size / steps as f64;
-        for j in 0..=steps {
-            let wz = est_oz + j as f64 * est_size / steps as f64;
+    // 在可见圆环内均匀采样（极坐标栅格）
+    let steps_r = 6;
+    let steps_theta = 12;
+    for ir in 0..=steps_r {
+        let r = level.min_range
+            + (ir as f64 / steps_r as f64) * (level.max_range - level.min_range);
+        for it in 0..steps_theta {
+            let theta = it as f64 * 2.0 * std::f64::consts::PI / steps_theta as f64;
+            let wx = player_pos.x + r * theta.cos();
+            let wz = player_pos.z + r * theta.sin();
             let h = terrain.height_at(WorldPos {
                 x: wx,
                 y: 0.0,
@@ -220,26 +208,26 @@ fn aligned_vertical(
             max_h = max_h.max(h);
         }
     }
-
-    match level.algorithm {
-        MeshAlgorithm::Transvoxel { voxel_size } => {
-            // Snap 到 voxel_size 整数倍——保证相邻 tile Y 栅格严格对齐
-            let bottom = ((min_h - MC_VERTICAL_MARGIN) / voxel_size).floor() * voxel_size;
-            let top = ((max_h + MC_VERTICAL_MARGIN) / voxel_size).ceil() * voxel_size;
-            (bottom.max(-250.0), top)
-        }
-        MeshAlgorithm::SignedHeightfield { .. } => (0.0, 0.0),
-    }
+    (min_h, max_h)
 }
 
+/// 估算 tile 所在区域的垂直范围，保证相邻 tile 一致性。
+///
+/// **无缝保证**：将 tile origin 对齐到 2 级更粗的 LOD 栅格（锚定区域），
+/// 然后以 1 tile 边距扩展估算范围。同一锚定区域内的所有 tile 共享完全
 /// 为单个 tile 生成网格（纯函数，可在任意线程调用）
-fn generate_tile(terrain: &HeightfieldTerrain, key: LodKey, transition_faces: u8) -> TerrainMeshData {
+fn generate_tile(
+    terrain: &HeightfieldTerrain,
+    key: LodKey,
+    transition_faces: u8,
+    bottom_y: f64,
+    top_y: f64,
+) -> TerrainMeshData {
     let level = &LEVELS[key.level as usize];
     let (ox, oz) = tile_origin(key, level);
 
     match level.algorithm {
         MeshAlgorithm::Transvoxel { voxel_size } => {
-            let (bottom_y, top_y) = aligned_vertical(terrain, ox, oz, level);
             let vertical_voxels = ((top_y - bottom_y) / voxel_size).ceil() as u32;
             let voxels_edge = (level.tile_size / voxel_size) as u32;
             let params = IsoSurfaceParams {
@@ -290,6 +278,8 @@ pub struct ClipmapManager {
     result_tx: mpsc::Sender<TileEvent>,
     /// 正在后台生成的 tile（防重复提交）
     in_flight: HashSet<LodKey>,
+    /// 每 LOD 级别的统一垂直范围缓存（每帧预计算一次，所有同层 tile 共享）
+    vertical_cache: HashMap<u8, (f64, f64)>,
 }
 
 impl ClipmapManager {
@@ -308,6 +298,7 @@ impl ClipmapManager {
             result_rx: rx,
             result_tx: tx,
             in_flight: HashSet::new(),
+            vertical_cache: HashMap::new(),
         }
     }
 
@@ -327,19 +318,20 @@ impl ClipmapManager {
             result_rx: rx,
             result_tx: tx,
             in_flight: HashSet::new(),
+            vertical_cache: HashMap::new(),
         }
     }
 
     // ── 内部方法 ────────────────────────
 
     /// 提交一个 tile 到 rayon 后台线程池生成
-    fn submit_async(&mut self, key: LodKey, transition_faces: u8) {
+    fn submit_async(&mut self, key: LodKey, transition_faces: u8, bottom_y: f64, top_y: f64) {
         let terrain = Arc::clone(&self.terrain);
         let tx = self.result_tx.clone();
         self.in_flight.insert(key);
 
         rayon::spawn(move || {
-            let mesh = generate_tile(&terrain, key, transition_faces);
+            let mesh = generate_tile(&terrain, key, transition_faces, bottom_y, top_y);
             // 如果 ClipmapManager 已 drop（rx 关闭），send 静默失败
             let _ = tx.send(TileEvent::Load { key, mesh });
         });
@@ -387,7 +379,12 @@ impl ClipmapManager {
                 let level = &LEVELS[key.level as usize];
                 let desired = desired_keys(level, player_pos.x, player_pos.z);
                 if desired.contains(&key) {
-                    let mesh = generate_tile(&self.terrain, key, 0);
+                    let (vy_bottom, vy_top) = self
+                        .vertical_cache
+                        .get(&key.level)
+                        .copied()
+                        .unwrap_or((0.0, 0.0));
+                    let mesh = generate_tile(&self.terrain, key, 0, vy_bottom, vy_top);
                     events.push(TileEvent::Load { key, mesh });
                 } else {
                     self.active.remove(&key);
@@ -395,6 +392,21 @@ impl ClipmapManager {
             }
             if events.len() >= max_events {
                 return events;
+            }
+        }
+
+        // ── 2.5. 预计算每 LOD 级别的统一垂直范围 ──
+        self.vertical_cache.clear();
+        for level in &LEVELS {
+            if let MeshAlgorithm::Transvoxel { voxel_size } = level.algorithm {
+                let (min_h, max_h) =
+                    estimate_ring_vertical(&self.terrain, player_pos, level);
+                let bottom =
+                    ((min_h - MC_VERTICAL_MARGIN) / voxel_size).floor() * voxel_size;
+                let top =
+                    ((max_h + MC_VERTICAL_MARGIN) / voxel_size).ceil() * voxel_size;
+                self.vertical_cache
+                    .insert(level.index, (bottom.max(-250.0), top));
             }
         }
 
@@ -422,14 +434,20 @@ impl ClipmapManager {
                     && !self.in_flight.contains(key)
                 {
                     self.active.insert(*key, ());
+                    // 获取该层的统一垂直范围（SH 层不需要）
+                    let (vy_bottom, vy_top) = self
+                        .vertical_cache
+                        .get(&key.level)
+                        .copied()
+                        .unwrap_or((0.0, 0.0));
                     if self.async_mode {
-                        // 提交到后台线程池（无帧预算限制——submit 是廉价的）
                         let tf = compute_transition_faces(*key);
-                        self.submit_async(*key, tf);
+                        self.submit_async(*key, tf, vy_bottom, vy_top);
                     } else {
                         // Sync 模式：立刻生成或推迟
                         if events.len() < max_events {
-                            let mesh = generate_tile(&self.terrain, *key, 0);
+                            let mesh =
+                                generate_tile(&self.terrain, *key, 0, vy_bottom, vy_top);
                             events.push(TileEvent::Load { key: *key, mesh });
                         } else {
                             self.pending_loads.push(*key);
@@ -592,7 +610,7 @@ mod tests {
         // scene_lod 0: 16m tile, 0.5m voxel — 最高精度 Transvoxel
         let terrain = HeightfieldTerrain::new(42);
         let key = LodKey { level: 0, gx: 0, gz: 0 };
-        let mesh = generate_tile(&terrain, key, 0);
+        let mesh = generate_tile(&terrain, key, 0, -250.0, 500.0);
         assert!(
             mesh.vertices.len() >= 100,
             "scene_lod 0 (0.5m voxel) should have at least 100 vertices, got {}",
@@ -608,7 +626,7 @@ mod tests {
         // scene_lod 2: 64m tile, 2m voxel
         let terrain = HeightfieldTerrain::new(42);
         let key = LodKey { level: 2, gx: 0, gz: 0 };
-        let mesh = generate_tile(&terrain, key, 0);
+        let mesh = generate_tile(&terrain, key, 0, -250.0, 500.0);
         assert!(
             mesh.vertices.len() >= 100,
             "scene_lod 2 should have at least 100 vertices, got {}",
@@ -624,7 +642,7 @@ mod tests {
         // scene_lod 4: 256m tile, 8m voxel — 低精度 Transvoxel
         let terrain = HeightfieldTerrain::new(42);
         let key = LodKey { level: 4, gx: 0, gz: 0 };
-        let mesh = generate_tile(&terrain, key, 0);
+        let mesh = generate_tile(&terrain, key, 0, -250.0, 500.0);
         assert!(
             mesh.vertices.len() >= 50,
             "scene_lod 4 (8m voxel) should have at least 50 vertices, got {}",
@@ -652,18 +670,18 @@ mod tests {
             gx: 0,
             gz: 0,
         };
-        let mesh = generate_tile(&terrain, key, 0);
-        // SH: (33+2)² = 1225 顶点（overlap=1 向外扩展 1 行，与相邻 tile 共享边界顶点）
+        let mesh = generate_tile(&terrain, key, 0, -250.0, 500.0);
+        // SH: 35²=1225 + 裙边 256 = 1481 顶点
         assert_eq!(
             mesh.vertices.len(),
-            1225,
-            "scene_lod 5 should generate 35x35 SH mesh (33+2overlap), got {} vertices",
+            1481,
+            "scene_lod 5 SH+skirt should have 1481 vertices (35²+skirt), got {} vertices",
             mesh.vertices.len()
         );
-        assert_eq!(mesh.normals.len(), 1225);
-        assert_eq!(mesh.colors.len(), 1225);
-        // 32² × 6 = 6144 索引
-        assert_eq!(mesh.indices.len(), 6144);
+        assert_eq!(mesh.normals.len(), 1481);
+        assert_eq!(mesh.colors.len(), 1481);
+        // 32²×6 + 4×32×6 裙边 = 6144+768 = 6912
+        assert_eq!(mesh.indices.len(), 6912);
         assert!(mesh.indices.len() % 3 == 0);
     }
 
@@ -675,17 +693,11 @@ mod tests {
             gx: 0,
             gz: 0,
         };
-        let mesh = generate_tile(&terrain, key, 0);
-        // SH: (33+2)² = 1225 顶点（overlap=1）
-        assert_eq!(
-            mesh.vertices.len(),
-            1225,
-            "scene_lod 6 should generate 35x35 SH mesh (33+2overlap), got {} vertices",
-            mesh.vertices.len()
-        );
-        assert_eq!(mesh.normals.len(), 1225);
-        assert_eq!(mesh.colors.len(), 1225);
-        assert_eq!(mesh.indices.len(), 6144);
+        let mesh = generate_tile(&terrain, key, 0, -250.0, 500.0);
+        assert_eq!(mesh.vertices.len(), 1481);
+        assert_eq!(mesh.normals.len(), 1481);
+        assert_eq!(mesh.colors.len(), 1481);
+        assert_eq!(mesh.indices.len(), 6912);
         assert!(mesh.indices.len() % 3 == 0);
     }
 
@@ -697,17 +709,17 @@ mod tests {
             gx: 0,
             gz: 0,
         };
-        let mesh = generate_tile(&terrain, key, 0);
+        let mesh = generate_tile(&terrain, key, 0, -250.0, 500.0);
         // SH: (33+2)² = 1225 顶点（overlap=1）
         assert_eq!(
             mesh.vertices.len(),
-            1225,
-            "scene_lod 7 should generate 35x35 SH mesh (33+2overlap), got {} vertices",
+            1481,
+            "scene_lod 7 SH+skirt: {} vertices",
             mesh.vertices.len()
         );
-        assert_eq!(mesh.normals.len(), 1225);
-        assert_eq!(mesh.colors.len(), 1225);
-        assert_eq!(mesh.indices.len(), 6144);
+        assert_eq!(mesh.normals.len(), 1481);
+        assert_eq!(mesh.colors.len(), 1481);
+        assert_eq!(mesh.indices.len(), 6912);
         assert!(mesh.indices.len() % 3 == 0);
     }
 

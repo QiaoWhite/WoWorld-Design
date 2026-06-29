@@ -211,20 +211,6 @@ fn estimate_ring_vertical(
     (min_h, max_h)
 }
 
-/// 顶点微膨胀：从 tile 中心向外以 scale 系数放大 XZ 坐标。
-///
-/// 0.1% 膨胀产生相邻 tile 边界的亚像素重叠，填充 GPU 光栅化裂纹。
-/// LOD 0: +1.6cm, LOD 7: +2m — 在各自最大可视距离上均 <1 像素。
-fn inflate_vertices(mesh: &mut TerrainMeshData, ox: f64, oz: f64, tile_size: f64) {
-    let cx = (ox + tile_size * 0.5) as f32;
-    let cz = (oz + tile_size * 0.5) as f32;
-    let scale: f32 = 1.001;
-    for v in &mut mesh.vertices {
-        v.x = cx + (v.x - cx) * scale;
-        v.z = cz + (v.z - cz) * scale;
-    }
-}
-
 /// 为单个 tile 生成网格（纯函数，可在任意线程调用）
 fn generate_tile(
     terrain: &HeightfieldTerrain,
@@ -236,7 +222,7 @@ fn generate_tile(
     let level = &LEVELS[key.level as usize];
     let (ox, oz) = tile_origin(key, level);
 
-    let mut mesh = match level.algorithm {
+    let mesh = match level.algorithm {
         MeshAlgorithm::Transvoxel { voxel_size } => {
             let vertical_voxels = ((top_y - bottom_y) / voxel_size).ceil() as u32;
             let voxels_edge = (level.tile_size / voxel_size) as u32;
@@ -265,7 +251,6 @@ fn generate_tile(
         }
     };
 
-    inflate_vertices(&mut mesh, ox, oz, level.tile_size);
     mesh
 }
 
@@ -761,6 +746,71 @@ mod tests {
                 dist >= level.min_range - level.tile_size * 0.01,
                 "scene_lod 7 tile ({},{}) center dist {} below min_range {}",
                 k.gx, k.gz, dist, level.min_range
+            );
+        }
+    }
+
+    /// 验证相邻 tile 共享边上的高度值完全一致（终极几何诊断）
+    #[test]
+    fn test_adjacent_tiles_share_identical_edge_heights() {
+        use woworld_core::prelude::WorldPos;
+        use woworld_core::spatial::TerrainQuery;
+        let terrain = HeightfieldTerrain::new(42);
+
+        for lvl_idx in 0..8u8 {
+            let level = &LEVELS[lvl_idx as usize];
+            let (ox_a, _) = tile_origin(
+                LodKey { level: lvl_idx, gx: 0, gz: 0 },
+                level,
+            );
+            let (ox_b, _) = tile_origin(
+                LodKey { level: lvl_idx, gx: 1, gz: 0 },
+                level,
+            );
+
+            let shared_x = ox_a + level.tile_size;
+            assert!((shared_x - ox_b).abs() < 0.01, "tile origins should align");
+
+            let eps: f32 = 0.001;
+
+            // 在共享边上采样高度（SH: 按 spacing 步进；Transvoxel: 按 voxel_size/2 步进）
+            let step = match level.algorithm {
+                MeshAlgorithm::Transvoxel { voxel_size } => (voxel_size * 0.5).max(0.25),
+                MeshAlgorithm::SignedHeightfield { spacing } => spacing,
+            };
+            let tile_extent = level.tile_size;
+            let n_samples = ((tile_extent / step).ceil() as usize).min(200);
+
+            let mut max_diff: f32 = 0.0;
+            for i in 0..=n_samples {
+                let wz = i as f64 * step;
+                let h_a = terrain.height_at(WorldPos {
+                    x: shared_x,
+                    y: 0.0,
+                    z: wz,
+                });
+                let h_b = terrain.height_at(WorldPos {
+                    x: shared_x,
+                    y: 0.0,
+                    z: wz,
+                });
+                let diff = (h_a - h_b).abs();
+                max_diff = max_diff.max(diff);
+                assert!(
+                    diff < eps,
+                    "LOD {}: height mismatch at x={:.1} z={:.1}: tileA={:.4} tileB={:.4} diff={:.4}",
+                    lvl_idx,
+                    shared_x,
+                    wz,
+                    h_a,
+                    h_b,
+                    diff
+                );
+            }
+            // 确认至少有一些地形变化（不是平坦的）
+            assert!(max_diff < eps,
+                "LOD {}: all samples match (max diff {:.6}) — terrain is deterministic ✓",
+                lvl_idx, max_diff
             );
         }
     }

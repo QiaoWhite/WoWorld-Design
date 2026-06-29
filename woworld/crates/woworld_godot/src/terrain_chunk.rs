@@ -277,23 +277,65 @@ impl WorldDriver {
         Self::update_array_mesh(&mut layer.mesh, &merged);
     }
 
-    /// 合并多个 TerrainMeshData 为一个（顶点+索引拼接）
+    /// 合并多个 TerrainMeshData 为一个（顶点焊接：边界重复顶点去重）
     fn merge_meshes(meshes: &[&TerrainMeshData]) -> TerrainMeshData {
-        let total_verts: usize = meshes.iter().map(|m| m.vertices.len()).sum();
-        let total_indices: usize = meshes.iter().map(|m| m.indices.len()).sum();
+        use glam::Vec3;
+        let weld_eps: f32 = 0.05; // 5cm 容差——远小于体素/间距尺度
+        let cell_size = weld_eps;
 
-        let mut vertices = Vec::with_capacity(total_verts);
-        let mut normals = Vec::with_capacity(total_verts);
-        let mut colors = Vec::with_capacity(total_verts);
-        let mut indices = Vec::with_capacity(total_indices);
+        let mut vertices: Vec<Vec3> = Vec::new();
+        let mut normals: Vec<Vec3> = Vec::new();
+        let mut colors: Vec<Vec3> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
+        let mut grid: HashMap<(i32, i32, i32), Vec<(u32, Vec3)>> = HashMap::new();
 
         for mesh in meshes {
-            let base = vertices.len() as u32;
-            vertices.extend_from_slice(&mesh.vertices);
-            normals.extend_from_slice(&mesh.normals);
-            colors.extend_from_slice(&mesh.colors);
-            for &idx in &mesh.indices {
-                indices.push(base + idx);
+            let mut local_to_global: Vec<u32> = Vec::with_capacity(mesh.vertices.len());
+
+            for vi in 0..mesh.vertices.len() {
+                let v = mesh.vertices[vi];
+                let cell = (
+                    (v.x / cell_size).floor() as i32,
+                    (v.y / cell_size).floor() as i32,
+                    (v.z / cell_size).floor() as i32,
+                );
+
+                // 在相邻 27 个空间哈希格中查找已存在的近距离顶点
+                let mut found = None;
+                'search: for dx in -1..=1 {
+                    for dy in -1..=1 {
+                        for dz in -1..=1 {
+                            let key = (cell.0 + dx, cell.1 + dy, cell.2 + dz);
+                            if let Some(candidates) = grid.get(&key) {
+                                for &(idx, cv) in candidates {
+                                    if (v - cv).length_squared() < weld_eps * weld_eps {
+                                        found = Some(idx);
+                                        break 'search;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                let g_idx = if let Some(existing) = found {
+                    // 复用已有顶点——消除裂缝
+                    existing
+                } else {
+                    // 新顶点
+                    let new_idx = vertices.len() as u32;
+                    vertices.push(v);
+                    normals.push(mesh.normals[vi]);
+                    colors.push(mesh.colors[vi]);
+                    grid.entry(cell).or_default().push((new_idx, v));
+                    new_idx
+                };
+                local_to_global.push(g_idx);
+            }
+
+            // 重映射索引到焊接后的全局顶点
+            for &local_idx in &mesh.indices {
+                indices.push(local_to_global[local_idx as usize]);
             }
         }
 

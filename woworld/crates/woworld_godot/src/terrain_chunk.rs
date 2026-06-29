@@ -144,7 +144,7 @@ impl INode3D for WorldDriver {
         self.shared_material = Some(mat);
 
         // ── 4. 预分配对象池 ──────────
-        let pool_size: usize = 256;
+        let pool_size: usize = 600;
         self.free_pool.reserve(pool_size);
         for _ in 0..pool_size {
             let mi = MeshInstance3D::new_alloc();

@@ -1,10 +1,10 @@
 //! ClipmapManager — 多分辨率 LOD 地形管理
 //!
-//! 6 级 LOD 严格对齐 CHG-049 scene_lod 0-5: 0.5m-16m voxel, 0-4km 视野。
-//! tile 链 16→32→64→128→256→512m — 每 tile 恒 32³ 体素（GPU 负载恒定）。
-//! ★ Sprint-013: scene_lod 0 新增 (0.5m voxel) + 距离带全面对齐 CHG-049。
+//! 8 级 LOD 严格对齐 CHG-049 scene_lod 0-7: 0.5m-64m voxel/spacing, 0-10km 视野。
+//! tile 链 16→32→64→128→256→512→1024→2048m — Transvoxel (LOD 0-4) + SH (LOD 5-7)。
+//! ★ Sprint-017: scene_lod 6-7 新增 (SH, 32m/64m spacing, 4-10km 远距离)。
 //!
-//! Clipmap LOD 管理器。6 层 LOD（0-5），对齐 CHG-049 scene_lod 表。
+//! Clipmap LOD 管理器。8 层 LOD（0-7），对齐 CHG-049 scene_lod 表。
 //!
 //! ## Async 生成（v2）
 //!
@@ -50,13 +50,15 @@ pub(crate) struct LodLevel {
     pub algorithm: MeshAlgorithm,
 }
 
-const LEVELS: [LodLevel; 6] = [
-    LodLevel { index: 0, min_range: 0.0,    max_range: 30.0,   tile_size: 16.0,   algorithm: MeshAlgorithm::Transvoxel { voxel_size: 0.5 } },
-    LodLevel { index: 1, min_range: 30.0,   max_range: 80.0,   tile_size: 32.0,   algorithm: MeshAlgorithm::Transvoxel { voxel_size: 1.0 } },
-    LodLevel { index: 2, min_range: 80.0,   max_range: 200.0,  tile_size: 64.0,   algorithm: MeshAlgorithm::Transvoxel { voxel_size: 2.0 } },
-    LodLevel { index: 3, min_range: 200.0,  max_range: 500.0,  tile_size: 128.0,  algorithm: MeshAlgorithm::Transvoxel { voxel_size: 4.0 } },
-    LodLevel { index: 4, min_range: 500.0,  max_range: 1500.0, tile_size: 256.0,  algorithm: MeshAlgorithm::Transvoxel { voxel_size: 8.0 } },
-    LodLevel { index: 5, min_range: 1500.0, max_range: 4000.0, tile_size: 512.0,  algorithm: MeshAlgorithm::SignedHeightfield { spacing: 16.0 } },
+const LEVELS: [LodLevel; 8] = [
+    LodLevel { index: 0, min_range: 0.0,     max_range: 30.0,    tile_size: 16.0,    algorithm: MeshAlgorithm::Transvoxel { voxel_size: 0.5 } },
+    LodLevel { index: 1, min_range: 30.0,    max_range: 80.0,    tile_size: 32.0,    algorithm: MeshAlgorithm::Transvoxel { voxel_size: 1.0 } },
+    LodLevel { index: 2, min_range: 80.0,    max_range: 200.0,   tile_size: 64.0,    algorithm: MeshAlgorithm::Transvoxel { voxel_size: 2.0 } },
+    LodLevel { index: 3, min_range: 200.0,   max_range: 500.0,   tile_size: 128.0,   algorithm: MeshAlgorithm::Transvoxel { voxel_size: 4.0 } },
+    LodLevel { index: 4, min_range: 500.0,   max_range: 1500.0,  tile_size: 256.0,   algorithm: MeshAlgorithm::Transvoxel { voxel_size: 8.0 } },
+    LodLevel { index: 5, min_range: 1500.0,  max_range: 4000.0,  tile_size: 512.0,   algorithm: MeshAlgorithm::SignedHeightfield { spacing: 16.0 } },
+    LodLevel { index: 6, min_range: 4000.0,  max_range: 7000.0,  tile_size: 1024.0,  algorithm: MeshAlgorithm::SignedHeightfield { spacing: 32.0 } },
+    LodLevel { index: 7, min_range: 7000.0,  max_range: 10000.0, tile_size: 2048.0,  algorithm: MeshAlgorithm::SignedHeightfield { spacing: 64.0 } },
 ];
 
 /// 每帧最多处理的事件数（跨层共享）
@@ -90,6 +92,12 @@ fn desired_keys(level: &LodLevel, px: f64, pz: f64) -> HashSet<LodKey> {
     let center_gz = (pz / ts).floor() as i64;
     // 搜索半径（格数）
     let grid_radius = (level.max_range / ts).ceil() as i64 + 1;
+    // SignedHeightfield 层 margin=0 — 防 SH→SH 边界 z-fighting（无 transition cell 桥接）
+    let margin = if matches!(level.algorithm, MeshAlgorithm::SignedHeightfield { .. }) {
+        0.0
+    } else {
+        ts * 0.5
+    };
     let mut keys = HashSet::new();
     for dx in -grid_radius..=grid_radius {
         for dz in -grid_radius..=grid_radius {
@@ -97,7 +105,7 @@ fn desired_keys(level: &LodLevel, px: f64, pz: f64) -> HashSet<LodKey> {
             let cx = (dx as f64 + 0.5) * ts;
             let cz = (dz as f64 + 0.5) * ts;
             let dist = (cx * cx + cz * cz).sqrt();
-            if dist < level.min_range - ts * 0.5 || dist > level.max_range + ts * 0.5 {
+            if dist < level.min_range - margin || dist > level.max_range + margin {
                 continue;
             }
             keys.insert(LodKey {
@@ -493,8 +501,8 @@ mod tests {
                 break;
             }
         }
-        // 6 级 LOD，全部消耗后应有 ~460 个 tile
-        assert!(total > 300, "should have >300 tiles total, got {}", total);
+        // 8 级 LOD，全部消耗后应有 ~560 个 tile
+        assert!(total > 400, "should have >400 tiles total, got {}", total);
     }
 
     #[test]
@@ -540,11 +548,12 @@ mod tests {
     }
 
     #[test]
-    fn test_scene_lod_5_transition_faces_zero() {
-        // scene_lod 5 是当前最高级——无更粗级别邻居，transition_faces 应为 0
-        let key = LodKey { level: 5, gx: 0, gz: 0 };
+    fn test_highest_lod_has_zero_transition_faces() {
+        // 最高层级无更粗级别邻居，transition_faces 应为 0
+        let highest = (LEVELS.len() - 1) as u8;
+        let key = LodKey { level: highest, gx: 0, gz: 0 };
         assert_eq!(compute_transition_faces(key), 0);
-        let key2 = LodKey { level: 5, gx: 10, gz: -5 };
+        let key2 = LodKey { level: highest, gx: 10, gz: -5 };
         assert_eq!(compute_transition_faces(key2), 0);
     }
 
@@ -597,8 +606,8 @@ mod tests {
     }
 
     #[test]
-    fn test_all_six_levels_have_transition_coverage() {
-        for lvl in 0..6u8 {
+    fn test_all_eight_levels_have_transition_coverage() {
+        for lvl in 0..8u8 {
             let key = LodKey { level: lvl, gx: 0, gz: 0 };
             let faces = compute_transition_faces(key);
             assert!(faces <= 0b1111, "Level {} faces={:#06b} exceeds 4 bits", lvl, faces);
@@ -626,5 +635,78 @@ mod tests {
         // 32² × 6 = 6144 索引
         assert_eq!(mesh.indices.len(), 6144);
         assert!(mesh.indices.len() % 3 == 0);
+    }
+
+    #[test]
+    fn test_scene_lod_6_generates_sh_mesh() {
+        let terrain = HeightfieldTerrain::new(42);
+        let key = LodKey {
+            level: 6,
+            gx: 0,
+            gz: 0,
+        };
+        let mesh = generate_tile(&terrain, key, 0);
+        // SH: 1024/32+1 = 33 grid → 33² = 1089 顶点
+        assert_eq!(
+            mesh.vertices.len(),
+            1089,
+            "scene_lod 6 should generate 33x33 SH mesh, got {} vertices",
+            mesh.vertices.len()
+        );
+        assert_eq!(mesh.normals.len(), 1089);
+        assert_eq!(mesh.colors.len(), 1089);
+        assert_eq!(mesh.indices.len(), 6144);
+        assert!(mesh.indices.len() % 3 == 0);
+    }
+
+    #[test]
+    fn test_scene_lod_7_generates_sh_mesh() {
+        let terrain = HeightfieldTerrain::new(42);
+        let key = LodKey {
+            level: 7,
+            gx: 0,
+            gz: 0,
+        };
+        let mesh = generate_tile(&terrain, key, 0);
+        // SH: 2048/64+1 = 33 grid → 33² = 1089 顶点
+        assert_eq!(
+            mesh.vertices.len(),
+            1089,
+            "scene_lod 7 should generate 33x33 SH mesh, got {} vertices",
+            mesh.vertices.len()
+        );
+        assert_eq!(mesh.normals.len(), 1089);
+        assert_eq!(mesh.colors.len(), 1089);
+        assert_eq!(mesh.indices.len(), 6144);
+        assert!(mesh.indices.len() % 3 == 0);
+    }
+
+    #[test]
+    fn test_desired_keys_scene_lod_7() {
+        let keys = desired_keys(&LEVELS[7], 0.0, 0.0);
+        // scene_lod 7: 7-10km, 2048m tiles
+        assert!(
+            keys.len() >= 30,
+            "scene_lod 7 should have at least 30 tiles, got {}",
+            keys.len()
+        );
+        assert!(
+            keys.len() <= 100,
+            "scene_lod 7 should have at most 100 tiles, got {}",
+            keys.len()
+        );
+        for k in &keys {
+            assert_eq!(k.level, 7);
+            // SH 层 margin=0：所有 tile 中心距应在 min_range 以上
+            let level = &LEVELS[7];
+            let cx = (k.gx as f64 + 0.5) * level.tile_size;
+            let cz = (k.gz as f64 + 0.5) * level.tile_size;
+            let dist = (cx * cx + cz * cz).sqrt();
+            assert!(
+                dist >= level.min_range - level.tile_size * 0.01,
+                "scene_lod 7 tile ({},{}) center dist {} below min_range {}",
+                k.gx, k.gz, dist, level.min_range
+            );
+        }
     }
 }

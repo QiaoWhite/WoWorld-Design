@@ -329,7 +329,7 @@ pub(crate) const EDGE_ENDPOINTS: [(usize, usize); 12] = [
 
 // ── 插值与梯度 ──────────────────────
 
-fn interpolate(p1: Vec3, p2: Vec3, d1: f32, d2: f32) -> Vec3 {
+pub(crate) fn interpolate(p1: Vec3, p2: Vec3, d1: f32, d2: f32) -> Vec3 {
     if (d1 - THRESHOLD).abs() < f32::EPSILON {
         return p1;
     }
@@ -344,7 +344,7 @@ fn interpolate(p1: Vec3, p2: Vec3, d1: f32, d2: f32) -> Vec3 {
 }
 
 /// 3D 有限差分梯度（不依赖高度场）
-fn gradient_from_density(density: &dyn DensityField, x: f64, y: f64, z: f64) -> Vec3 {
+pub(crate) fn gradient_from_density(density: &dyn DensityField, x: f64, y: f64, z: f64) -> Vec3 {
     let eps = GRADIENT_EPS;
     let dx = density.sample(x + eps, y, z) - density.sample(x - eps, y, z);
     let dy = density.sample(x, y + eps, z) - density.sample(x, y - eps, z);
@@ -531,7 +531,7 @@ pub(crate) fn extract_isosurface(
 }
 
 /// 体素材质 ID → 顶点色映射
-fn voxel_color(material_id: u8, height: f32) -> Vec3 {
+pub(crate) fn voxel_color(material_id: u8, height: f32) -> Vec3 {
     match material_id {
         VOXEL_WATER => {
             if height < -20.0 {

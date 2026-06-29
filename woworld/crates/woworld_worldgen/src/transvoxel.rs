@@ -17,7 +17,10 @@ use std::collections::HashMap;
 use glam::Vec3;
 
 use crate::density::DensityField;
-use crate::marching_cubes::{EDGE_ENDPOINTS, EDGE_TABLE, GRADIENT_EPS, THRESHOLD, TRI_TABLE};
+use crate::marching_cubes::{
+    interpolate, gradient_from_density, voxel_color, EDGE_ENDPOINTS, EDGE_TABLE, THRESHOLD,
+    TRI_TABLE,
+};
 use crate::terrain_mesh::TerrainMeshData;
 
 // ── 等值面提取参数 ──────────────────
@@ -61,71 +64,6 @@ fn global_corners(ix: usize, iy: usize, iz: usize, stride_x: usize, stride_y: us
         (base + 1 + stride_x + stride_y) as u32, // 6: (ix+1, iy+1, iz+1)
         (base + stride_x + stride_y) as u32,     // 7: (ix,   iy+1, iz+1)
     ]
-}
-
-// ── 插值与梯度 ────────────────────────
-
-fn interpolate(p1: Vec3, p2: Vec3, d1: f32, d2: f32) -> Vec3 {
-    if (d1 - THRESHOLD).abs() < f32::EPSILON {
-        return p1;
-    }
-    if (d2 - THRESHOLD).abs() < f32::EPSILON {
-        return p2;
-    }
-    if d1 == d2 {
-        return (p1 + p2) * 0.5;
-    }
-    let t = (THRESHOLD - d1) / (d2 - d1);
-    p1 + (p2 - p1) * t
-}
-
-fn gradient_from_density(density: &dyn DensityField, x: f64, y: f64, z: f64) -> Vec3 {
-    let eps = GRADIENT_EPS;
-    let dx = density.sample(x + eps, y, z) - density.sample(x - eps, y, z);
-    let dy = density.sample(x, y + eps, z) - density.sample(x, y - eps, z);
-    let dz = density.sample(x, y, z + eps) - density.sample(x, y, z - eps);
-    let v = Vec3::new(dx, dy, dz);
-    if v.length_squared() < 1e-12 {
-        Vec3::Y
-    } else {
-        v.normalize()
-    }
-}
-
-// ── 体素材质 → 颜色映射 ──────────────
-
-use crate::density::{
-    VOXEL_DIRT, VOXEL_GRANITE, VOXEL_GRASS, VOXEL_GRAVEL, VOXEL_ICE, VOXEL_SAND, VOXEL_SNOW,
-    VOXEL_STONE, VOXEL_WATER,
-};
-
-fn voxel_color(material_id: u8, height: f32) -> Vec3 {
-    match material_id {
-        VOXEL_WATER => {
-            if height < -20.0 {
-                Vec3::new(0.1, 0.3, 0.8)
-            } else {
-                Vec3::new(0.3, 0.55, 0.7)
-            }
-        }
-        VOXEL_SAND => Vec3::new(0.76, 0.7, 0.5),
-        VOXEL_GRASS => {
-            if height > 150.0 {
-                Vec3::new(0.25, 0.5, 0.2)
-            } else if height > 50.0 {
-                Vec3::new(0.3, 0.6, 0.25)
-            } else {
-                Vec3::new(0.35, 0.7, 0.3)
-            }
-        }
-        VOXEL_GRANITE => Vec3::new(0.5, 0.45, 0.4),
-        VOXEL_STONE => Vec3::new(0.4, 0.4, 0.4),
-        VOXEL_GRAVEL => Vec3::new(0.55, 0.5, 0.45),
-        VOXEL_SNOW => Vec3::new(0.95, 0.95, 0.95),
-        VOXEL_ICE => Vec3::new(0.85, 0.9, 0.95),
-        VOXEL_DIRT => Vec3::new(0.45, 0.35, 0.25),
-        _ => Vec3::new(0.4, 0.5, 0.3),
-    }
 }
 
 // ── 过渡单元辅助 ──────────────────────

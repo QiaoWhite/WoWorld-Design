@@ -1,0 +1,53 @@
+# 会话交接 — 2026-06-30
+
+## 状态
+
+- **132 tests 全绿, clippy 零警告**
+- 多次尝试修复 10-50m 间距的弯曲裂缝，全部无效
+
+## 问题描述
+
+地形表面可见"弯曲/不规则"的透明缝隙（天空色），间距约 10-50m：
+- 静止可见，非闪烁
+- 靠近消失，远离出现
+- 所有 LOD 级别均匀分布
+- 跟随地形弯曲（非 tile 网格直线）
+
+## 已排除的根因
+
+| 尝试 | 结论 |
+|------|------|
+| MSAA(关闭)/TAA(关闭)/Debanding(关闭) | 无效 — 非后处理问题 |
+| 全局 bottom_y 统一 | 无效 — 非几何不一致 |
+| SH overlap + Skirt geometry | 无效 — 非 tile 边界间隙 |
+| Vertex inflation (0.1%, 1%, variable) | 无效 — 非光栅化裂纹 |
+| Custom AABB 膨胀 | 无效 — 非视锥体裁剪 |
+| CullMode::BACK(回退到DISABLED) | 无效 — 非背面裁剪 |
+| 单 mesh 合并 per LOD | 无效 — 非多 MeshInstance3D 问题 |
+| 顶点焊接 (5cm→20cm 容差) | 无效 — 非 tile 边界顶点分叉 |
+| half_band 1.0→3.0 (6m过渡带) | 无效 — 非密度梯度问题 |
+| Camera3D near=1.0 far=20000 | 无效 — 非深度精度问题 |
+
+## 关键诊断数据
+
+1. `test_adjacent_tiles_share_identical_edge_heights`: 相邻 tile 共享边 height_at() 完全一致 → 地形采样正确
+2. `test_flat_terrain_watertight`: 平坦地形等值面完全水密（无内部裂缝）→ MC 算法正确
+3. 单 mesh 合并后 vertex count 正常 → 合并逻辑正确
+
+## 当前架构
+
+- 每 LOD 级别 1 个合并 ArrayMesh（8 个 MeshInstance3D 总计）
+- 顶点焊接（20cm 容差，仅边界顶点）
+- 全局 bottom_y (estimate_ring_vertical)
+- Transition cell corner offset 修复（绿色伪影已消除）
+- half_band=3.0 (6m 过渡带)
+
+## 下步建议
+
+裂缝大概率是 Godot 4.7 Forward+ 在超大世界坐标下的渲染限制。
+建议从以下方向探索:
+1. Godot 渲染器调试工具 (RenderDoc) 抓帧分析
+2. Floating origin 减少世界坐标范围
+3. 尝试 Godot Compatibility 渲染器
+4. 最小化复现: 在 Godot 中手动创建 2 个相邻三角形测试
+5. 查看 Godot 4.7 changelog/issue tracker 是否有已知 Forward+ 问题

@@ -211,26 +211,6 @@ fn estimate_ring_vertical(
     (min_h, max_h)
 }
 
-/// 顶点膨胀：边缘强，中心弱。
-///
-/// 边缘顶点向外膨胀 1%（足够覆盖 1-5 像素的 GPU 光栅化裂纹），
-/// 中心顶点零膨胀——地形形状完全不受影响。二次曲线平滑过渡。
-fn inflate_edges(mesh: &mut TerrainMeshData, ox: f64, oz: f64, tile_size: f64) {
-    let cx = (ox + tile_size * 0.5) as f32;
-    let cz = (oz + tile_size * 0.5) as f32;
-    let half = tile_size as f32 * 0.5;
-    let max_scale: f32 = 1.01; // 边界 1%
-
-    for v in &mut mesh.vertices {
-        let dx = ((v.x - cx) / half).abs().min(1.0);
-        let dz = ((v.z - cz) / half).abs().min(1.0);
-        let edge_factor = dx.max(dz); // 0=中心, 1=边界
-        let scale = 1.0 + (max_scale - 1.0) * edge_factor * edge_factor;
-        v.x = cx + (v.x - cx) * scale;
-        v.z = cz + (v.z - cz) * scale;
-    }
-}
-
 /// 为单个 tile 生成网格（纯函数，可在任意线程调用）
 fn generate_tile(
     terrain: &HeightfieldTerrain,
@@ -242,7 +222,7 @@ fn generate_tile(
     let level = &LEVELS[key.level as usize];
     let (ox, oz) = tile_origin(key, level);
 
-    let mut mesh = match level.algorithm {
+    let mesh = match level.algorithm {
         MeshAlgorithm::Transvoxel { voxel_size } => {
             let vertical_voxels = ((top_y - bottom_y) / voxel_size).ceil() as u32;
             let voxels_edge = (level.tile_size / voxel_size) as u32;
@@ -271,7 +251,6 @@ fn generate_tile(
         }
     };
 
-    inflate_edges(&mut mesh, ox, oz, level.tile_size);
     mesh
 }
 

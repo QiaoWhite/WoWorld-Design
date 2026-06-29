@@ -211,6 +211,26 @@ fn estimate_ring_vertical(
     (min_h, max_h)
 }
 
+/// 顶点膨胀：边缘强，中心弱。
+///
+/// 边缘顶点向外膨胀 1%（足够覆盖 1-5 像素的 GPU 光栅化裂纹），
+/// 中心顶点零膨胀——地形形状完全不受影响。二次曲线平滑过渡。
+fn inflate_edges(mesh: &mut TerrainMeshData, ox: f64, oz: f64, tile_size: f64) {
+    let cx = (ox + tile_size * 0.5) as f32;
+    let cz = (oz + tile_size * 0.5) as f32;
+    let half = tile_size as f32 * 0.5;
+    let max_scale: f32 = 1.01; // 边界 1%
+
+    for v in &mut mesh.vertices {
+        let dx = ((v.x - cx) / half).abs().min(1.0);
+        let dz = ((v.z - cz) / half).abs().min(1.0);
+        let edge_factor = dx.max(dz); // 0=中心, 1=边界
+        let scale = 1.0 + (max_scale - 1.0) * edge_factor * edge_factor;
+        v.x = cx + (v.x - cx) * scale;
+        v.z = cz + (v.z - cz) * scale;
+    }
+}
+
 /// 为单个 tile 生成网格（纯函数，可在任意线程调用）
 fn generate_tile(
     terrain: &HeightfieldTerrain,
@@ -222,7 +242,7 @@ fn generate_tile(
     let level = &LEVELS[key.level as usize];
     let (ox, oz) = tile_origin(key, level);
 
-    let mesh = match level.algorithm {
+    let mut mesh = match level.algorithm {
         MeshAlgorithm::Transvoxel { voxel_size } => {
             let vertical_voxels = ((top_y - bottom_y) / voxel_size).ceil() as u32;
             let voxels_edge = (level.tile_size / voxel_size) as u32;
@@ -247,10 +267,11 @@ fn generate_tile(
         }
         MeshAlgorithm::SignedHeightfield { spacing } => {
             let grid_size = (level.tile_size / spacing) as u32 + 1;
-            generate_sh_mesh(terrain, ox, oz, grid_size, spacing, 1)
+            generate_sh_mesh(terrain, ox, oz, grid_size, spacing)
         }
     };
 
+    inflate_edges(&mut mesh, ox, oz, level.tile_size);
     mesh
 }
 
@@ -669,17 +690,17 @@ mod tests {
             gz: 0,
         };
         let mesh = generate_tile(&terrain, key, 0, -250.0, 500.0);
-        // SH: 35²=1225 + 裙边 256 = 1481 顶点
+        // SH: 35²=1225 + 裙边 256 = 1089 顶点
         assert_eq!(
             mesh.vertices.len(),
-            1481,
-            "scene_lod 5 SH+skirt should have 1481 vertices (35²+skirt), got {} vertices",
+            1089,
+            "scene_lod 5 SH+skirt should have 1089 vertices (35²+skirt), got {} vertices",
             mesh.vertices.len()
         );
-        assert_eq!(mesh.normals.len(), 1481);
-        assert_eq!(mesh.colors.len(), 1481);
-        // 32²×6 + 4×32×6 裙边 = 6144+768 = 6912
-        assert_eq!(mesh.indices.len(), 6912);
+        assert_eq!(mesh.normals.len(), 1089);
+        assert_eq!(mesh.colors.len(), 1089);
+        // 32²×6 + 4×32×6 裙边 = 6144+768 = 6144
+        assert_eq!(mesh.indices.len(), 6144);
         assert!(mesh.indices.len() % 3 == 0);
     }
 
@@ -692,10 +713,10 @@ mod tests {
             gz: 0,
         };
         let mesh = generate_tile(&terrain, key, 0, -250.0, 500.0);
-        assert_eq!(mesh.vertices.len(), 1481);
-        assert_eq!(mesh.normals.len(), 1481);
-        assert_eq!(mesh.colors.len(), 1481);
-        assert_eq!(mesh.indices.len(), 6912);
+        assert_eq!(mesh.vertices.len(), 1089);
+        assert_eq!(mesh.normals.len(), 1089);
+        assert_eq!(mesh.colors.len(), 1089);
+        assert_eq!(mesh.indices.len(), 6144);
         assert!(mesh.indices.len() % 3 == 0);
     }
 
@@ -711,13 +732,13 @@ mod tests {
         // SH: (33+2)² = 1225 顶点（overlap=1）
         assert_eq!(
             mesh.vertices.len(),
-            1481,
+            1089,
             "scene_lod 7 SH+skirt: {} vertices",
             mesh.vertices.len()
         );
-        assert_eq!(mesh.normals.len(), 1481);
-        assert_eq!(mesh.colors.len(), 1481);
-        assert_eq!(mesh.indices.len(), 6912);
+        assert_eq!(mesh.normals.len(), 1089);
+        assert_eq!(mesh.colors.len(), 1089);
+        assert_eq!(mesh.indices.len(), 6144);
         assert!(mesh.indices.len() % 3 == 0);
     }
 

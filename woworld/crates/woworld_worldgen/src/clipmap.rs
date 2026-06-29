@@ -211,10 +211,20 @@ fn estimate_ring_vertical(
     (min_h, max_h)
 }
 
-/// 估算 tile 所在区域的垂直范围，保证相邻 tile 一致性。
+/// 顶点微膨胀：从 tile 中心向外以 scale 系数放大 XZ 坐标。
 ///
-/// **无缝保证**：将 tile origin 对齐到 2 级更粗的 LOD 栅格（锚定区域），
-/// 然后以 1 tile 边距扩展估算范围。同一锚定区域内的所有 tile 共享完全
+/// 0.1% 膨胀产生相邻 tile 边界的亚像素重叠，填充 GPU 光栅化裂纹。
+/// LOD 0: +1.6cm, LOD 7: +2m — 在各自最大可视距离上均 <1 像素。
+fn inflate_vertices(mesh: &mut TerrainMeshData, ox: f64, oz: f64, tile_size: f64) {
+    let cx = (ox + tile_size * 0.5) as f32;
+    let cz = (oz + tile_size * 0.5) as f32;
+    let scale: f32 = 1.001;
+    for v in &mut mesh.vertices {
+        v.x = cx + (v.x - cx) * scale;
+        v.z = cz + (v.z - cz) * scale;
+    }
+}
+
 /// 为单个 tile 生成网格（纯函数，可在任意线程调用）
 fn generate_tile(
     terrain: &HeightfieldTerrain,
@@ -226,7 +236,7 @@ fn generate_tile(
     let level = &LEVELS[key.level as usize];
     let (ox, oz) = tile_origin(key, level);
 
-    match level.algorithm {
+    let mut mesh = match level.algorithm {
         MeshAlgorithm::Transvoxel { voxel_size } => {
             let vertical_voxels = ((top_y - bottom_y) / voxel_size).ceil() as u32;
             let voxels_edge = (level.tile_size / voxel_size) as u32;
@@ -253,7 +263,10 @@ fn generate_tile(
             let grid_size = (level.tile_size / spacing) as u32 + 1;
             generate_sh_mesh(terrain, ox, oz, grid_size, spacing, 1)
         }
-    }
+    };
+
+    inflate_vertices(&mut mesh, ox, oz, level.tile_size);
+    mesh
 }
 
 // ── ClipmapManager ────────────────────

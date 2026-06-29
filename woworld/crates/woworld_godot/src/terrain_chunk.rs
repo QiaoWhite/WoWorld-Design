@@ -296,6 +296,35 @@ impl WorldDriver {
 
         am.clear_surfaces();
         am.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
+
+        // 设置膨胀 AABB 防视锥体裁剪误裁边缘三角形
+        {
+            let mut min_x = f32::MAX;
+            let mut min_y = f32::MAX;
+            let mut min_z = f32::MAX;
+            let mut max_x = f32::MIN;
+            let mut max_y = f32::MIN;
+            let mut max_z = f32::MIN;
+            for i in 0..mesh.vertices.len() {
+                let v = mesh.vertices[i];
+                min_x = min_x.min(v.x);
+                min_y = min_y.min(v.y);
+                min_z = min_z.min(v.z);
+                max_x = max_x.max(v.x);
+                max_y = max_y.max(v.y);
+                max_z = max_z.max(v.z);
+            }
+            let margin: f32 = 1.0;
+            let aabb = godot::builtin::Aabb::new(
+                Vector3::new(min_x - margin, min_y - margin, min_z - margin),
+                Vector3::new(
+                    max_x - min_x + 2.0 * margin,
+                    max_y - min_y + 2.0 * margin,
+                    max_z - min_z + 2.0 * margin,
+                ),
+            );
+            am.set_custom_aabb(aabb);
+        }
     }
 
     /// 太阳位置 + 天空材质 + 环境光

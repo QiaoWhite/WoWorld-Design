@@ -203,7 +203,7 @@ fn estimate_vertical(terrain: &HeightfieldTerrain, ox: f64, oz: f64, size: f64) 
 }
 
 /// 为单个 tile 生成网格（纯函数，可在任意线程调用）
-fn generate_tile(terrain: &HeightfieldTerrain, key: LodKey, _transition_faces: u8) -> TerrainMeshData {
+fn generate_tile(terrain: &HeightfieldTerrain, key: LodKey, transition_faces: u8) -> TerrainMeshData {
     let level = &LEVELS[key.level as usize];
     let (ox, oz) = tile_origin(key, level);
 
@@ -220,7 +220,7 @@ fn generate_tile(terrain: &HeightfieldTerrain, key: LodKey, _transition_faces: u
                 voxels_y: vertical_voxels.max(1),
                 voxels_z: voxels_edge,
                 voxel_size,
-                transition_faces: 0, // FIXME: transition cell 几何有问题，暂时禁用；待审计 transvoxel::extract_isosurface_transvoxel + transition_tables
+                transition_faces,
             };
             let base = HeightfieldDensity::new_with_params(
                 terrain.noise().clone(),

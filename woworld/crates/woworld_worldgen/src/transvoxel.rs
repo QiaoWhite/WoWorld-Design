@@ -92,53 +92,75 @@ fn extract_transition_face(
     let mid_x = (min_x + max_x) * 0.5;
 
     // 13 个局部角点的 3D 位置（按面方向）
+    //
+    // Corner 0-3:   face corners (on shared face)
+    // Corner 4-7:   offset into coarse cell (off shared face, by half_vs in face-normal dir)
+    // Corner 8:     offset face center
+    // Corner 9-12:  edge midpoints on shared face
+    let half_vs = params.voxel_size as f32 * 0.5;
     let corner_positions: [Vec3; 13] = match face {
         0 => {
-            // -X face
+            // -X face: coarse cell is in -X direction
             [
-                Vec3::new(min_x, min_y, max_z),  Vec3::new(min_x, min_y, min_z),  // 0-1: bottom corners
-                Vec3::new(min_x, max_y, max_z),  Vec3::new(min_x, max_y, min_z),  // 2-3: top corners
-                Vec3::new(min_x, mid_y, max_z),  Vec3::new(min_x, max_y, mid_z),  // 4-5: edge midpoints
-                Vec3::new(min_x, mid_y, min_z),  Vec3::new(min_x, min_y, mid_z),  // 6-7: edge midpoints
-                Vec3::new(min_x, mid_y, mid_z),                                     // 8: face center
-                Vec3::new(min_x, min_y, mid_z),  Vec3::new(min_x, mid_y, min_z),  // 9-10: low-res corners
-                Vec3::new(min_x, max_y, mid_z),  Vec3::new(min_x, mid_y, max_z),  // 11-12: low-res corners
+                // 0-3: on-face corners
+                Vec3::new(min_x, min_y, max_z),  Vec3::new(min_x, min_y, min_z),
+                Vec3::new(min_x, max_y, max_z),  Vec3::new(min_x, max_y, min_z),
+                // 4-7: offset corners (into coarse cell, -X)
+                Vec3::new(min_x - half_vs, min_y, max_z),  Vec3::new(min_x - half_vs, min_y, min_z),
+                Vec3::new(min_x - half_vs, max_y, max_z),  Vec3::new(min_x - half_vs, max_y, min_z),
+                // 8: offset face center
+                Vec3::new(min_x - half_vs, mid_y, mid_z),
+                // 9-12: edge midpoints on face
+                Vec3::new(min_x, min_y, mid_z),  Vec3::new(min_x, mid_y, min_z),
+                Vec3::new(min_x, max_y, mid_z),  Vec3::new(min_x, mid_y, max_z),
             ]
         }
         1 => {
-            // +X face
+            // +X face: coarse cell is in +X direction
             [
-                Vec3::new(max_x, min_y, min_z),  Vec3::new(max_x, min_y, max_z),  // 0-1: bottom corners
-                Vec3::new(max_x, max_y, min_z),  Vec3::new(max_x, max_y, max_z),  // 2-3: top corners
-                Vec3::new(max_x, mid_y, min_z),  Vec3::new(max_x, max_y, mid_z),  // 4-5: edge midpoints
-                Vec3::new(max_x, mid_y, max_z),  Vec3::new(max_x, min_y, mid_z),  // 6-7: edge midpoints
-                Vec3::new(max_x, mid_y, mid_z),                                     // 8: face center
-                Vec3::new(max_x, min_y, mid_z),  Vec3::new(max_x, mid_y, max_z),  // 9-10: low-res corners
-                Vec3::new(max_x, max_y, mid_z),  Vec3::new(max_x, mid_y, min_z),  // 11-12: low-res corners
+                // 0-3: on-face corners
+                Vec3::new(max_x, min_y, min_z),  Vec3::new(max_x, min_y, max_z),
+                Vec3::new(max_x, max_y, min_z),  Vec3::new(max_x, max_y, max_z),
+                // 4-7: offset corners (into coarse cell, +X)
+                Vec3::new(max_x + half_vs, min_y, min_z),  Vec3::new(max_x + half_vs, min_y, max_z),
+                Vec3::new(max_x + half_vs, max_y, min_z),  Vec3::new(max_x + half_vs, max_y, max_z),
+                // 8: offset face center
+                Vec3::new(max_x + half_vs, mid_y, mid_z),
+                // 9-12: edge midpoints on face
+                Vec3::new(max_x, min_y, mid_z),  Vec3::new(max_x, mid_y, max_z),
+                Vec3::new(max_x, max_y, mid_z),  Vec3::new(max_x, mid_y, min_z),
             ]
         }
         2 => {
-            // -Z face
+            // -Z face: coarse cell is in -Z direction
             [
-                Vec3::new(max_x, min_y, min_z),  Vec3::new(min_x, min_y, min_z),  // 0-1: bottom corners
-                Vec3::new(max_x, max_y, min_z),  Vec3::new(min_x, max_y, min_z),  // 2-3: top corners
-                Vec3::new(max_x, mid_y, min_z),  Vec3::new(mid_x, max_y, min_z),  // 4-5: edge midpoints
-                Vec3::new(min_x, mid_y, min_z),  Vec3::new(mid_x, min_y, min_z),  // 6-7: edge midpoints
-                Vec3::new(mid_x, mid_y, min_z),                                     // 8: face center
-                Vec3::new(mid_x, min_y, min_z),  Vec3::new(min_x, mid_y, min_z),  // 9-10: low-res corners
-                Vec3::new(mid_x, max_y, min_z),  Vec3::new(max_x, mid_y, min_z),  // 11-12: low-res corners
+                // 0-3: on-face corners
+                Vec3::new(max_x, min_y, min_z),  Vec3::new(min_x, min_y, min_z),
+                Vec3::new(max_x, max_y, min_z),  Vec3::new(min_x, max_y, min_z),
+                // 4-7: offset corners (into coarse cell, -Z)
+                Vec3::new(max_x, min_y, min_z - half_vs),  Vec3::new(min_x, min_y, min_z - half_vs),
+                Vec3::new(max_x, max_y, min_z - half_vs),  Vec3::new(min_x, max_y, min_z - half_vs),
+                // 8: offset face center
+                Vec3::new(mid_x, mid_y, min_z - half_vs),
+                // 9-12: edge midpoints on face
+                Vec3::new(mid_x, min_y, min_z),  Vec3::new(min_x, mid_y, min_z),
+                Vec3::new(mid_x, max_y, min_z),  Vec3::new(max_x, mid_y, min_z),
             ]
         }
         3 => {
-            // +Z face
+            // +Z face: coarse cell is in +Z direction
             [
-                Vec3::new(min_x, min_y, max_z),  Vec3::new(max_x, min_y, max_z),  // 0-1: bottom corners
-                Vec3::new(min_x, max_y, max_z),  Vec3::new(max_x, max_y, max_z),  // 2-3: top corners
-                Vec3::new(min_x, mid_y, max_z),  Vec3::new(mid_x, max_y, max_z),  // 4-5: edge midpoints
-                Vec3::new(max_x, mid_y, max_z),  Vec3::new(mid_x, min_y, max_z),  // 6-7: edge midpoints
-                Vec3::new(mid_x, mid_y, max_z),                                     // 8: face center
-                Vec3::new(mid_x, min_y, max_z),  Vec3::new(max_x, mid_y, max_z),  // 9-10: low-res corners
-                Vec3::new(mid_x, max_y, max_z),  Vec3::new(min_x, mid_y, max_z),  // 11-12: low-res corners
+                // 0-3: on-face corners
+                Vec3::new(min_x, min_y, max_z),  Vec3::new(max_x, min_y, max_z),
+                Vec3::new(min_x, max_y, max_z),  Vec3::new(max_x, max_y, max_z),
+                // 4-7: offset corners (into coarse cell, +Z)
+                Vec3::new(min_x, min_y, max_z + half_vs),  Vec3::new(max_x, min_y, max_z + half_vs),
+                Vec3::new(min_x, max_y, max_z + half_vs),  Vec3::new(max_x, max_y, max_z + half_vs),
+                // 8: offset face center
+                Vec3::new(mid_x, mid_y, max_z + half_vs),
+                // 9-12: edge midpoints on face
+                Vec3::new(mid_x, min_y, max_z),  Vec3::new(max_x, mid_y, max_z),
+                Vec3::new(mid_x, max_y, max_z),  Vec3::new(min_x, mid_y, max_z),
             ]
         }
         _ => return,

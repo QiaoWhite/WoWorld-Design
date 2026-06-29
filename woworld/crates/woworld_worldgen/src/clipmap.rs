@@ -178,15 +178,39 @@ fn compute_transition_faces(key: LodKey) -> u8 {
     faces
 }
 
-/// 估计 tile 的垂直范围（用于 MC）
-fn estimate_vertical(terrain: &HeightfieldTerrain, ox: f64, oz: f64, size: f64) -> (f64, f64) {
+/// 估算 tile 所在区域的垂直范围，保证相邻 tile 一致性。
+///
+/// **无缝保证**：将 tile origin 对齐到 2 级更粗的 LOD 栅格（锚定区域），
+/// 然后以 1 tile 边距扩展估算范围。同一锚定区域内的所有 tile 共享完全
+/// 相同的 `bottom_y`（snap 到 voxel_size 整数倍），消除 Transvoxel
+/// 共享面上因 Y 栅格偏移导致的顶点位置分叉。
+fn aligned_vertical(
+    terrain: &HeightfieldTerrain,
+    ox: f64,
+    oz: f64,
+    level: &LodLevel,
+) -> (f64, f64) {
     use woworld_core::spatial::TerrainQuery;
+
+    // 锚定到 2 级更粗的 LOD 栅格——锚定边界每 4+ tile 才出现一次
+    let anchor_idx = ((level.index as usize) + 2).min(LEVELS.len() - 1);
+    let anchor_tile_size = LEVELS[anchor_idx].tile_size;
+    let anchor_ox = (ox / anchor_tile_size).floor() * anchor_tile_size;
+    let anchor_oz = (oz / anchor_tile_size).floor() * anchor_tile_size;
+
+    // 以 1 tile 边距扩展——相邻锚定区域的估算范围有充足重叠
+    let pad = level.tile_size;
+    let est_ox = anchor_ox - pad;
+    let est_oz = anchor_oz - pad;
+    let est_size = anchor_tile_size + 2.0 * pad;
+
     let mut min_h = f64::MAX;
     let mut max_h = f64::MIN;
-    for i in 0..=4 {
-        let wx = ox + i as f64 * size / 4.0;
-        for j in 0..=4 {
-            let wz = oz + j as f64 * size / 4.0;
+    let steps = 8; // 9×9 = 81 采样点（比旧版 25 点更密但范围更大）
+    for i in 0..=steps {
+        let wx = est_ox + i as f64 * est_size / steps as f64;
+        for j in 0..=steps {
+            let wz = est_oz + j as f64 * est_size / steps as f64;
             let h = terrain.height_at(WorldPos {
                 x: wx,
                 y: 0.0,
@@ -196,10 +220,16 @@ fn estimate_vertical(terrain: &HeightfieldTerrain, ox: f64, oz: f64, size: f64) 
             max_h = max_h.max(h);
         }
     }
-    (
-        (min_h - MC_VERTICAL_MARGIN).max(-250.0),
-        max_h + MC_VERTICAL_MARGIN,
-    )
+
+    match level.algorithm {
+        MeshAlgorithm::Transvoxel { voxel_size } => {
+            // Snap 到 voxel_size 整数倍——保证相邻 tile Y 栅格严格对齐
+            let bottom = ((min_h - MC_VERTICAL_MARGIN) / voxel_size).floor() * voxel_size;
+            let top = ((max_h + MC_VERTICAL_MARGIN) / voxel_size).ceil() * voxel_size;
+            (bottom.max(-250.0), top)
+        }
+        MeshAlgorithm::SignedHeightfield { .. } => (0.0, 0.0),
+    }
 }
 
 /// 为单个 tile 生成网格（纯函数，可在任意线程调用）
@@ -209,7 +239,7 @@ fn generate_tile(terrain: &HeightfieldTerrain, key: LodKey, transition_faces: u8
 
     match level.algorithm {
         MeshAlgorithm::Transvoxel { voxel_size } => {
-            let (bottom_y, top_y) = estimate_vertical(terrain, ox, oz, level.tile_size);
+            let (bottom_y, top_y) = aligned_vertical(terrain, ox, oz, level);
             let vertical_voxels = ((top_y - bottom_y) / voxel_size).ceil() as u32;
             let voxels_edge = (level.tile_size / voxel_size) as u32;
             let params = IsoSurfaceParams {
@@ -233,7 +263,7 @@ fn generate_tile(terrain: &HeightfieldTerrain, key: LodKey, transition_faces: u8
         }
         MeshAlgorithm::SignedHeightfield { spacing } => {
             let grid_size = (level.tile_size / spacing) as u32 + 1;
-            generate_sh_mesh(terrain, ox, oz, grid_size, spacing)
+            generate_sh_mesh(terrain, ox, oz, grid_size, spacing, 1)
         }
     }
 }
@@ -623,15 +653,15 @@ mod tests {
             gz: 0,
         };
         let mesh = generate_tile(&terrain, key, 0);
-        // SH: 33² = 1089 顶点（确定性），非 Transvoxel 的不确定顶点数
+        // SH: (33+2)² = 1225 顶点（overlap=1 向外扩展 1 行，与相邻 tile 共享边界顶点）
         assert_eq!(
             mesh.vertices.len(),
-            1089,
-            "scene_lod 5 should generate 33x33 SH mesh, got {} vertices",
+            1225,
+            "scene_lod 5 should generate 35x35 SH mesh (33+2overlap), got {} vertices",
             mesh.vertices.len()
         );
-        assert_eq!(mesh.normals.len(), 1089);
-        assert_eq!(mesh.colors.len(), 1089);
+        assert_eq!(mesh.normals.len(), 1225);
+        assert_eq!(mesh.colors.len(), 1225);
         // 32² × 6 = 6144 索引
         assert_eq!(mesh.indices.len(), 6144);
         assert!(mesh.indices.len() % 3 == 0);
@@ -646,15 +676,15 @@ mod tests {
             gz: 0,
         };
         let mesh = generate_tile(&terrain, key, 0);
-        // SH: 1024/32+1 = 33 grid → 33² = 1089 顶点
+        // SH: (33+2)² = 1225 顶点（overlap=1）
         assert_eq!(
             mesh.vertices.len(),
-            1089,
-            "scene_lod 6 should generate 33x33 SH mesh, got {} vertices",
+            1225,
+            "scene_lod 6 should generate 35x35 SH mesh (33+2overlap), got {} vertices",
             mesh.vertices.len()
         );
-        assert_eq!(mesh.normals.len(), 1089);
-        assert_eq!(mesh.colors.len(), 1089);
+        assert_eq!(mesh.normals.len(), 1225);
+        assert_eq!(mesh.colors.len(), 1225);
         assert_eq!(mesh.indices.len(), 6144);
         assert!(mesh.indices.len() % 3 == 0);
     }
@@ -668,15 +698,15 @@ mod tests {
             gz: 0,
         };
         let mesh = generate_tile(&terrain, key, 0);
-        // SH: 2048/64+1 = 33 grid → 33² = 1089 顶点
+        // SH: (33+2)² = 1225 顶点（overlap=1）
         assert_eq!(
             mesh.vertices.len(),
-            1089,
-            "scene_lod 7 should generate 33x33 SH mesh, got {} vertices",
+            1225,
+            "scene_lod 7 should generate 35x35 SH mesh (33+2overlap), got {} vertices",
             mesh.vertices.len()
         );
-        assert_eq!(mesh.normals.len(), 1089);
-        assert_eq!(mesh.colors.len(), 1089);
+        assert_eq!(mesh.normals.len(), 1225);
+        assert_eq!(mesh.colors.len(), 1225);
         assert_eq!(mesh.indices.len(), 6144);
         assert!(mesh.indices.len() % 3 == 0);
     }

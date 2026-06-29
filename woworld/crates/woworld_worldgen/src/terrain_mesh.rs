@@ -19,26 +19,6 @@ pub struct TerrainMeshData {
     pub colors: Vec<Vec3>,
 }
 
-/// 生成规则四边形网格的三角形索引。
-///
-/// `n × n` 顶点 → `(n-1)²` 个四边形 → `(n-1)² × 6` 个索引。
-/// 适合 `TRIANGLES` 图元。索引值 ∈ [0, n²)。
-fn generate_quad_indices(grid_size: u32) -> Vec<u32> {
-    let n = grid_size as usize;
-    let total_quads = (n - 1) * (n - 1);
-    let mut indices = Vec::with_capacity(total_quads * 6);
-    for iz in 0..(n - 1) {
-        for ix in 0..(n - 1) {
-            let tl = (iz * n + ix) as u32;
-            let tr = tl + 1;
-            let bl = ((iz + 1) * n + ix) as u32;
-            let br = bl + 1;
-            indices.extend_from_slice(&[tl, bl, tr, tr, bl, br]);
-        }
-    }
-    indices
-}
-
 /// 高度→颜色映射（连续渐变，5 个色键 + lerp）
 ///
 /// 为 Signed Heightfield 远距离着色——不依赖 SurfaceMaterial。
@@ -69,22 +49,30 @@ fn height_to_color(h: f32) -> Vec3 {
 /// `terrain`: 地形查询 trait object——支持未来建筑/植被高度装饰器。
 /// `grid_size`: 每边顶点数（如 33 → 33×33 顶点）。
 /// `spacing`: 顶点间距（米）。
+/// `overlap`: 每边向外扩展的顶点行数（0=无扩展，1=1行重叠——相邻 tile 共享边界顶点）。
 pub fn generate_sh_mesh(
     terrain: &dyn TerrainQuery,
     origin_x: f64,
     origin_z: f64,
     grid_size: u32,
     spacing: f64,
+    overlap: u32,
 ) -> TerrainMeshData {
     let n = grid_size as usize;
+    let ov = overlap as usize;
+    let total_n = n + 2 * ov; // 含重叠的实际网格
     let s = spacing as f32;
 
-    // ── 第一遍：采样全部高度 ──
-    let mut heights: Vec<f32> = Vec::with_capacity(n * n);
-    for iz in 0..n {
-        let wz = origin_z + iz as f64 * spacing;
-        for ix in 0..n {
-            let wx = origin_x + ix as f64 * spacing;
+    // 实际采样起点（向外偏移 overlap 行）
+    let sample_ox = origin_x - ov as f64 * spacing;
+    let sample_oz = origin_z - ov as f64 * spacing;
+
+    // ── 第一遍：采样全部高度（含重叠区）──
+    let mut heights: Vec<f32> = Vec::with_capacity(total_n * total_n);
+    for iz in 0..total_n {
+        let wz = sample_oz + iz as f64 * spacing;
+        for ix in 0..total_n {
+            let wx = sample_ox + ix as f64 * spacing;
             let h = terrain.height_at(WorldPos {
                 x: wx,
                 y: 0.0,
@@ -95,34 +83,34 @@ pub fn generate_sh_mesh(
     }
 
     // ── 第二遍：法线（中心差分）+ 颜色 + 顶点 ──
-    let mut vertices = Vec::with_capacity(n * n);
-    let mut normals = Vec::with_capacity(n * n);
-    let mut colors = Vec::with_capacity(n * n);
+    let mut vertices = Vec::with_capacity(total_n * total_n);
+    let mut normals = Vec::with_capacity(total_n * total_n);
+    let mut colors = Vec::with_capacity(total_n * total_n);
 
-    for iz in 0..n {
-        let wz = origin_z + iz as f64 * spacing;
-        for ix in 0..n {
-            let wx = origin_x + ix as f64 * spacing;
-            let h = heights[iz * n + ix];
+    for iz in 0..total_n {
+        let wz = sample_oz + iz as f64 * spacing;
+        for ix in 0..total_n {
+            let wx = sample_ox + ix as f64 * spacing;
+            let h = heights[iz * total_n + ix];
 
-            // 中心差分法线（边界用单侧差分）
+            // 中心差分法线（扩展区也有完整邻居，边界自然消除）
             let h_left = if ix > 0 {
-                heights[iz * n + (ix - 1)]
+                heights[iz * total_n + (ix - 1)]
             } else {
                 h
             };
-            let h_right = if ix < n - 1 {
-                heights[iz * n + (ix + 1)]
+            let h_right = if ix < total_n - 1 {
+                heights[iz * total_n + (ix + 1)]
             } else {
                 h
             };
             let h_back = if iz > 0 {
-                heights[(iz - 1) * n + ix]
+                heights[(iz - 1) * total_n + ix]
             } else {
                 h
             };
-            let h_front = if iz < n - 1 {
-                heights[(iz + 1) * n + ix]
+            let h_front = if iz < total_n - 1 {
+                heights[(iz + 1) * total_n + ix]
             } else {
                 h
             };
@@ -137,8 +125,8 @@ pub fn generate_sh_mesh(
         }
     }
 
-    // ── 第三遍：索引 ──
-    let indices = generate_quad_indices(grid_size);
+    // ── 第三遍：索引（仅覆盖 tile 本体区域，重叠行仅供相邻 tile 共享）──
+    let indices = generate_quad_indices_with_offset(grid_size, ov as u32, total_n as u32);
 
     TerrainMeshData {
         vertices,
@@ -146,6 +134,27 @@ pub fn generate_sh_mesh(
         indices,
         colors,
     }
+}
+
+/// 生成 tile 本体区域的四边形索引（跳过重叠边框）。
+///
+/// 顶点网格为 `total_n × total_n`，其中 tile 本体从 `(ov, ov)` 开始，
+/// 覆盖 `grid_size × grid_size` 顶点。仅为本体区域生成 `(grid_size-1)²` 个四边形。
+fn generate_quad_indices_with_offset(grid_size: u32, offset: u32, total_n: u32) -> Vec<u32> {
+    let n = grid_size as usize;
+    let off = offset as usize;
+    let tn = total_n as usize;
+    let mut indices = Vec::with_capacity((n - 1) * (n - 1) * 6);
+    for iz in 0..(n - 1) {
+        for ix in 0..(n - 1) {
+            let tl = ((off + iz) * tn + (off + ix)) as u32;
+            let tr = tl + 1;
+            let bl = ((off + iz + 1) * tn + (off + ix)) as u32;
+            let br = bl + 1;
+            indices.extend_from_slice(&[tl, bl, tr, tr, bl, br]);
+        }
+    }
+    indices
 }
 
 #[cfg(test)]
@@ -158,7 +167,7 @@ mod tests {
     #[test]
     fn test_sh_mesh_generation() {
         let terrain = HeightfieldTerrain::new(42);
-        let mesh = generate_sh_mesh(&terrain, 0.0, 0.0, 33, 16.0);
+        let mesh = generate_sh_mesh(&terrain, 0.0, 0.0, 33, 16.0, 0);
 
         // 33² = 1089 顶点
         assert_eq!(mesh.vertices.len(), 1089);
@@ -179,8 +188,8 @@ mod tests {
     fn test_sh_mesh_deterministic() {
         let t1 = HeightfieldTerrain::new(42);
         let t2 = HeightfieldTerrain::new(42);
-        let m1 = generate_sh_mesh(&t1, 0.0, 0.0, 16, 8.0);
-        let m2 = generate_sh_mesh(&t2, 0.0, 0.0, 16, 8.0);
+        let m1 = generate_sh_mesh(&t1, 0.0, 0.0, 16, 8.0, 0);
+        let m2 = generate_sh_mesh(&t2, 0.0, 0.0, 16, 8.0, 0);
 
         for (a, b) in m1.vertices.iter().zip(m2.vertices.iter()) {
             assert_eq!(a.x, b.x);
@@ -197,7 +206,7 @@ mod tests {
     #[test]
     fn test_sh_mesh_normals_normalized() {
         let terrain = HeightfieldTerrain::new(42);
-        let mesh = generate_sh_mesh(&terrain, 500.0, 500.0, 33, 16.0);
+        let mesh = generate_sh_mesh(&terrain, 500.0, 500.0, 33, 16.0, 0);
 
         for n in &mesh.normals {
             let len = n.length();
@@ -208,7 +217,7 @@ mod tests {
     #[test]
     fn test_sh_mesh_colors_from_height() {
         let terrain = HeightfieldTerrain::new(42);
-        let mesh = generate_sh_mesh(&terrain, 0.0, 0.0, 33, 16.0);
+        let mesh = generate_sh_mesh(&terrain, 0.0, 0.0, 33, 16.0, 0);
 
         // 找到最低和最高顶点
         let mut min_h = f32::MAX;
@@ -262,7 +271,7 @@ mod tests {
         let grid_size = 33u32;
         let ox = 100.0;
         let oz = 200.0;
-        let mesh = generate_sh_mesh(&terrain, ox, oz, grid_size, spacing);
+        let mesh = generate_sh_mesh(&terrain, ox, oz, grid_size, spacing, 0);
 
         let max_coord = (grid_size - 1) as f64 * spacing;
         for v in &mesh.vertices {

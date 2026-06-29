@@ -140,7 +140,7 @@ impl INode3D for WorldDriver {
         let mut mat = StandardMaterial3D::new_gd();
         mat.set_flag(Flags::ALBEDO_FROM_VERTEX_COLOR, true);
         mat.set_shading_mode(ShadingMode::UNSHADED);
-        mat.set_cull_mode(CullMode::DISABLED);
+        mat.set_cull_mode(CullMode::BACK);
         self.shared_material = Some(mat);
 
         // ── 4. 预分配对象池 ──────────

@@ -208,7 +208,33 @@ fn extract_transition_face(
         let p_b = corner_positions[idx_b];
         let d_a = density.sample(p_a.x as f64, p_a.y as f64, p_a.z as f64);
         let d_b = density.sample(p_b.x as f64, p_b.y as f64, p_b.z as f64);
-        let pos = interpolate(p_a, p_b, d_a, d_b);
+        let mut pos = interpolate(p_a, p_b, d_a, d_b);
+
+        // ── Half-Thickness Offset (Lengyel 2010 §4.3) ──
+        // 过渡单元顶点沿面向粗粒度 cell 方向偏移 half_vs，
+        // 防止过渡三角形与细粒度 tile 边界三角形竞争同一几何空间。
+        // 棱边衰减：当顶点涉及低分辨率角点（9-12）时减半，
+        // 角点（双方均为低分辨率）时归零。
+        {
+            let on_face_a = idx_a <= 8;
+            let on_face_b = idx_b <= 8;
+            let atten: f32 = match (on_face_a, on_face_b) {
+                (true, true) => 1.0,
+                (true, false) | (false, true) => 0.5,
+                (false, false) => 0.0,
+            };
+            if atten > 0.0 {
+                let offset_dir = match face {
+                    0 => Vec3::new(-1.0, 0.0, 0.0), // -X
+                    1 => Vec3::new(1.0, 0.0, 0.0),  // +X
+                    2 => Vec3::new(0.0, 0.0, -1.0), // -Z
+                    3 => Vec3::new(0.0, 0.0, 1.0),  // +Z
+                    _ => Vec3::ZERO,
+                };
+                pos += offset_dir * half_vs * atten;
+            }
+        }
+
         let normal = gradient_from_density(density, pos.x as f64, pos.y as f64, pos.z as f64);
         let material_id = density.material_at(pos.x as f64, pos.y as f64, pos.z as f64);
         let color = voxel_color(material_id, pos.y);

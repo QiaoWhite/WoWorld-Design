@@ -268,72 +268,116 @@ impl WorldDriver {
             return; // 仍待生成
         }
 
-        let meshes: Vec<&TerrainMeshData> = layer.completed.values().collect();
-        if meshes.is_empty() {
+        let entries: Vec<(&LodKey, &TerrainMeshData)> = layer.completed.iter().collect();
+        if entries.is_empty() {
             return;
         }
+        let meshes: Vec<&TerrainMeshData> = entries.iter().map(|(_, m)| *m).collect();
+        let origins: Vec<(f64, f64, f64)> = entries
+            .iter()
+            .map(|(key, _)| {
+                let ts = match key.level {
+                    0 => 16.0,
+                    1 => 32.0,
+                    2 => 64.0,
+                    3 => 128.0,
+                    4 => 256.0,
+                    5 => 512.0,
+                    6 => 1024.0,
+                    7 => 2048.0,
+                    _ => 0.0,
+                };
+                (key.gx as f64 * ts, key.gz as f64 * ts, ts)
+            })
+            .collect();
 
-        let merged = Self::merge_meshes(&meshes);
+        let merged = Self::merge_meshes(&meshes, &origins);
         Self::update_array_mesh(&mut layer.mesh, &merged);
     }
 
-    /// 合并多个 TerrainMeshData 为一个（顶点焊接：边界重复顶点去重）
-    fn merge_meshes(meshes: &[&TerrainMeshData]) -> TerrainMeshData {
+    /// 合并多个 TerrainMeshData 为一个（边界顶点焊接）
+    ///
+    /// 仅对 tile 边界附近（≤1m）的顶点进行焊接去重，
+    /// 消除相邻 tile 独立等值面提取产生的边界裂缝。
+    /// 内部顶点不焊接——避免意外合并不同位置的顶点。
+    fn merge_meshes(
+        meshes: &[&TerrainMeshData],
+        origins: &[(f64, f64, f64)], // (ox, oz, tile_size) per mesh
+    ) -> TerrainMeshData {
         use glam::Vec3;
-        let weld_eps: f32 = 0.05; // 5cm 容差——远小于体素/间距尺度
+        let weld_eps: f32 = 0.2; // 20cm — Transvoxel 边界顶点偏差可达 10-15cm
+        let boundary_margin: f32 = 1.0; // 距 tile 边界 1m 内 = 边界顶点
         let cell_size = weld_eps;
 
         let mut vertices: Vec<Vec3> = Vec::new();
         let mut normals: Vec<Vec3> = Vec::new();
         let mut colors: Vec<Vec3> = Vec::new();
         let mut indices: Vec<u32> = Vec::new();
-        let mut grid: HashMap<(i32, i32, i32), Vec<(u32, Vec3)>> = HashMap::new();
+        // 仅存储边界顶点的空间哈希（内部顶点不参与焊接）
+        let mut boundary_grid: HashMap<(i32, i32, i32), Vec<(u32, Vec3)>> = HashMap::new();
 
-        for mesh in meshes {
+        for (mi, mesh) in meshes.iter().enumerate() {
+            let (ox, oz, tile_sz) = origins[mi];
+            let min_x = ox as f32;
+            let max_x = (ox + tile_sz) as f32;
+            let min_z = oz as f32;
+            let max_z = (oz + tile_sz) as f32;
+
             let mut local_to_global: Vec<u32> = Vec::with_capacity(mesh.vertices.len());
 
             for vi in 0..mesh.vertices.len() {
                 let v = mesh.vertices[vi];
-                let cell = (
-                    (v.x / cell_size).floor() as i32,
-                    (v.y / cell_size).floor() as i32,
-                    (v.z / cell_size).floor() as i32,
-                );
+                let on_boundary = (v.x - min_x).abs() < boundary_margin
+                    || (v.x - max_x).abs() < boundary_margin
+                    || (v.z - min_z).abs() < boundary_margin
+                    || (v.z - max_z).abs() < boundary_margin;
 
-                // 在相邻 27 个空间哈希格中查找已存在的近距离顶点
-                let mut found = None;
-                'search: for dx in -1..=1 {
-                    for dy in -1..=1 {
-                        for dz in -1..=1 {
-                            let key = (cell.0 + dx, cell.1 + dy, cell.2 + dz);
-                            if let Some(candidates) = grid.get(&key) {
-                                for &(idx, cv) in candidates {
-                                    if (v - cv).length_squared() < weld_eps * weld_eps {
-                                        found = Some(idx);
-                                        break 'search;
+                let g_idx = if on_boundary {
+                    let cell = (
+                        (v.x / cell_size).floor() as i32,
+                        (v.y / cell_size).floor() as i32,
+                        (v.z / cell_size).floor() as i32,
+                    );
+                    let mut found = None;
+                    'search: for dx in -1..=1 {
+                        for dy in -1..=1 {
+                            for dz in -1..=1 {
+                                let key = (cell.0 + dx, cell.1 + dy, cell.2 + dz);
+                                if let Some(candidates) = boundary_grid.get(&key) {
+                                    for &(idx, cv) in candidates {
+                                        if (v - cv).length_squared() < weld_eps * weld_eps {
+                                            found = Some(idx);
+                                            break 'search;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-
-                let g_idx = if let Some(existing) = found {
-                    // 复用已有顶点——消除裂缝
-                    existing
+                    if let Some(existing) = found {
+                        existing
+                    } else {
+                        let new_idx = vertices.len() as u32;
+                        vertices.push(v);
+                        normals.push(mesh.normals[vi]);
+                        colors.push(mesh.colors[vi]);
+                        boundary_grid
+                            .entry(cell)
+                            .or_default()
+                            .push((new_idx, v));
+                        new_idx
+                    }
                 } else {
-                    // 新顶点
+                    // 内部顶点——直接添加，不焊接
                     let new_idx = vertices.len() as u32;
                     vertices.push(v);
                     normals.push(mesh.normals[vi]);
                     colors.push(mesh.colors[vi]);
-                    grid.entry(cell).or_default().push((new_idx, v));
                     new_idx
                 };
                 local_to_global.push(g_idx);
             }
 
-            // 重映射索引到焊接后的全局顶点
             for &local_idx in &mesh.indices {
                 indices.push(local_to_global[local_idx as usize]);
             }

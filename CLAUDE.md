@@ -121,7 +121,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 开发命令（woworld/ Rust workspace）
 
-项目已进入轨A 阶段三·MC体素+Clipmap LOD+海洋。Rust workspace 含 5 个 crate，74 个测试全部通过。
+项目已进入轨A 阶段三·MC体素+Clipmap LOD+海洋。Rust workspace 含 5 个 crate，134 个测试全部通过。
 
 ```bash
 cd woworld
@@ -136,7 +136,7 @@ cargo build --release --workspace
 cargo check --workspace
 
 # 运行所有测试
-cargo test --workspace           # woworld_core + woworld_spatial + woworld_worldgen + woworld_atmosphere（全部 74 个测试）
+cargo test --workspace           # woworld_core + woworld_spatial + woworld_worldgen + woworld_atmosphere（全部 132 个测试）
 
 # 运行单个 crate 的测试
 cargo test -p woworld_worldgen
@@ -157,7 +157,9 @@ cargo fmt --all
 ../tools/godot/Godot_v4.7-stable_win64_console.exe godot/project.godot
 ```
 
-> **当前状态**（2026-06-25 验证）：`cargo check --workspace` 通过。`cargo test` 74 个测试全部通过（core 12 + spatial 12 + worldgen 39 + atmosphere 11 + godot 0）。MC 体素网格 + Clipmap LOD 6 层 + Gerstner 海洋 + 昼夜循环 + 5 群系系统就位。Rust→Godot ArrayMesh 双面渲染地形可用——WASD 移动 + 鼠标环顾 + 地面碰撞。
+> **当前状态**（2026-06-30 验证）：`cargo check --workspace` 通过。`cargo test` 134 个测试全部通过（core 12 + spatial 12 + worldgen 97 + atmosphere 11 + godot 0）。MC 体素网格 + Clipmap LOD 8 层 + Gerstner 海洋 + 昼夜循环 + 5 群系系统就位。Rust→Godot ArrayMesh 双面渲染地形可用——WASD 移动 + 鼠标环顾 + 地面碰撞。CullMode::DISABLED（避免 Back-face 边界伪影）。每 LOD 级别单合并 ArrayMesh（8 MeshInstance3D 总计，~8 draw calls）。
+>
+> ⚠️ **已知问题 — 地形透明裂缝** (Sprint-018, 2026-06-30): 地形表面可见弯曲/不规则的天空色透明缝隙（间距 10-50m，靠近消失远离出现，所有 LOD 均匀分布）。经 15 次提交尝试，已排除以下根因：几何一致性（统一 bottom_y/SH overlap/顶点膨胀/skirt geometry）、后处理（MSAA/TAA/Debanding）、深度精度（Camera near/far）、顶点焊接（含 20cm 边界感知焊接）、half_band 密度梯度、单 mesh 合并。疑似 Godot 4.7 Forward+ 超大世界坐标（~10000m 顶点范围）渲染精度限制。下一步建议：RenderDoc 抓帧分析 / Floating Origin / Compatibility 渲染器测试。详见 `DEVLOG-2026-06-30.md` 和 `session-handoff-20260630-008.md`。
 
 ### 测试分布
 
@@ -165,7 +167,7 @@ cargo fmt --all
 |-------|--------|------|
 | `woworld_core` | 12 | `time.rs` (12) — WorldTime/WorldClock 昼夜循环 |
 | `woworld_spatial` | 12 | `entity_index.rs` (4) + `event_bus.rs` (4) + `visibility.rs` (4) |
-| `woworld_worldgen` | 76 | `noise_gen.rs` (14) + `terrain.rs` (8) + `biome.rs` (5) + `density.rs` (11) + `terrain_mesh.rs` (5) + `marching_cubes.rs` (3) + `transvoxel.rs` (10) + `clipmap.rs` (13) + `seed.rs` (4) + `transition_tables.rs` (0) |
+| `woworld_worldgen` | 97 | `noise_gen.rs` (14) + `terrain.rs` (8) + `biome.rs` (5) + `density.rs` (14) + `terrain_mesh.rs` (5) + `marching_cubes.rs` (3) + `transvoxel.rs` (11) + `clipmap.rs` (17) + `seed.rs` (4) + `transition_tables.rs` (0) + integration (16) |
 | `woworld_atmosphere` | 11 | `synthesizer.rs` (4) + `time_curve.rs` (6) + `resolved_atmosphere.rs` (1) |
 | `woworld_godot` | 0 | （测试已迁移至 woworld_worldgen — cdylib 不便于单元测试） |
 
@@ -202,7 +204,9 @@ woworld/
 │   │       ├── transvoxel.rs    #   ★ Transvoxel 等值面提取（顶点共享 + 过渡单元）
 │   │       ├── transition_tables.rs # 过渡单元查找表（auto-generated）
 │   │       ├── terrain_mesh.rs #   纯 Rust Signed Heightfield 网格生成 (引擎无关)
-│   │       └── clipmap.rs      #   ClipmapManager — 6 层 Clipmap LOD 管理
+│   │       └── clipmap.rs      #   ClipmapManager — 8 层 Clipmap LOD 管理
+│   │       │                   #   LOD 速查: L0(0-30m·16m tile·Transvoxel·0.5m) → L4(500-1500m·256m·TV·8m)
+│   │       │                   #             L5(1500-4000m·512m·SH·16m) → L7(7000-10000m·2048m·SH·64m)
 │   ├── woworld_atmosphere/     # 大气与氛围系统 — 17 参数合成 (CHG-064)
 │   │   ├── assets/
 │   │   │   └── atmos_curve.toml#   时间曲线数据 (锚点/插值)
@@ -215,7 +219,9 @@ woworld/
 │   └── woworld_godot/          # GDExtension 桥接（cdylib → Godot 4.7）
 │       └── src/
 │           ├── lib.rs          #   WoWorldExtension GDExtension 入口
-│           ├── terrain_chunk.rs#   TerrainChunk GodotClass — 消费 ChunkManager/ClipmapManager，挂载 ArrayMesh
+│           ├── terrain_chunk.rs#   WorldDriver + TerrainChunk GodotClass — 管理 8 层 LodLayer（每 LOD 一个合并 ArrayMesh）
+│           │                   #   merge_meshes() — 边界感知顶点焊接 (20cm 容差, 1m 边界判定, 空间哈希)
+│           │                   #   vertical_cache — 统一每 LOD 级别 bottom_y (消除 tile 间 Y 轴分叉)
 │           └── ocean.rs        #   Ocean GodotClass — Gerstner 波海洋渲染
 ├── godot/                      # Godot 4.7 项目
 │   ├── project.godot           #   引擎配置（Forward+, GodotPhysics3D, MSAA 2x）

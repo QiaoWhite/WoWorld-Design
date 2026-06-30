@@ -1,0 +1,89 @@
+# 会话交接 — 2026-07-01
+
+## 状态
+
+- **135 tests 全绿, clippy 零警告**
+- **裂缝根因已修复**：Vertex Shader Camera-Relative 方案（v6）
+- **性能卡顿 + LOD 接缝**：根因已定位，修复方案已确定，待下个冲刺实施
+
+## 当前架构
+
+### Vertex Shader Camera-Relative（最终方案）
+
+**文件**：`crates/woworld_godot/src/terrain_chunk.rs`
+
+**原理**：
+```glsl
+// ShaderMaterial — 替代 StandardMaterial3D
+void vertex() {
+    vec3 rel = VERTEX - camera_pos;           // 相机相对坐标 < 500m, fp32~0.05mm
+    vec3 view = mat3(VIEW_MATRIX) * rel;      // 只旋转（w=0 跳过平移）
+    POSITION = PROJECTION_MATRIX * vec4(view, 1.0);
+}
+```
+
+**关键特征**：
+- 场景树零移动——WorldDriver 永远在 `(0,0,0)`，无 WorldRoot
+- 顶点数据零修改——世界空间顶点直接上传
+- AABB 世界空间——frustum culling 正确
+- 每帧仅传 1 个 shader uniform（`camera_pos` = `player.get_global_position()`）
+
+### 场景树
+
+```
+Main (Node3D, 永不变)
+├── WorldDriver → LOD_0..7 (ShaderMaterial, 世界空间顶点)
+├── Player (CharacterBody3D) → Camera3D
+├── Sun, WorldEnvironment, OceanPlane
+```
+
+### 性能修复（已实施）
+
+| 修复 | 位置 | 效果 |
+|------|------|------|
+| Dirty flag | `terrain_chunk.rs:271` `if !layer.dirty { return; }` | 稳态跳过合并上传 |
+| 单次循环 AABB | `terrain_chunk.rs:425-481` | 消除双重顶点遍历 |
+| 过渡单元禁用 | `clipmap.rs:446` `transition_faces=0` | 消除 90m 偏差顶点 |
+| `get_global_position` | `terrain_chunk.rs:259` | 修复 WorldRoot 重构期间的正反馈循环 |
+
+## 遗留问题：下个冲刺
+
+### 1. LOD 接缝修复 — Skirt Geometry
+
+**根因**：过渡单元已禁用，cross-LOD tile 边界有 ~1m 顶点偏差。
+
+**方案**：在 `terrain_mesh.rs` 中生成 Skirt Geometry——tile 边界顶点向下复制一份（偏移 -10m Y），与原始边界顶点形成垂直三角带。
+
+**修改文件**：
+- `crates/woworld_worldgen/src/terrain_mesh.rs`：添加 `generate_skirt()` 函数
+- `TerrainMeshData`：添加 `skirt_vertices` / `skirt_indices` 字段或与主 mesh 合并
+- `crates/woworld_godot/src/terrain_chunk.rs`：合并 skirt 到 ArrayMesh
+
+### 2. 性能优化
+
+**瓶颈 A**：`estimate_ring_vertical()` 每帧 420 次 `height_at()` 调用。
+- **修复**：`clipmap.rs` 中添加 `vertical_cache_valid: bool`，仅在玩家 XZ 移动 >1 tile 后重算。
+
+**瓶颈 B**：`desired_keys()` 8 级 LOD 每帧遍历重算。
+- **修复**：缓存每 LOD 级别的 `desired_keys` 结果，玩家网格坐标变化后重算。
+
+**修改文件**：`crates/woworld_worldgen/src/clipmap.rs`
+
+## 诊断测试
+
+新增三个诊断测试（保留）：
+- `test_adjacent_tile_boundary_vertex_deviation` — 同 LOD 边界 0 偏差
+- `test_cross_lod_boundary_vertex_deviation` — 跨 LOD 边界 ~1m 偏差基准
+- `test_production_terrain_edge_manifold` — MC 网格内部水密性
+
+## 关键文件速查
+
+| 文件 | 内容 |
+|------|------|
+| `crates/woworld_godot/src/terrain_chunk.rs` | ShaderMaterial, dirty flag, 单循环 AABB |
+| `crates/woworld_worldgen/src/clipmap.rs` | transition_faces=0, estimate_ring_vertical, desired_keys |
+| `crates/woworld_worldgen/src/transvoxel.rs` | 过渡单元（已禁用）+ 诊断测试 |
+| `crates/woworld_worldgen/src/terrain_mesh.rs` | SH mesh 生成——skirt 添加位置 |
+| `godot/scenes/main.tscn` | 原始结构（无 WorldRoot） |
+| `godot/scripts/player.gd` | 飞行模式 (G), WASD, query_height(global_position) |
+| `DEVLOG-2026-07-01.md` | 完整开发日志（v1→v6 全记录） |

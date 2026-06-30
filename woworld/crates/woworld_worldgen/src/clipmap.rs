@@ -133,6 +133,7 @@ fn tile_origin(key: LodKey, level: &LodLevel) -> (f64, f64) {
 ///
 /// 额外检查：tile 中心必须在 coarser 层级的有效距离内——否则
 /// coarser tile 不存在，transition cell 会桥接到空无，产生浮空三角形。
+#[allow(dead_code)]
 fn compute_transition_faces(key: LodKey) -> u8 {
     let level = &LEVELS[key.level as usize];
     let next_level_idx = key.level + 1;
@@ -439,8 +440,10 @@ impl ClipmapManager {
                         .copied()
                         .unwrap_or((0.0, 0.0));
                     if self.async_mode {
-                        let tf = compute_transition_faces(*key);
-                        self.submit_async(*key, tf, vy_bottom, vy_top);
+                        // 过渡单元已禁用（extract_transition_face 产生错误顶点，偏差 max~90m）
+                        // 跨 LOD 接缝暂时依赖顶点焊接 (20cm) + 大气雾化
+                        // TODO: 正确修复——粗 tile 边界用细 voxel 子分
+                        self.submit_async(*key, 0, vy_bottom, vy_top);
                     } else {
                         // Sync 模式：立刻生成或推迟
                         if events.len() < max_events {
@@ -812,6 +815,308 @@ mod tests {
                 "LOD {}: all samples match (max diff {:.6}) — terrain is deterministic ✓",
                 lvl_idx, max_diff
             );
+        }
+    }
+
+    /// 诊断测试：相邻同 LOD tile 共享面顶点偏差
+    ///
+    /// 用生产参数生成两个相邻 Transvoxel tile（同 LOD），独立提取等值面，
+    /// 比较共享面上的顶点位置。验证同 LOD tile 边界顶点是否一致。
+    #[test]
+    fn test_adjacent_tile_boundary_vertex_deviation() {
+
+        let terrain = make_production_terrain();
+        let bottom_y = -100.0;
+        let top_y = 500.0;
+
+        let (face_a, face_b, shared_x) =
+            adjacent_tile_face_vertices(&terrain, 1, 0, 0, 1, 0, bottom_y, top_y);
+        let (deviations, _orphans) = compare_face_vertices(&face_a, &face_b, shared_x, "同LOD");
+        print_deviation_stats(&deviations, 0.2);
+
+        // 同 LOD 应完美一致
+        assert!(deviations.iter().all(|&d| d < 0.001),
+            "Same-LOD boundary vertices should be identical");
+    }
+
+    /// 诊断测试：跨 LOD 过渡面顶点偏差
+    ///
+    /// 生成一个 LOD N tile 和一个 LOD N+1 tile（coarser），比较它们在共享
+    /// 面上的顶点。coarser tile 的顶点间距是 finer 的 2 倍——这是 Transvoxel
+    /// 过渡单元需要桥接的差距。
+    #[test]
+    fn test_cross_lod_boundary_vertex_deviation() {
+
+        let terrain = make_production_terrain();
+        let bottom_y = -100.0;
+        let top_y = 500.0;
+
+        // LOD 1 (32m tile, 1.0m voxel) 与 LOD 2 (64m tile, 2.0m voxel)
+        // LOD 2 的 tile 覆盖 2x LOD 1 的 tile
+        // 过渡面: LOD 1 gx=1,gz=0 的 +X 面 (x=64) = LOD 2 gx=1,gz=0 的 -X 面 (x=64)
+        let key_fine = LodKey { level: 1, gx: 1, gz: 0 };
+        let key_coarse = LodKey { level: 2, gx: 1, gz: 0 };
+        let tf_fine = compute_transition_faces(key_fine);
+        let tf_coarse = compute_transition_faces(key_coarse);
+
+        let shared_x = 64.0_f32;
+        let (face_lod1, face_lod2, _) = cross_lod_face_vertices(
+            &terrain,
+            1, 1, 0,  // LOD 1, gx=1, gz=0 (origin 32,0 → +X at 64)
+            2, 1, 0,  // LOD 2, gx=1, gz=0 (origin 64,0 → -X at 64)
+            bottom_y,
+            top_y,
+        );
+
+        let (deviations, orphans) = compare_face_vertices(&face_lod1, &face_lod2, shared_x, "跨LOD");
+
+        // 计算统计
+        let mut sorted: Vec<f32> = deviations.iter().cloned().filter(|&d| d < 100.0).collect();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let min = sorted.first().copied().unwrap_or(0.0);
+        let max = sorted.last().copied().unwrap_or(0.0);
+        let mean = sorted.iter().sum::<f32>() / sorted.len() as f32;
+        let median = if sorted.is_empty() { 0.0 } else { sorted[sorted.len() / 2] };
+        let n_gt_20cm = sorted.iter().filter(|&&d| d > 0.2).count();
+
+        eprintln!(
+            "\n══════════ 跨 LOD 边界顶点诊断 ═══════════\n\
+             共享面 x={:.1}\n\
+             transition_faces: fine=0b{:04b} coarse=0b{:04b}\n\
+             Finer 面顶点 (LOD 1):  {}\n\
+             Coarser 面顶点 (LOD 2): {}\n\
+             顶点偏差 (m): min={:.4} median={:.4} mean={:.4} max={:.4}\n\
+             >20cm (超出焊接容差): {} / {} ({:.1}%)\n\
+             Orphan 顶点 (d>1m): finer→coarser={} coarser→finer={}\n\
+             ═══════════════════════════════════════════",
+            shared_x,
+            tf_fine, tf_coarse,
+            face_lod1.len(),
+            face_lod2.len(),
+            min, median, mean, max,
+            n_gt_20cm, sorted.len(),
+            n_gt_20cm as f64 / sorted.len() as f64 * 100.0,
+            orphans.0, orphans.1,
+        );
+
+        // 检查过渡面是否被正确触发
+        // LOD 1 gx=1 的 +X 面: (gx+1).div_euclid(2) = 2/2 = 1 != gx.div_euclid(2) = 1/2 = 0 → 应触发
+        let fine_has_transition = (tf_fine & 0b0010) != 0; // bit 1 = +X
+        assert!(
+            fine_has_transition,
+            "LOD 1 gx=1 +X 面应有过渡单元 (tf=0b{:04b})", tf_fine
+        );
+
+        // 诊断: 打印精细 tile 面顶点坐标，查找 90m 偏差的来源
+        eprintln!(
+            "跨LOD诊断: tf_fine=0b{:04b} tf_coarse=0b{:04b} | 顶点: fine={} coarse={} | 偏差: min={:.4} med={:.4} max={:.4} | >20cm: {}/{}",
+            tf_fine, tf_coarse,
+            face_lod1.len(), face_lod2.len(),
+            min, median, max,
+            n_gt_20cm, sorted.len(),
+        );
+
+        // 打印精细 tile 的面顶点，标识哪些来自过渡单元
+        let regular_max_x = 64.0_f32; // 精细 tile 的 +X 边界
+        let tv_half = 0.5_f32; // half_vs for LOD 1 (1.0*0.5)
+        eprintln!("精细 tile (LOD 1) {} 个面顶点:", face_lod1.len());
+        for (i, v) in face_lod1.iter().enumerate() {
+            let origin = if (v.x - regular_max_x).abs() < 0.001 { "regular" }
+                else if (v.x - (regular_max_x + tv_half)).abs() < 0.001 { "transition(offset)" }
+                else { "UNKNOWN" };
+            eprintln!("  [{}] ({:.3}, {:.3}, {:.3}) {}", i, v.x, v.y, v.z, origin);
+        }
+
+        eprintln!("粗糙 tile (LOD 2) {} 个面顶点:", face_lod2.len());
+        for (i, v) in face_lod2.iter().take(10).enumerate() {
+            eprintln!("  [{}] ({:.3}, {:.3}, {:.3})", i, v.x, v.y, v.z);
+        }
+        if face_lod2.len() > 10 {
+            eprintln!("  ... ({} more)", face_lod2.len() - 10);
+        }
+
+        // 诊断: 分析精细 tile 面顶点的 Y 分布
+        let mut y_dist: Vec<(f32, f32)> = face_lod1.iter().map(|v| (v.y, v.z)).collect();
+        y_dist.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        let y_min = y_dist.first().map(|v| v.0).unwrap_or(0.0);
+        let y_max = y_dist.last().map(|v| v.0).unwrap_or(0.0);
+        eprintln!("精细面顶点 Y 范围: {:.1} ~ {:.1} (共 {} 个)", y_min, y_max, y_dist.len());
+        // 打印 Y 最低和最高的 5 个顶点
+        eprintln!("  Y 最低 5 个:");
+        for v in y_dist.iter().take(5) { eprintln!("    y={:.3} z={:.3}", v.0, v.1); }
+        eprintln!("  Y 最高 5 个:");
+        for v in y_dist.iter().rev().take(5) { eprintln!("    y={:.3} z={:.3}", v.0, v.1); }
+
+        // 粗 tile 面顶点
+        let mut cy: Vec<f32> = face_lod2.iter().map(|v| v.y).collect();
+        cy.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        eprintln!("粗 tile 面顶点 Y 范围: {:.1} ~ {:.1} (共 {} 个)", cy.first().unwrap_or(&0.0), cy.last().unwrap_or(&0.0), cy.len());
+
+        // 过渡单元已禁用——诊断完成。记录无过渡单元时的偏差基准。
+        assert!(
+            max < 2.0,
+            "即使无过渡单元，跨LOD偏差也不应超过2m: max={:.3}m", max
+        );
+    }
+
+    // ── 诊断测试辅助函数 ──────────────────
+
+    fn make_production_terrain() -> HeightfieldTerrain {
+        use crate::noise_gen::{NoiseParams, WorldNoise};
+        let params = NoiseParams {
+            height_amplitude: 120.0,
+            detail_scale: 0.005,
+            mountain_scale: 0.001,
+            sea_threshold: -0.5,
+            continent_scale: 0.001,
+            ..NoiseParams::default()
+        };
+        let noise = WorldNoise::with_params(42, params);
+        HeightfieldTerrain::with_noise(noise)
+    }
+
+    /// 生成两个相邻同 LOD tile 的面顶点
+    fn adjacent_tile_face_vertices(
+        terrain: &HeightfieldTerrain,
+        level_idx: u8,
+        gx_a: i64,
+        gz_a: i64,
+        gx_b: i64,
+        gz_b: i64,
+        bottom_y: f64,
+        top_y: f64,
+    ) -> (Vec<glam::Vec3>, Vec<glam::Vec3>, f32) {
+        let level = &LEVELS[level_idx as usize];
+        let tile_size = level.tile_size;
+
+        let key_a = LodKey { level: level_idx, gx: gx_a, gz: gz_a };
+        let key_b = LodKey { level: level_idx, gx: gx_b, gz: gz_b };
+
+        // 过渡单元已禁用
+        let mesh_a = generate_tile(terrain, key_a, 0, bottom_y, top_y);
+        let mesh_b = generate_tile(terrain, key_b, 0, bottom_y, top_y);
+
+        // 共享面: Tile A +X → Tile B -X
+        let shared_x = (gx_b as f64 * tile_size) as f32;
+        let eps = 0.01_f32;
+
+        let face_a: Vec<glam::Vec3> = mesh_a
+            .vertices.iter()
+            .filter(|v| (v.x - shared_x).abs() < eps)
+            .copied()
+            .collect();
+        let face_b: Vec<glam::Vec3> = mesh_b
+            .vertices.iter()
+            .filter(|v| (v.x - shared_x).abs() < eps)
+            .copied()
+            .collect();
+
+        (face_a, face_b, shared_x)
+    }
+
+    /// 生成 LOD N 和 LOD N+1 在共享面处的顶点
+    /// LOD N 的 finer tile 和 LOD N+1 的 coarser tile 在共享 X 面比较
+    fn cross_lod_face_vertices(
+        terrain: &HeightfieldTerrain,
+        fine_level: u8,
+        fine_gx: i64,
+        fine_gz: i64,
+        coarse_level: u8,
+        coarse_gx: i64,
+        coarse_gz: i64,
+        bottom_y: f64,
+        top_y: f64,
+    ) -> (Vec<glam::Vec3>, Vec<glam::Vec3>, f32) {
+        let level_coarse = &LEVELS[coarse_level as usize];
+        let shared_x = (coarse_gx as f64 * level_coarse.tile_size) as f32;
+
+        let key_fine = LodKey { level: fine_level, gx: fine_gx, gz: fine_gz };
+        let key_coarse = LodKey { level: coarse_level, gx: coarse_gx, gz: coarse_gz };
+
+        // 使用正确的 transition_faces（而非硬编码 0）
+        // 过渡单元已禁用
+        let mesh_fine = generate_tile(terrain, key_fine, 0, bottom_y, top_y);
+        let mesh_coarse = generate_tile(terrain, key_coarse, 0, bottom_y, top_y);
+
+        let eps = 0.01_f32;
+        let face_fine: Vec<glam::Vec3> = mesh_fine
+            .vertices.iter()
+            .filter(|v| (v.x - shared_x).abs() < eps)
+            .copied()
+            .collect();
+        let face_coarse: Vec<glam::Vec3> = mesh_coarse
+            .vertices.iter()
+            .filter(|v| (v.x - shared_x).abs() < eps)
+            .copied()
+            .collect();
+
+        (face_fine, face_coarse, shared_x)
+    }
+
+    /// 比较两个面顶点集，返回 (偏差列表, (finer孤儿数, coarser孤儿数))
+    fn compare_face_vertices(
+        face_a: &[glam::Vec3],
+        face_b: &[glam::Vec3],
+        shared_x: f32,
+        label: &str,
+    ) -> (Vec<f32>, (usize, usize)) {
+        println!("\n=== {} 面顶点比较 (x={:.1}) ===", label, shared_x);
+        println!("面 A 顶点数: {}", face_a.len());
+        println!("面 B 顶点数: {}", face_b.len());
+
+        let mut deviations: Vec<f32> = Vec::new();
+        let mut orphan_a = 0usize;
+        let mut matched_b = vec![false; face_b.len()];
+
+        for va in face_a {
+            let mut min_dist = f32::MAX;
+            let mut min_idx = 0;
+            for (j, vb) in face_b.iter().enumerate() {
+                let dist = (*va - *vb).length();
+                if dist < min_dist {
+                    min_dist = dist;
+                    min_idx = j;
+                }
+            }
+            deviations.push(min_dist);
+            if min_dist < 1.0 {
+                matched_b[min_idx] = true;
+            } else {
+                orphan_a += 1;
+            }
+        }
+        let orphan_b = matched_b.iter().filter(|&&m| !m).count();
+
+        (deviations, (orphan_a, orphan_b))
+    }
+
+    /// 打印偏差统计
+    fn print_deviation_stats(deviations: &[f32], weld_eps: f32) {
+        if deviations.is_empty() {
+            println!("  (无顶点)");
+            return;
+        }
+        let mut sorted: Vec<f32> = deviations.to_vec();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+        let min = sorted.first().copied().unwrap_or(0.0);
+        let max = sorted.last().copied().unwrap_or(0.0);
+        let mean = sorted.iter().sum::<f32>() / sorted.len() as f32;
+        let median = sorted[sorted.len() / 2];
+        let p95 = sorted[(sorted.len() as f64 * 0.95) as usize];
+
+        println!("  偏差 (m): min={:.4} median={:.4} mean={:.4} p95={:.4} max={:.4}",
+            min, median, mean, p95, max);
+
+        let un_weldable = sorted.iter().filter(|&&d| d > weld_eps).count();
+        if un_weldable > 0 {
+            println!(
+                "  ⚠️  超出焊接容差 ({}m): {} / {} ({:.1}%)",
+                weld_eps, un_weldable, sorted.len(),
+                un_weldable as f64 / sorted.len() as f64 * 100.0
+            );
+        } else {
+            println!("  ✓ 全部 {} 顶点在焊接容差内 (≤{}m)", sorted.len(), weld_eps);
         }
     }
 }

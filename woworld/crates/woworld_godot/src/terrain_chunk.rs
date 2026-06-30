@@ -8,12 +8,11 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use godot::classes::base_material_3d::{CullMode, Flags, ShadingMode};
 use godot::classes::light_3d::Param;
 use godot::classes::mesh::PrimitiveType;
 use godot::classes::{
-    ArrayMesh, DirectionalLight3D, MeshInstance3D, ProceduralSkyMaterial, ShaderMaterial,
-    StandardMaterial3D, WorldEnvironment,
+    ArrayMesh, DirectionalLight3D, MeshInstance3D, ProceduralSkyMaterial, Shader, ShaderMaterial,
+    WorldEnvironment,
 };
 use godot::prelude::*;
 use woworld_atmosphere::AtmosphereSynthesizer;
@@ -37,6 +36,7 @@ struct LodLayer {
     mesh: Gd<ArrayMesh>,
     active_keys: HashSet<LodKey>,
     completed: HashMap<LodKey, TerrainMeshData>,
+    dirty: bool,  // active_keys 或 completed 有变化 → 需要重新合并上传
 }
 
 // ── GodotClass ────────────────────
@@ -52,7 +52,7 @@ pub struct WorldDriver {
     /// 每个 LOD 级别一个合并 MeshInstance3D（索引=level）
     lod_layers: [Option<LodLayer>; 8],
     /// 所有 Tile 共享一份材质
-    shared_material: Option<Gd<StandardMaterial3D>>,
+    shared_material: Option<Gd<ShaderMaterial>>,
 
     // 缓存的 Godot 节点引用
     sun: Option<Gd<DirectionalLight3D>>,
@@ -118,10 +118,7 @@ impl INode3D for WorldDriver {
         self.world_env = self
             .base()
             .try_get_node_as::<WorldEnvironment>("../WorldEnvironment");
-        self.terrain_parent = self
-            .base()
-            .try_get_node_as::<Node3D>(".")
-            .or_else(|| Some(self.base().clone().cast::<Node3D>()));
+        self.terrain_parent = Some(self.base().clone().cast::<Node3D>());
         self.player_node = self.base().try_get_node_as::<Node3D>("../Player");
 
         // OceanPlane 的 MeshInstance3D 子节点 —— 用于传水深 uniform
@@ -139,11 +136,21 @@ impl INode3D for WorldDriver {
             (_, None) => godot_error!("WorldDriver: ../WorldEnvironment not found — sky disabled"),
         }
 
-        // ── 3. 共享材质 ──────────────────────────
-        let mut mat = StandardMaterial3D::new_gd();
-        mat.set_flag(Flags::ALBEDO_FROM_VERTEX_COLOR, true);
-        mat.set_shading_mode(ShadingMode::UNSHADED);
-        mat.set_cull_mode(CullMode::DISABLED);
+        // ── 3. 共享 ShaderMaterial（vertex shader camera-relative）──
+        let mut mat = ShaderMaterial::new_gd();
+        let mut shader = Shader::new_gd();
+        shader.set_code("shader_type spatial;
+render_mode unshaded, cull_disabled;
+uniform vec3 camera_pos = vec3(0.0);
+void vertex() {
+    vec3 rel = VERTEX - camera_pos;
+    vec3 view_pos = mat3(VIEW_MATRIX) * rel;
+    POSITION = PROJECTION_MATRIX * vec4(view_pos, 1.0);
+}
+void fragment() {
+    ALBEDO = COLOR.rgb;
+}");
+        mat.set_shader(&shader);
         self.shared_material = Some(mat);
 
         // ── 4. 创建每 LOD 级别的合并 MeshInstance3D ──
@@ -152,9 +159,7 @@ impl INode3D for WorldDriver {
             let am = ArrayMesh::new_gd();
             mi.set_name(&format!("LOD_{}", level));
             mi.set_mesh(&am);
-            if let Some(ref mat) = self.shared_material {
-                mi.set_surface_override_material(0, mat);
-            }
+            // 材质在首次 terrain mesh 上传时应用（此时 mesh 为空，无表面可用）
             if let Some(ref mut parent) = self.terrain_parent {
                 parent.add_child(&mi.clone().upcast::<Node>());
             }
@@ -163,6 +168,7 @@ impl INode3D for WorldDriver {
                 mesh: am,
                 active_keys: HashSet::new(),
                 completed: HashMap::new(),
+                dirty: true,  // 新创建 → 首次需合并上传
             });
         }
 
@@ -175,15 +181,25 @@ impl INode3D for WorldDriver {
         let wt = &self.clock.current;
         self.terrain.clock = Some(self.clock.clone());
 
-        let origin = WorldPos {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        };
-        let atm = self.atmosphere.resolve(wt, origin);
-        self.update_sun_and_sky(&atm);
+        // 天空/太阳：每帧更新（保持太阳运动连续）
+        {
+            let origin = WorldPos { x: 0.0, y: 0.0, z: 0.0 };
+            let atm = self.atmosphere.resolve(wt, origin);
+            self.update_sun_and_sky(&atm);
+        }
 
         let player_pos = self.get_player_position();
+
+        // ── Floating Origin (Shader) ──
+        // Vertex shader: VERTEX - camera_pos → GPU 坐标 < 500m
+        if let Some(ref mut mat) = self.shared_material {
+            let value = Variant::from(Vector3::new(
+                player_pos.x as f32,
+                player_pos.y as f32,
+                player_pos.z as f32,
+            ));
+            mat.set_shader_parameter("camera_pos", &value);
+        }
 
         // 更新海水深度
         if let Some(ref ocean_mesh) = self.ocean_mesh {
@@ -210,12 +226,14 @@ impl INode3D for WorldDriver {
                             layer.completed.insert(key, mesh);
                         }
                         layer.active_keys.insert(key);
+                        layer.dirty = true;
                     }
                 }
                 TileEvent::Unload { key } => {
                     if let Some(ref mut layer) = self.lod_layers[key.level as usize] {
                         layer.active_keys.remove(&key);
                         layer.completed.remove(&key);
+                        layer.dirty = true;
                     }
                 }
             }
@@ -224,7 +242,7 @@ impl INode3D for WorldDriver {
         // 合并各 LOD 级别的 mesh 并上传
         for level in 0..8u8 {
             if let Some(ref mut layer) = self.lod_layers[level as usize] {
-                Self::merge_and_upload(layer);
+                Self::merge_and_upload(layer, self.shared_material.as_ref());
             }
         }
     }
@@ -236,7 +254,7 @@ impl WorldDriver {
     /// 读取玩家位置
     fn get_player_position(&self) -> WorldPos {
         if let Some(ref player) = self.player_node {
-            let pos = player.get_position();
+            let pos = player.get_global_position();
             WorldPos {
                 x: pos.x as f64,
                 y: pos.y as f64,
@@ -248,7 +266,12 @@ impl WorldDriver {
     }
 
     /// 合并某 LOD 级别所有已完成 tile mesh，上传到该级别的 ArrayMesh
-    fn merge_and_upload(layer: &mut LodLayer) {
+    fn merge_and_upload(layer: &mut LodLayer, material: Option<&Gd<ShaderMaterial>>) {
+        // 无变化 → 跳过昂贵的合并和上传
+        if !layer.dirty {
+            return;
+        }
+
         // 清理已离开活跃集的 tile 的旧 mesh
         layer
             .completed
@@ -256,6 +279,7 @@ impl WorldDriver {
 
         if layer.active_keys.is_empty() {
             layer.mesh.clear_surfaces();
+            layer.dirty = false;
             return;
         }
 
@@ -265,7 +289,7 @@ impl WorldDriver {
             .iter()
             .all(|k| layer.completed.contains_key(k))
         {
-            return; // 仍待生成
+            return; // 仍待生成——保留 dirty 等待完成
         }
 
         let entries: Vec<(&LodKey, &TerrainMeshData)> = layer.completed.iter().collect();
@@ -293,6 +317,10 @@ impl WorldDriver {
 
         let merged = Self::merge_meshes(&meshes, &origins);
         Self::update_array_mesh(&mut layer.mesh, &merged);
+        if let Some(mat) = material {
+            layer.instance.set_surface_override_material(0, mat);
+        }
+        layer.dirty = false;
     }
 
     /// 合并多个 TerrainMeshData 为一个（边界顶点焊接）
@@ -396,13 +424,28 @@ impl WorldDriver {
         let mut vertices = PackedVector3Array::new();
         let mut normals = PackedVector3Array::new();
         let mut colors = PackedColorArray::new();
+
+        // 单次遍历：同时构建数组 + 计算 AABB（消除双次遍历）
+        let mut min_x = f32::MAX;
+        let mut min_y = f32::MAX;
+        let mut min_z = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut max_y = f32::MIN;
+        let mut max_z = f32::MIN;
+
         for i in 0..mesh.vertices.len() {
             let v = mesh.vertices[i];
-            let n = mesh.normals[i];
-            let c = mesh.colors[i];
             vertices.push(Vector3::new(v.x, v.y, v.z));
-            normals.push(Vector3::new(n.x, n.y, n.z));
+            normals.push(Vector3::new(mesh.normals[i].x, mesh.normals[i].y, mesh.normals[i].z));
+            let c = mesh.colors[i];
             colors.push(Color::from_rgb(c.x, c.y, c.z));
+
+            min_x = min_x.min(v.x);
+            min_y = min_y.min(v.y);
+            min_z = min_z.min(v.z);
+            max_x = max_x.max(v.x);
+            max_y = max_y.max(v.y);
+            max_z = max_z.max(v.z);
         }
 
         let mut indices = PackedInt32Array::new();
@@ -421,23 +464,8 @@ impl WorldDriver {
         am.clear_surfaces();
         am.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
 
-        // 设置膨胀 AABB 防视锥体裁剪误裁边缘三角形
+        // 膨胀 AABB 防视锥体裁剪误裁边缘三角形
         {
-            let mut min_x = f32::MAX;
-            let mut min_y = f32::MAX;
-            let mut min_z = f32::MAX;
-            let mut max_x = f32::MIN;
-            let mut max_y = f32::MIN;
-            let mut max_z = f32::MIN;
-            for i in 0..mesh.vertices.len() {
-                let v = mesh.vertices[i];
-                min_x = min_x.min(v.x);
-                min_y = min_y.min(v.y);
-                min_z = min_z.min(v.z);
-                max_x = max_x.max(v.x);
-                max_y = max_y.max(v.y);
-                max_z = max_z.max(v.z);
-            }
             let margin: f32 = 1.0;
             let aabb = godot::builtin::Aabb::new(
                 Vector3::new(min_x - margin, min_y - margin, min_z - margin),

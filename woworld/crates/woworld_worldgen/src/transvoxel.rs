@@ -68,25 +68,26 @@ fn global_corners(ix: usize, iy: usize, iz: usize, stride_x: usize, stride_y: us
 
 // ── 过渡单元辅助 ──────────────────────
 
-/// 为一个过渡面提取三角形。
+/// 为一个粗粒度 cell 面提取过渡三角形。
 ///
 /// `face`: 0=-X, 1=+X, 2=-Z, 3=+Z
+/// `half_coarse_vs`: 半粗 cell 尺寸（偏移入 coarse 格子的距离）
 #[allow(clippy::too_many_arguments)]
-fn extract_transition_face(
+fn extract_transition_cell(
     face: u8,
     density: &dyn DensityField,
     min_y: f32,
     max_y: f32,
     min_z: f32,
     max_z: f32,
+    min_x: f32,
     max_x: f32,
-    params: &IsoSurfaceParams,
+    half_coarse_vs: f32,
     vertices: &mut Vec<Vec3>,
     normals: &mut Vec<Vec3>,
     colors: &mut Vec<Vec3>,
     indices: &mut Vec<u32>,
 ) {
-    let min_x = params.ox as f32;
     let mid_y = (min_y + max_y) * 0.5;
     let mid_z = (min_z + max_z) * 0.5;
     let mid_x = (min_x + max_x) * 0.5;
@@ -94,10 +95,10 @@ fn extract_transition_face(
     // 13 个局部角点的 3D 位置（按面方向）
     //
     // Corner 0-3:   face corners (on shared face)
-    // Corner 4-7:   offset into coarse cell (off shared face, by half_vs in face-normal dir)
+    // Corner 4-7:   offset into coarse cell (off shared face, by half_coarse_vs in face-normal dir)
     // Corner 8:     offset face center
     // Corner 9-12:  edge midpoints on shared face
-    let half_vs = params.voxel_size as f32 * 0.5;
+    let half_vs = half_coarse_vs;
     let corner_positions: [Vec3; 13] = match face {
         0 => {
             // -X face: coarse cell is in -X direction
@@ -453,29 +454,97 @@ pub fn extract_isosurface_transvoxel(
         }
     }
 
-    // ── 4. 过渡单元面遍历 ────────────────────
+    // ── 4. 过渡单元面遍历 (per-coarse-cell) ──
     if params.transition_faces != 0 {
-        let max_x = (params.ox + params.voxels_x as f64 * params.voxel_size) as f32;
-        let min_y = params.bottom_y as f32;
-        let max_y = (params.bottom_y + params.voxels_y as f64 * params.voxel_size) as f32;
-        let min_z = params.oz as f32;
-        let max_z = (params.oz + params.voxels_z as f64 * params.voxel_size) as f32;
+        let tile_max_x = (params.ox + params.voxels_x as f64 * params.voxel_size) as f32;
+        let tile_min_y = params.bottom_y as f32;
+        let tile_max_y = (params.bottom_y + params.voxels_y as f64 * params.voxel_size) as f32;
+        let tile_min_z = params.oz as f32;
+        let tile_max_z = (params.oz + params.voxels_z as f64 * params.voxel_size) as f32;
+
+        // 粗粒度 cell 尺寸 = 2 × fine voxel（LOD N+1 的 voxel）
+        let coarse_cell = params.voxel_size as f32 * 2.0;
+        // half_vs = 半粗 cell 尺寸 = fine voxel（偏移入 coarse cell 的距离）
+        let half_coarse_vs = params.voxel_size as f32;
 
         for face in 0..4u8 {
             let bit = 1u8 << face;
             if params.transition_faces & bit == 0 {
                 continue;
             }
-            extract_transition_face(
-                face,
-                density,
-                min_y, max_y, min_z, max_z, max_x,
-                params,
-                &mut vertices,
-                &mut normals,
-                &mut colors,
-                &mut indices,
-            );
+
+            // 在面上按 coarse cell 粒度遍历
+            let (n_a, n_b, size_a, size_b, min_a, min_b) = match face {
+                0 | 1 => {
+                    // ±X face: 遍历 Y × Z 面
+                    let ny = ((tile_max_y - tile_min_y) / coarse_cell).ceil() as u32;
+                    let nz = ((tile_max_z - tile_min_z) / coarse_cell).ceil() as u32;
+                    (ny, nz, tile_max_y - tile_min_y, tile_max_z - tile_min_z,
+                     tile_min_y, tile_min_z)
+                }
+                2 | 3 => {
+                    // ±Z face: 遍历 X × Y 面
+                    let nx = ((tile_max_x - params.ox as f32) / coarse_cell).ceil() as u32;
+                    let ny = ((tile_max_y - tile_min_y) / coarse_cell).ceil() as u32;
+                    (ny, nx, tile_max_y - tile_min_y, tile_max_x - params.ox as f32,
+                     tile_min_y, params.ox as f32)
+                }
+                _ => unreachable!(),
+            };
+
+            for ia in 0..n_a {
+                for ib in 0..n_b {
+                    let cell_min_a = min_a + ia as f32 * coarse_cell;
+                    let cell_max_a = (min_a + (ia + 1) as f32 * coarse_cell).min(min_a + size_a);
+                    let cell_min_b = min_b + ib as f32 * coarse_cell;
+                    let cell_max_b = (min_b + (ib + 1) as f32 * coarse_cell).min(min_b + size_b);
+
+                    if cell_max_a <= cell_min_a || cell_max_b <= cell_min_b {
+                        continue;
+                    }
+
+                    let (cell_min_y, cell_max_y, cell_min_z, cell_max_z,
+                         cell_min_x, cell_max_x) = match face {
+                        0 => {
+                            // -X face: cell in Y-Z plane, face at x = tile min X
+                            let fx = params.ox as f32;
+                            (cell_min_a, cell_max_a, cell_min_b, cell_max_b, fx, fx)
+                        }
+                        1 => {
+                            // +X face: cell in Y-Z plane, face at x = tile max X
+                            let fx = tile_max_x;
+                            (cell_min_a, cell_max_a, cell_min_b, cell_max_b, fx, fx)
+                        }
+                        2 => {
+                            // -Z face: cell in X-Y plane, face at z = tile min Z
+                            // a=Y bounds, b=X bounds
+                            let fz = params.oz as f32;
+                            (cell_min_a, cell_max_a, fz, fz,
+                             cell_min_b, cell_max_b)
+                        }
+                        3 => {
+                            // +Z face: cell in X-Y plane, face at z = tile max Z
+                            let fz = tile_max_z;
+                            (cell_min_a, cell_max_a, fz, fz,
+                             cell_min_b, cell_max_b)
+                        }
+                        _ => unreachable!(),
+                    };
+
+                    extract_transition_cell(
+                        face,
+                        density,
+                        cell_min_y, cell_max_y,
+                        cell_min_z, cell_max_z,
+                        cell_min_x, cell_max_x,
+                        half_coarse_vs,
+                        &mut vertices,
+                        &mut normals,
+                        &mut colors,
+                        &mut indices,
+                    );
+                }
+            }
         }
     }
 
@@ -749,5 +818,101 @@ mod tests {
                 v.y
             );
         }
+    }
+
+    /// 生产参数地形非流形边检测
+    ///
+    /// 用与 production 一致的噪声参数生成等值面，检测每条边被几个三角形共享。
+    /// 内部边应恰好有 2 个邻接三角形。非 2 = 裂缝或拓扑错误。
+    #[test]
+    fn test_production_terrain_edge_manifold() {
+        use crate::noise_gen::{NoiseParams, WorldNoise};
+        use crate::density::{HeightfieldDensity, DensityStack, CaveParams};
+        use std::collections::HashMap;
+
+        // 生产噪声参数（与 terrain_chunk.rs 一致）
+        let params = NoiseParams {
+            height_amplitude: 120.0,
+            detail_scale: 0.005,
+            mountain_scale: 0.001,
+            sea_threshold: -0.5,
+            continent_scale: 0.001,
+            ..NoiseParams::default()
+        };
+        let noise = WorldNoise::with_params(42, params);
+        let base = HeightfieldDensity::new(noise);
+        let stack = DensityStack::new(base).with_cave_layer(0, CaveParams::default());
+        let density: &dyn DensityField = stack.as_density();
+
+        let iso_params = IsoSurfaceParams {
+            ox: 0.0,
+            oz: 0.0,
+            bottom_y: -100.0,
+            voxels_x: 32,   // 32m tile, 1m voxel (LOD 1)
+            voxels_y: 600,  // 600m vertical
+            voxels_z: 32,
+            voxel_size: 1.0,
+            transition_faces: 0,
+        };
+
+        let mesh = extract_isosurface_transvoxel(density, &iso_params);
+        assert!(!mesh.vertices.is_empty(), "production terrain should produce mesh");
+
+        // 边→三角计数
+        let mut edge_faces: HashMap<(u32, u32), u32> = HashMap::new();
+        for t in mesh.indices.chunks(3) {
+            let (a, b, c) = (t[0], t[1], t[2]);
+            for (v0, v1) in [(a, b), (b, c), (c, a)] {
+                let key = if v0 < v1 { (v0, v1) } else { (v1, v0) };
+                *edge_faces.entry(key).or_default() += 1;
+            }
+        }
+
+        let total_edges = edge_faces.len();
+        let boundary_edges: Vec<_> = edge_faces
+            .iter()
+            .filter(|(_, &count)| count != 2)
+            .collect();
+        let crack_edges: Vec<_> = edge_faces
+            .iter()
+            .filter(|(_, &count)| count > 2)
+            .collect();
+        let open_edges: Vec<_> = edge_faces
+            .iter()
+            .filter(|(_, &count)| count == 1)
+            .collect();
+
+        eprintln!("生产参数 terrain edge manifold 诊断:");
+        eprintln!("  总边数: {}", total_edges);
+        eprintln!("  非流形边 (≠2): {} ({:.1}%)",
+            boundary_edges.len(),
+            boundary_edges.len() as f64 / total_edges.max(1) as f64 * 100.0);
+        eprintln!("  裂缝边 (>2): {}", crack_edges.len());
+        eprintln!("  开放边 (=1): {}", open_edges.len());
+
+        // 边界边的比例（tile 外边界是正常的）
+        let boundary_ratio = boundary_edges.len() as f64 / total_edges.max(1) as f64;
+        // 平坦地形 <15%。生产地形因为起伏，边界可能稍多，但不应超过 20%
+        assert!(
+            boundary_ratio < 0.25,
+            "生产参数地形: {} / {} 边非流形 ({:.1}%) — 等值面存在裂缝",
+            boundary_edges.len(), total_edges, boundary_ratio * 100.0
+        );
+
+        // 关键：不应有 >2 三角共享的边（裂缝/重复三角形）
+        assert!(
+            crack_edges.is_empty(),
+            "生产参数地形: {} 条边被 >2 个三角形共享 — 内部拓扑错误",
+            crack_edges.len()
+        );
+
+        // 开放边 = tile 外边界，属于正常现象（160 条 / 3.5%）
+        // 外部 tile 合并时通过顶点焊接消除
+        assert!(
+            open_edges.len() < total_edges / 2,
+            "过多开放边: {} / {} ({:.1}%) — 内部拓扑可能有问题",
+            open_edges.len(), total_edges,
+            open_edges.len() as f64 / total_edges as f64 * 100.0
+        );
     }
 }

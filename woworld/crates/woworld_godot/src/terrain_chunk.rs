@@ -24,8 +24,11 @@ use woworld_core::ocean::OceanProvider;
 use woworld_worldgen::{
     generate_clipmap_grid, generate_heightmap_data,
     layer_tex_config, level_spacing, load_material_colors, BiomeClassifier, HeightfieldOcean,
-    HeightfieldTerrain, HeightmapData, NoiseParams, WorldNoise, LEVELS,
+    HeightfieldTerrain, HeightmapData, NoiseParams, TerrainBaseDensity, WorldNoise, LEVELS,
+    transvoxel_extract,
 };
+
+use crate::voxel_chunk::VoxelChunk;
 
 // ── 缺省参数 ────────────────────
 /// 默认每秒对应的游戏天数（30s/天方便观察，正式 3600s/天）
@@ -42,6 +45,23 @@ struct HeightmapJob {
     /// 该高度图覆盖的世界空间原点（左下角）
     grid_origin_x: f64,
     grid_origin_z: f64,
+}
+
+/// 后台 Transvoxel 块提取描述（未来 rayon 后台使用）
+#[allow(dead_code)]
+struct VoxelJob {
+    cx: i32,
+    cz: i32,
+    origin_x: f64,
+    origin_y: f64,
+    origin_z: f64,
+}
+
+#[allow(dead_code)]
+struct VoxelResult {
+    cx: i32,
+    cz: i32,
+    mesh: woworld_worldgen::TerrainMeshData,
 }
 
 /// 单个 LOD 级别的 GPU-driven clipmap 层
@@ -99,6 +119,10 @@ pub struct WorldDriver {
     player_node: Option<Gd<Node3D>>,
     ocean_mesh: Option<Gd<MeshInstance3D>>,
 
+    // Transvoxel 3D 等值面块（LOD 0 替换）
+    voxel_chunks: HashMap<(i32, i32), Gd<VoxelChunk>>,
+    voxel_center: (i32, i32),
+
     #[base]
     base: Base<Node3D>,
 }
@@ -122,6 +146,8 @@ impl INode3D for WorldDriver {
             terrain_parent: None,
             player_node: None,
             ocean_mesh: None,
+            voxel_chunks: HashMap::new(),
+            voxel_center: (i32::MAX, i32::MAX),
             base,
         }
     }
@@ -402,8 +428,11 @@ impl INode3D for WorldDriver {
             l7.neighbor_heightmap_tex = l7.heightmap_tex.clone();
         }
 
+        // ── 7. Voxel chunk MVP: single chunk at origin ──
+        self.spawn_voxel_chunk(0.0, 0.0);
+
         self.base_mut().set_process(true);
-        godot_print!("WorldDriver: 8 GPU-driven clipmap layers ready");
+        godot_print!("WorldDriver: 8 GPU-driven clipmap layers + 1 VoxelChunk ready");
     }
 
     fn process(&mut self, delta: f64) {
@@ -775,4 +804,91 @@ impl WorldDriver {
         self.terrain.height_at(pos)
     }
 
+    /// Create a single VoxelChunk, extract terrain mesh, and upload it (synchronous MVP).
+    /// `wx, wz` = chunk world-space southwest corner (x, z). y origin auto-computed.
+    fn spawn_voxel_chunk(&mut self, wx: f64, wz: f64) {
+        use godot::builtin::{Array, PackedColorArray, PackedInt32Array, PackedVector3Array};
+        use godot::classes::mesh::PrimitiveType;
+        use godot::classes::ArrayMesh;
+
+        let voxel_size = 0.5f64;
+        let vx = 32u32;
+        let vy = 32u32;
+        let vz = 32u32;
+        let chunk_size = voxel_size * vx as f64; // 16m
+
+        // Sample terrain height at chunk center for y-origin
+        let h = self.terrain.height_at(WorldPos {
+            x: wx + chunk_size * 0.5,
+            y: 0.0,
+            z: wz + chunk_size * 0.5,
+        });
+        let wy = (h as f64 - chunk_size * 0.5).max(0.0);
+
+        // Create VoxelChunk node
+        let mut vc = VoxelChunk::new_alloc();
+        vc.bind_mut().set_world_origin(wx, wy, wz);
+        if let Some(ref mut parent) = self.terrain_parent {
+            parent.add_child(&vc.clone().upcast::<Node>());
+        }
+
+        // Extract terrain mesh (synchronous)
+        let noise_arc = self.terrain.noise_arc();
+        let base_layer = TerrainBaseDensity::new(noise_arc);
+        let stack = self.terrain.density_stack().clone();
+
+        let mesh = transvoxel_extract(
+            &stack, &base_layer,
+            wx, wy, wz,
+            vx, vy, vz, voxel_size,
+            0, // no transition faces
+            &self.material_colors,
+        );
+
+        if !mesh.vertices.is_empty() {
+            let mut am = ArrayMesh::new_gd();
+            let mut vertices = PackedVector3Array::new();
+            let mut normals_packed = PackedVector3Array::new();
+            let mut colors_packed = PackedColorArray::new();
+
+            for i in 0..mesh.vertices.len() {
+                let v = mesh.vertices[i];
+                vertices.push(Vector3::new(v.x, v.y, v.z));
+                let n = mesh.normals[i];
+                normals_packed.push(Vector3::new(n.x, n.y, n.z));
+                let c = mesh.colors[i];
+                colors_packed.push(Color::from_rgb(c.x, c.y, c.z));
+            }
+
+            let mut indices = PackedInt32Array::new();
+            for idx in &mesh.indices {
+                indices.push(*idx as i32);
+            }
+
+            let mut arrays = Array::new();
+            arrays.resize(13, &Variant::nil());
+            arrays.set(0, &vertices.to_variant());
+            arrays.set(1, &normals_packed.to_variant());
+            arrays.set(3, &colors_packed.to_variant());
+            arrays.set(12, &indices.to_variant());
+
+            am.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
+
+            godot_print!(
+                "VoxelChunk @ ({:.0},{:.0},{:.0}): {} verts, {} tris",
+                wx, wy, wz,
+                mesh.vertices.len(),
+                mesh.indices.len() / 3,
+            );
+
+            vc.bind_mut().set_terrain_mesh(Some(am));
+        } else {
+            vc.bind_mut().set_terrain_mesh(None);
+        }
+
+        let cx = (wx / chunk_size).floor() as i32;
+        let cz = (wz / chunk_size).floor() as i32;
+        self.voxel_chunks.insert((cx, cz), vc);
+        self.voxel_center = (cx, cz);
+    }
 }

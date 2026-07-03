@@ -4,10 +4,10 @@
 //! 消费 `DensityStack`（新 P2a 体系），输出 `TerrainMeshData`。
 //!
 //! ★ 等值面阈值 = 0.0（`DensityProvider` 体系：正值=实体，负值=空）。
-//! 旧 `DensityField` [0,1] 体系的 0.5 阈值不适用。
 //!
-//! 查找表：MC EDGE_TABLE / TRI_TABLE / EDGE_ENDPOINTS（内联），
-//! 过渡单元 TRANSITION_* 表来自 `transition_tables` 模块。
+//! 查找表：
+//! - MC EDGE_TABLE / TRI_TABLE_DATA / EDGE_ENDPOINTS → `tri_table_data` 模块（Paul Bourke 标准值）
+//! - 过渡单元 TRANSITION_* → `transition_tables` 模块（Lengyel 2010）
 
 use std::collections::HashMap;
 
@@ -20,6 +20,7 @@ use crate::transition_tables::{
     TRANSITION_CELL_CLASS, TRANSITION_CELL_DATA_COUNTS, TRANSITION_CELL_INDICES,
     TRANSITION_CELL_OFFSETS, TRANSITION_VERTEX_DATA,
 };
+use crate::tri_table_data::{EDGE_ENDPOINTS, EDGE_TABLE, TRI_TABLE_DATA};
 
 // ── 常量 ─────────────────────────────
 
@@ -28,25 +29,13 @@ const ISOVALUE: f32 = 0.0;
 /// 梯度有限差分步长（米）
 const GRADIENT_EPS: f64 = 0.25;
 
-// ── MC 边表（256 cases，每个 12-bit 激活边掩码）──
-static EDGE_TABLE: [u16; 256] = [/* standard MC edge table — same as reference */ 0x0]; // placeholder
+// MC 查找表（EDGE_TABLE / TRI_TABLE_DATA / EDGE_ENDPOINTS）
+// 来自 `tri_table_data` 模块 — Paul Bourke 标准常量，纯数学数据。
+// 角点约定（与 global_corners 的 stride 排序一致）：
+//   0=(0,0,0) 1=(1,0,0) 2=(1,0,1) 3=(0,0,1)
+//   4=(0,1,0) 5=(1,1,0) 6=(1,1,1) 7=(0,1,1)
 
-// We use the exact same EDGE_TABLE / TRI_TABLE / EDGE_ENDPOINTS from the reference.
-// They are pure mathematical constants and do not depend on the density trait.
-// Inlined here to avoid depending on the deleted marching_cubes.rs.
-
-// ── 边端点对 — 12 条边的起止角点索引 ──
-const EDGE_ENDPOINTS: [(usize, usize); 12] = [
-    (0, 1), (1, 2), (2, 3), (3, 0), // 底
-    (4, 5), (5, 6), (6, 7), (7, 4), // 顶
-    (0, 4), (1, 5), (2, 6), (3, 7), // 柱
-];
-
-// ── 三角表 ───────────────────────────
-// 用 flat array 代替 [[i8; 16]; 256] 减少编译开销
-// 每个 entry 是 16 个 i8，-1 表示结束
-type TriTable = [[i8; 16]; 256];
-
+#[inline]
 fn tri_table_entry(case: usize) -> &'static [i8; 16] {
     &TRI_TABLE_DATA[case]
 }
@@ -55,7 +44,7 @@ fn tri_table_entry(case: usize) -> &'static [i8; 16] {
 fn interpolate(p1: Vec3, p2: Vec3, d1: f32, d2: f32) -> Vec3 {
     if (d1 - ISOVALUE).abs() < f32::EPSILON { return p1; }
     if (d2 - ISOVALUE).abs() < f32::EPSILON { return p2; }
-    if (d1 == d2) { return (p1 + p2) * 0.5; }
+    if d1 == d2 { return (p1 + p2) * 0.5; }
     let t = (ISOVALUE - d1) / (d2 - d1);
     p1 + (p2 - p1) * t
 }
@@ -147,8 +136,7 @@ fn extract_transition_cell(
 
     // 9 个面采样点 → 9-bit case index
     let mut case_idx: usize = 0;
-    for i in 0..9 {
-        let p = &corner_positions[i];
+    for (i, p) in corner_positions.iter().enumerate().take(9) {
         let d = stack.density_at(WorldPos { x: p.x as f64, y: p.y as f64, z: p.z as f64 });
         if d >= ISOVALUE { case_idx |= 1 << i; }
     }
@@ -245,6 +233,7 @@ fn material_to_color(
 /// 从 `DensityStack` 提取 3D 等值面，包括：
 /// - 常规单元：MC 256-case table + 全局边索引顶点共享
 /// - 过渡单元：Lengyel transition cells（消除 LOD 接缝）
+#[allow(clippy::too_many_arguments)]
 pub fn transvoxel_extract(
     stack: &DensityStack,
     base_layer: &dyn DensityProvider,
@@ -374,20 +363,23 @@ pub fn transvoxel_extract(
     TerrainMeshData { vertices, normals, indices, colors }
 }
 
+// ── 角点偏移（与 global_corners stride 排序一致）──
+const CORNER_DX: [i32; 8] = [0, 1, 1, 0, 0, 1, 1, 0];
+const CORNER_DY: [i32; 8] = [0, 0, 0, 0, 1, 1, 1, 1];
+const CORNER_DZ: [i32; 8] = [0, 0, 1, 1, 0, 0, 1, 1];
+
+#[allow(clippy::too_many_arguments)]
 #[inline]
 fn corner_pos(ox: f64, oy: f64, oz: f64, vs: f64, ix: usize, iy: usize, iz: usize, corner: usize) -> Vec3 {
-    let dx = if corner & 1 != 0 { 1 } else { 0 };
-    let dy = if corner & 4 != 0 { 1 } else { 0 };
-    let dz = if corner & 2 != 0 { 1 } else { 0 };
+    let dx = CORNER_DX[corner];
+    let dy = CORNER_DY[corner];
+    let dz = CORNER_DZ[corner];
     Vec3::new(
-        (ox + (ix + dx) as f64 * vs) as f32,
-        (oy + (iy + dy) as f64 * vs) as f32,
-        (oz + (iz + dz) as f64 * vs) as f32,
+        (ox + (ix as i32 + dx) as f64 * vs) as f32,
+        (oy + (iy as i32 + dy) as f64 * vs) as f32,
+        (oz + (iz as i32 + dz) as f64 * vs) as f32,
     )
 }
-
-// ── 三角表数据（来自标准 MC reference）──
-include!("tri_table_data.rs");
 
 // ── 测试 ────────────────────────────
 #[cfg(test)]
@@ -397,6 +389,7 @@ mod tests {
     use woworld_core::density::{DensityProvider, DensityStack};
     use woworld_core::prelude::WorldPos;
 
+    #[derive(Debug)]
     struct SphereDensity { cx: f64, cy: f64, cz: f64, r: f64 }
     impl DensityProvider for SphereDensity {
         fn density_at(&self, pos: WorldPos) -> f32 {
@@ -407,6 +400,7 @@ mod tests {
         fn priority(&self) -> u8 { 0 }
     }
 
+    #[derive(Debug)]
     struct EmptyDensity;
     impl DensityProvider for EmptyDensity {
         fn density_at(&self, _pos: WorldPos) -> f32 { -1.0 }

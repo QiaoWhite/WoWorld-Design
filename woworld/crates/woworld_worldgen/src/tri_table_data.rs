@@ -1,6 +1,6 @@
-//! 自动提取自 git 历史 marching_cubes.rs。
-//! 标准 MC EDGE_TABLE + TRI_TABLE + EDGE_ENDPOINTS — 纯数学常量。
-//! 由 transvoxel.rs 通过 include!("tri_table_data.rs") 内联。
+//! 标准 MC (Marching Cubes) 查找表 — 纯数学常量。
+//! 提取自 git 历史 marching_cubes.rs，Paul Bourke 标准值。
+//! 由 `crate::transvoxel` 模块通过正常 `use` 导入消费。
 
 pub(crate) static EDGE_TABLE: [u16; 256] = [
     0x000, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c, 0x80c, 0x905, 0xa0f, 0xb06, 0xc0a,
@@ -26,7 +26,7 @@ pub(crate) static EDGE_TABLE: [u16; 256] = [
 ];
 
 // ── 三角表 ───────────────────────────
-pub(crate) static TRI_TABLE: [[i8; 16]; 256] = [
+pub(crate) static TRI_TABLE_DATA: [[i8; 16]; 256] = [
     [
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     ],

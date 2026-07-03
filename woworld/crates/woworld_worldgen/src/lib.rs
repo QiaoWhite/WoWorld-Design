@@ -11,6 +11,8 @@ pub mod ocean;
 pub mod terrain;
 pub mod terrain_mesh;
 pub mod transition_tables;
+pub mod transvoxel;
+pub mod tri_table_data;
 
 pub use biome::BiomeClassifier;
 pub use cave::CaveDensity;
@@ -23,4 +25,5 @@ pub use noise_gen::{NoiseParams, WorldNoise};
 pub use ocean::HeightfieldOcean;
 pub use terrain::{HeightfieldTerrain, TerrainBaseDensity};
 pub use terrain_mesh::TerrainMeshData;
+pub use transvoxel::transvoxel_extract;
 pub use woworld_core::time::WorldClock;

@@ -7,6 +7,7 @@
 
 mod ocean;
 mod terrain_chunk;
+mod voxel_chunk;
 
 use godot::prelude::*;
 

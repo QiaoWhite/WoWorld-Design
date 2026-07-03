@@ -128,6 +128,16 @@ impl HeightfieldTerrain {
         &self.noise
     }
 
+    /// 获取密度栈引用（用于 Transvoxel 等值面提取）
+    pub fn density_stack(&self) -> &DensityStack {
+        &self.density_stack
+    }
+
+    /// 获取噪声 Arc 克隆（用于 rayon 后台线程共享）
+    pub fn noise_arc(&self) -> Arc<WorldNoise> {
+        self.noise.clone()
+    }
+
     /// 底层地形高度（内部——2D 高度场权威入口）
     ///
     /// 不走 `DensityStack`（3D 密度场 ≠ 2D 高度场）。

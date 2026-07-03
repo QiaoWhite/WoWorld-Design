@@ -1,0 +1,57 @@
+# 开发阶段——正式开发规格
+
+> **定位**：本文件夹存放经过讨论确定的、预备投入开发的设计结果。所有文档为权威实现规格。
+> **和 `想法/` 的关系**：`想法/` = 概念设计与脑暴（允许矛盾、模糊、未决）。本文件夹 = 讨论后的正式结果。
+
+---
+
+## 模块索引
+
+| 模块 | 路径 | 内容 | 状态 |
+|------|------|------|------|
+| **★ 游戏概述** | [游戏概述.md](游戏概述.md) | WoWorld 游戏愿景与设计哲学——"创建另一个'人世'"。回答"这是什么游戏"和"为什么要做"。 | ✅ v1.0 |
+| **★ 技术栈方案** | [技术栈方案/](技术栈方案/) | WoWorld 正式技术蓝图 v3.0。Rust+Godot 总架构、世界生成、海洋、天空、战斗、NPC、载具、建造、性能预算、开发路线。**所有技术决策的权威依据。** | ✅ v3.0 |
+| **NPC 活人感** | [NPC活人感模块/](NPC活人感模块/) | NPC 系统权威规格 ver2.0。含子模块: 02-性别吸引力、03-基本需求、04-进阶需求、05-审美艺术、06-认知智慧、07-生命周期、**08-行动涌现与分类 ★新增** | ✅ v2.0 |
+| **★ NPC行动涌现** | [NPC活人感模块/08-NPC行动涌现与分类/](NPC活人感模块/08-NPC行动涌现与分类/) | 三层原子架构(35物理基元+~40领域复合+~25社会抽象)。AgentSnapshot连续能力快照。MaterialProperties数据驱动。IK+碰撞箱战斗。KnowledgeSeed知识种子。execution_noise技能精度。**所有NPC物理交互的权威依据。** | ✅ v1.0 CHG-042 |
+| **战斗系统** | [战斗/](战斗/) | 14 篇开发文档。三层模型/信息不对称/招式积木/魔法融入/半自动HUD。 | ✅ v1.0 |
+| **魔法系统** | [魔法/](魔法/) | 19 篇开发文档。十元素+七系+方程式+魔力体系+施法媒介。七层结构。 | ✅ v1.0 |
+| **★ 世界生成** | [世界生成/](世界生成/) | 9 篇开发规格。11 阶段生成管线、自然/海洋景观、聚落/政治实体、WFC 建筑、体素引擎、交通网络、历史模拟、世界边界。 | ✅ v1.0 |
+| **★ 生命系统** | [生命/](生命/) | 12 篇开发规格。Life 基类架构、智能种族/动物/灵兽/怪物/亡灵/植物/神明/玩家、12 维程序化生成、繁衍、三层社会约束。 | ✅ v1.0 |
+| **★ 历史系统** | [历史/](历史/) | 6 篇开发规格。事件因果链与三层驱动模型、生命痕迹与书籍著作、灵元素印记与历史嵌入世界、大日志系统、外部接口与性能预算。 | ✅ v1.0 |
+| **★ 物品系统** | [物品系统/](物品系统/) | 9 篇开发规格 + README。两层 ID 模型(ItemDefId/ItemEntId)、通用组件装配框架(Rigid/Hinge/Chain/Flexible)、Quality×Rarity 双维度、BodyPlan 槽位派生、双套 Outfit BG3式切换、五层仓储体系、卡槽+直接附魔两条路径、铜银金货币。**所有物品标识和属性的权威依据。** | ✅ v1.0 |
+| **★ 技能系统** | [技能系统/](技能系统/) | 3 篇开发规格 + README。SkillId(5分类u64)/SkillEntry(xp/level/innate_aptitude/total_xp/times_used)、累积XP公式(指数减速base=100/k=0.04)、天赋三层(MentalAccess trait/天生倍率0.7-1.3/交叉训练非递归天花板min(40,0.5L))、TeachingSession四种路径(自学/师承/学院/秘传)、TeachingRisk trait空默认。**所有技能数据模型和升级/教学机制的权威依据。** | ✅ v1.0 |
+| **★ 天气与季节系统** | [天气与季节系统/](天气与季节系统/) | 4 篇开发规格 + README。WeatherQuery trait 统一轮询（零事件总线）、WeatherSample 双层温度（regional/ground）+ 群系微气候修正、Markov 6状态+雾独立维度、ClimateRegion→LocalWeather 两层空间、极端天气参数组合判定+三层NPC响应、SeasonClock 纯时间函数（120天/年·60分钟/天·玩家可调15-120 [TUNING]）、13消费方完整数据合同、历史气象异常生成（种子驱动极值采样+灾害集群）、WeatherVisualPacket（~200 bytes/帧，≤0.5ms GPU 降水粒子）。**所有天气/季节数据的权威依据。** | ✅ v1.0 |
+| **★ 语言表达系统** | [语言表达/](语言表达/) | 8 篇开发规格 + README。三层 Crate 架构（woworld_types + lang_expression + 业务模块）、LanguageId/ScriptId/LanguageFamily 语言谱系 DAG、ExpressionRef 统一可读物句柄（8B Copy）、ContentResolver trait 注册表模式、TextGenerator 片段组合引擎（~430 片段·~86KB）、Conversation 多参与者对话（2→1000+·TurnMode 四种模式）、DialogueIntent NPC 主动对话（5种驱动）、ConversationTopic 话题模型（Alias Method 采样）、PhaticLayer 应酬层（5类 ~210 片段）、SocialField 群体动力学（惯性/极化/从众/SensoryMapping）、InputInterpreter 三层 NLU 回落、PlayerInput 四种输入统一（预设/搜索/语音/打字）。**所有语言/文字/对话数据的权威依据。** | ✅ v1.0 |
+| **★ 经济系统** | [经济系统/](经济系统/) | 9 篇开发规格 + README。限价订单簿撮合引擎+分层定价、Market/Storefront 市场模型、价格从交易涌现、交易主体四条件涌现（供给/需求/中间商）、MarketRegulations 参数化经济体制（自由市场→军国经济）、PowerAtom 权力原子框架、行为经济学十概念×NPC心智映射、货币三管道+五大自动稳定器。**所有价格/市场/交易数据的权威依据。** | ✅ v1.0 |
+| **★ 文化系统** | [文化系统/](文化系统/) | 8 篇开发规格 + README。CultureCoreParams 10核心参数+三层派生架构、障碍Voronoi空间模型、CommunicationNorms所有权转移、审美/技术派生、演变四路径、地名系统31种实体类型+命名价值评分、节日与仪式系统 RitualDef统一原子+四类节日生成+权力桥接零耦合。**所有文化参数的权威依据。** | ✅ v1.0 |
+| **★ 权力系统** | [权力系统/](权力系统/) | 9 篇开发规格 + README。17普适权力原子+PowerTopology有向多重图+8条获取路径+Legitimacy 5因子公式+Duty制裁塌缩链+Polity涌现+外交6因子公式。**所有权力/合法性/政治实体数据的权威依据。** | ✅ v1.0 |
+| **★ 信仰系统** | [信仰系统/](信仰系统/) | 10 篇开发规格 + README。实践优先模型(ReligiousPracticeProfile)、FaithTheology 10连续参数、NPC→NPC接触传染、5传播渠道+4改变路径、FaithCalendarQuery trait实现、Divine授权事件桥接(零耦合)、MagicReligionRelation per-faith、SacredArchitectureParams→世界生成、神遗物生成+DivineBlessing附魔。**所有信仰/宗教/崇拜实践的权威依据。** | ✅ v1.0 |
+| **★ 载具系统** | [载具系统/](载具系统/) | 10 篇开发规格 + README。VehicleId+契书双重身份、VehicleArchetype×文化涌现→VehicleDef、五种动力类型+MagicEngine魔法集成、L1-L3半自动操控+VehicleController trait、三通道连续损伤+沉没事件链、记忆优先契书可选产权+伪造/篡改/检测、移动容器货运+运费NPC心智涌现、铁路P9极低概率涌现、VehicleQuery/VoiceMut跨模块接口。**所有载具数据的权威依据。** | ✅ v1.0 |
+| **★ 建筑模块** | [建筑模块/](建筑模块/) | 组件族(9核心族+Mod扩展)。WFC 2.5D三阶段+8种生成器。BuildingQuery—10消费方。Blueprint TOML玩家DIY。ConstructionScheduler声明式施工。BuildingHistory建筑考古。三扇门: BuildContext入/BuildingQuery出/ConstructionTask出。 | ✅ v1.0 |
+| **家具系统** | [家具系统设计.md](家具系统设计-旧.md) | 家具分类/功能/质量/文化变体 | ⚠️ v0.1 |
+| **性能优化** | [性能优化分析 20260603.md](性能优化分析 20260603.md) | 性能瓶颈与缓解策略 | ⚠️ v0.1 |
+
+---
+
+## 待补充模块
+
+| 模块 | 状态 | 预计内容 |
+|------|------|---------|
+| 法律与秩序 | ⬜ | 犯罪/侦查/审判/惩罚/法外之地 |
+| 政治与派系 | ⬜ | 政治实体/派系动力/外交/战争 |
+| 名声系统 | ⬜ | 多维度名声/传播/头衔 |
+| UI/UX | ⬜ | HUD规范/菜单/对话界面 |
+
+---
+
+## 文档编写约定
+
+- 版本号格式：`verX.Y`（MAJOR=重大重构, MINOR=增量修订）
+- 状态标注（如 001-xxx.md 中）：概念草稿→开发规格→已验证
+- 使用 `[[wikilink]]` 交叉引用
+- Rust 伪代码为 LLM 辅助开发提供数据合同和接口边界
+- 和 `开发阶段/技术栈方案/` 保持一致——技术决策以技术栈方案 v3.0 为准
+
+---
+
+> **关联**：[[Happy Game/开发阶段/技术栈方案/001-WoWorld正式技术栈方案v3|技术栈方案 v3.0]]（权威技术蓝图） · [[CHG-007]] · [[CHG-008]] · [[CHG-009]]

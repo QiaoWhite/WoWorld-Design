@@ -40,8 +40,8 @@ impl INode3D for OceanPlane {
         let mut mat = ShaderMaterial::new_gd();
         mat.set_shader(&shader);
 
-        // 覆盖 clipmap 最远距离 (1024m) × 2，加余量
-        let plane_size = 2500.0;
+        // 覆盖 LOD 7 最远距离 (10000m) 的整个可渲染区域
+        let plane_size = 22000.0;
         let mut plane = PlaneMesh::new_gd();
         plane.set_size(Vector2::new(plane_size, plane_size));
         plane.set_subdivide_width(200);
@@ -65,7 +65,7 @@ impl INode3D for OceanPlane {
             .and_then(|n| n.try_cast::<Node3D>().ok());
 
         godot_print!(
-            "OceanPlane: {}x{}m Gerstner surface initialized",
+            "OceanPlane: {}x{}m ocean surface (200×200)",
             plane_size,
             plane_size
         );

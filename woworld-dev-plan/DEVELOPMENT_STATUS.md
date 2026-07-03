@@ -77,14 +77,14 @@
 
 **LOD 偏差（vs CHG-049）**：
 
-| # | 偏差 | 状态 |
-|---|------|------|
-| ✅1 | 缺 scene_lod 0 (0.5m) | Sprint-013 |
-| ✅2 | LOD 距离带偏移 | Sprint-013 |
+| #   | 偏差                      | 状态                                                  |
+| --- | ----------------------- | --------------------------------------------------- |
+| ✅1  | 缺 scene_lod 0 (0.5m)    | Sprint-013                                          |
+| ✅2  | LOD 距离带偏移               | Sprint-013                                          |
 | 🟡3 | 远距离全 Transvoxel (应为 SH) | **Sprint-015: scene_lod 5 SH ✓ / scene_lod 6-7 仍缺** |
-| 🟡4 | 缺 scene_lod 6-7 (4km+) | 后续——复用 SH 代码路径 |
-| 🟡5 | 缺 LODCoordinator | 后续 |
-| 🟡6 | 远距离人造结构不可见 | 需灯光烘焙 + 建筑群轮廓系统，等待建筑模块 |
+| 🟡4 | 缺 scene_lod 6-7 (4km+)  | 后续——复用 SH 代码路径                                      |
+| 🟡5 | 缺 LODCoordinator        | 后续                                                  |
+| 🟡6 | 远距离人造结构不可见              | 需灯光烘焙 + 建筑群轮廓系统，等待建筑模块                              |
 
 ### woworld_atmosphere — 🟡 部分实现
 
@@ -202,7 +202,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 ## 三、当前冲刺
 
-**下一个冲刺**: 多层密度 L0-L10 — 最后一个架构偏离（🔴5），解锁洞穴/矿脉/地基/NPC 编辑/玩家 SDF。详见最新交接摘要 `handoff/handoff-20260628-007.md`。
+**下一个冲刺**: 多层密度 L0-L10 — 最后一个架构偏离（🔴5），解锁洞穴/矿脉/地基/NPC 编辑/玩家 SDF。详见最新交接摘要 `handoff/handoff-20260701-019.md`。
 
 **本次会话冲刺历史**：
 
@@ -245,7 +245,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 ### 治理待办
 
 - [ ] 宪法 v1.4 用户审批（自 v1.1 起待审批）
-- [ ] 根目录 `session-handoff.md` 归档（旧格式，已过时）
+- [x] `session-handoff.md` 根目录旧格式清理 + 交接文档集中化 → ✅ 2026-07-01 完成
 - [x] `chunk_manager.rs` 删除 → ✅ Sprint-016 退役
 
 ---
@@ -254,12 +254,12 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | 文件 | 内容 |
 |------|------|
-| [handoff-20260628-009.md](handoff/handoff-20260628-009.md) | ★ 最新 — Sprint-015（Signed Heightfield — scene_lod 5 远距离渲染）|
-| [handoff-20260628-008.md](handoff/handoff-20260628-008.md) | Sprint-013（LOD 重构 CHG-049 6 级对齐 + scene_lod 0）|
-| [handoff-20260628-007.md](handoff/handoff-20260628-007.md) | Sprint-012（Chunk 32m 对齐 + LOD 5 级全 Transvoxel + 2048m 视野）|
-| [handoff-20260625-005.md](handoff/handoff-20260625-005.md) | Sprint-008~010（Async + 植被基础设施 + Transvoxel 常规单元）→ 下一步 Transvoxel 过渡单元 |
-| [handoff-20260625-004.md](handoff/handoff-20260625-004.md) | Sprint-006+007 全量推进（地基修复+性能优化） |
-| [handoff-20260625-003.md](handoff/handoff-20260625-003.md) | Sprint-002~005 全量推进（MC+Clipmap+海洋） |
+| [handoff-20260701-019.md](handoff/handoff-20260701-019.md) | ★ 最新 — Sprint-020~024（GPU-driven clipmap + Floating Origin）|
+| [handoff-20260701-018.md](handoff/handoff-20260701-018.md) | 裂缝问题诊断数据汇总 |
+| [handoff-20260630-017.md](handoff/handoff-20260630-017.md) | Sprint-019（Floating Origin 裂缝根因）|
+| [archived/handoff-20260629-016.md](handoff/archived/handoff-20260629-016.md) | Sprint-018（性能卡顿修复）|
+| [archived/handoff-20260628-015.md](handoff/archived/handoff-20260628-015.md) | Sprint-017 就绪 |
+| [archived/handoff-20260628-014.md](handoff/archived/handoff-20260628-014.md) | Sprint-016 就绪 |
 
 ---
 

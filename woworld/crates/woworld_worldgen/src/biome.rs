@@ -5,6 +5,8 @@
 //!
 //! 参见: `WoWorld-Design/开发路线图/002-轨A-正式开发.md` A.4c
 
+use std::sync::Arc;
+
 use serde::Deserialize;
 use woworld_core::material::SurfaceMaterial;
 use woworld_core::prelude::WorldPos;
@@ -49,15 +51,15 @@ struct BiomesToml {
 #[derive(Clone, Debug)]
 pub struct BiomeClassifier {
     biomes: Vec<BiomeDef>,
-    noise: WorldNoise,
+    noise: Arc<WorldNoise>,
 }
 
 impl BiomeClassifier {
     /// 从 TOML 字符串构建（编译期嵌入）
     ///
     /// `toml_str`: `include_str!("../../../assets/biomes.toml")` 的内容
-    /// `noise`: 已构建的 WorldNoise（含温度/降水层）
-    pub fn from_toml_str(toml_str: &str, noise: WorldNoise) -> Result<Self, String> {
+    /// `noise`: 已构建的 WorldNoise（含温度/降水层）——与 HeightfieldTerrain 共享 Arc
+    pub fn from_toml_str(toml_str: &str, noise: Arc<WorldNoise>) -> Result<Self, String> {
         let config: BiomesToml =
             toml::from_str(toml_str).map_err(|e| format!("Failed to parse biomes.toml: {}", e))?;
 
@@ -101,21 +103,6 @@ impl BiomeClassifier {
         self.noise.sample_precipitation(pos.x, pos.z)
     }
 
-    /// 判断子材质条件是否匹配
-    ///
-    /// `condition`: "steep" | "flat" | "low" | "high" | "any"
-    /// `height`: 相对于当前地表的高度（局部高度差）
-    /// `steepness`: 坡度 (0.0-1.0, dot(normal, up) 的补)
-    pub fn sub_material_matches(condition: &str, _height: f64, steepness: f32) -> bool {
-        match condition {
-            "steep" => steepness > 0.6,
-            "flat" => steepness < 0.15,
-            "low" => true,  // 低洼——调用方传入局部高度判断
-            "high" => true, // 高地——调用方传入局部高度判断
-            "any" => true,
-            _ => false,
-        }
-    }
 }
 
 // ── 测试 ────────────────────────────────────────
@@ -124,6 +111,20 @@ impl BiomeClassifier {
 mod tests {
     use super::*;
     use crate::noise_gen::WorldNoise;
+
+    // Test-only: moved from main impl (P2c 群系细化将正式实现)
+    impl BiomeClassifier {
+        pub fn sub_material_matches(condition: &str, _height: f64, steepness: f32) -> bool {
+            match condition {
+                "steep" => steepness > 0.6,
+                "flat" => steepness < 0.15,
+                "low" => true,
+                "high" => true,
+                "any" => true,
+                _ => false,
+            }
+        }
+    }
 
     fn test_toml() -> &'static str {
         r#"
@@ -160,7 +161,7 @@ surface_material = "Sand"
 
     fn make_classifier() -> BiomeClassifier {
         let noise = WorldNoise::new(42);
-        BiomeClassifier::from_toml_str(test_toml(), noise).unwrap()
+        BiomeClassifier::from_toml_str(test_toml(), Arc::new(noise)).unwrap()
     }
 
     #[test]
@@ -216,7 +217,7 @@ surface_material = "Sand"
 
     #[test]
     fn test_empty_biomes_error() {
-        let result = BiomeClassifier::from_toml_str("", WorldNoise::new(1));
+        let result = BiomeClassifier::from_toml_str("", Arc::new(WorldNoise::new(1)));
         assert!(result.is_err());
     }
 }

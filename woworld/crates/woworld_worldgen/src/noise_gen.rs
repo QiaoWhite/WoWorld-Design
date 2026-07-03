@@ -5,13 +5,21 @@
 //! - detail (~100m 波长): 地形起伏
 //! - mountain (~500m 波长): 山脊
 
+use std::sync::Arc;
+
 use noise::permutationtable::{NoiseHasher, PermutationTable};
 use noise::{NoiseFn, Perlin};
+use serde::Deserialize;
 
-use crate::seed::mix64;
+/// 64-bit mixing hash (splitmix64 finalizer)
+fn mix64(mut x: u64) -> u64 {
+    x = (x ^ (x >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94d049bb133111eb);
+    x ^ (x >> 31)
+}
 
 /// 噪声参数——可调
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct NoiseParams {
     pub continent_scale: f64,  // 默认 0.00001 (100km 波长)
     pub detail_scale: f64,     // 默认 0.01 (100m 波长)
@@ -20,6 +28,19 @@ pub struct NoiseParams {
     pub height_amplitude: f64, // 默认 350.0 (最高~700m, v3.0 spec)
     pub sea_depth: f64,        // 默认 400.0 (最深-400m)
     pub climate_scale: f64,    // 默认 0.0005 (~2km 波长, 温度/降水噪声)
+}
+
+impl NoiseParams {
+    /// 从 TOML 字符串加载（编译期嵌入——零运行时 I/O）
+    pub fn from_toml_str(toml_str: &str) -> Result<Self, String> {
+        #[derive(Deserialize)]
+        struct NoiseParamsToml {
+            noise: NoiseParams,
+        }
+        toml::from_str::<NoiseParamsToml>(toml_str)
+            .map(|t| t.noise)
+            .map_err(|e| format!("Failed to parse noise_params.toml: {}", e))
+    }
 }
 
 impl Default for NoiseParams {
@@ -61,16 +82,16 @@ impl WorldNoise {
         }
     }
 
-    pub fn with_params(seed: u64, params: NoiseParams) -> Self {
+    pub fn with_params(seed: u64, params: NoiseParams) -> Arc<Self> {
         let seeds = derive_perlin_seeds(seed);
-        Self {
+        Arc::new(Self {
             continent: Perlin::new(seeds[0]),
             detail: Perlin::new(seeds[1]),
             mountain: Perlin::new(seeds[2]),
             temperature: Perlin::new(seeds[3]),
             precipitation: Perlin::new(seeds[4]),
             params,
-        }
+        })
     }
 
     /// 采样 (x, z) 处的地形高度（米）
@@ -82,9 +103,13 @@ impl WorldNoise {
     /// 4. 海洋: 负高度（海床）
     pub fn sample_height(&self, x: f64, z: f64) -> f64 {
         let p = &self.params;
-        let continent_val = self
-            .continent
-            .get([x * p.continent_scale, z * p.continent_scale]);
+        // 无理数相位偏移——确保原点不在 Perlin 整数格点（Perlin(0,0)≡0 对所有 seed）
+        // φ⁻¹ (黄金比例倒数) 和 1−φ⁻¹ 确保任何缩放比下都不回到格点
+        const PHI_INV: f64 = 0.6180339887498949;
+        let continent_val = self.continent.get([
+            x * p.continent_scale + PHI_INV,
+            z * p.continent_scale + (1.0 - PHI_INV),
+        ]);
 
         if continent_val > p.sea_threshold {
             // 陆地——叠层

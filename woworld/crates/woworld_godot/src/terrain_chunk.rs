@@ -5,22 +5,26 @@
 //!
 //! 架构：Rust 权威 → Godot 纯表现（GDScript 铁律 §14.1）
 
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-
 use godot::classes::light_3d::Param;
 use godot::classes::mesh::PrimitiveType;
+use std::sync::mpsc;
+
 use godot::classes::{
-    ArrayMesh, DirectionalLight3D, MeshInstance3D, ProceduralSkyMaterial, Shader, ShaderMaterial,
-    WorldEnvironment,
+    ArrayMesh, DirectionalLight3D, Image, MeshInstance3D, ProceduralSkyMaterial, Shader,
+    ShaderMaterial, WorldEnvironment,
 };
 use godot::prelude::*;
 use woworld_atmosphere::AtmosphereSynthesizer;
 use woworld_core::prelude::*;
 use woworld_core::spatial::TerrainQuery;
+use std::collections::HashMap;
+
+use woworld_core::material::SurfaceMaterial;
+use woworld_core::ocean::OceanProvider;
 use woworld_worldgen::{
-    BiomeClassifier, ClipmapManager, HeightfieldTerrain, LodKey, NoiseParams, TerrainMeshData,
-    TileEvent, WorldNoise,
+    generate_clipmap_grid, generate_heightmap_data,
+    layer_tex_config, level_spacing, load_material_colors, BiomeClassifier, HeightfieldOcean,
+    HeightfieldTerrain, HeightmapData, NoiseParams, WorldNoise, LEVELS,
 };
 
 // ── 缺省参数 ────────────────────
@@ -28,15 +32,44 @@ use woworld_worldgen::{
 const DEFAULT_SECONDS_PER_DAY: f64 = 30.0;
 /// DirectionalLight3D 距离世界原点的距离（米）
 const SUN_ORBIT_RADIUS: f32 = 500.0;
+/// 后台线程完成的 heightmap 数据
+struct HeightmapJob {
+    level_idx: u8,
+    data: Vec<f32>,
+    material_colors: Vec<[f32; 4]>,
+    hm_size: u32,
+    panicked: bool,
+    /// 该高度图覆盖的世界空间原点（左下角）
+    grid_origin_x: f64,
+    grid_origin_z: f64,
+}
 
-/// 单个 LOD 级别的合并 mesh 状态
+/// 单个 LOD 级别的 GPU-driven clipmap 层
 struct LodLayer {
-    #[allow(dead_code)]
     instance: Gd<MeshInstance3D>,
-    mesh: Gd<ArrayMesh>,
-    active_keys: HashSet<LodKey>,
-    completed: HashMap<LodKey, TerrainMeshData>,
-    dirty: bool,  // active_keys 或 completed 有变化 → 需要重新合并上传
+    /// 当前绑定到 shader 的 R32F heightmap 纹理（被 GPU 采样）
+    heightmap_tex: Gd<godot::classes::ImageTexture>,
+    /// RGBA8 材质色纹理（群系驱动，被 GPU 采样）
+    material_tex: Gd<godot::classes::ImageTexture>,
+    /// 邻层（coarse）高度图引用——L[n] 的 neighbor = L[n+1] 的 heightmap_tex
+    /// L7 指向自身（blend_factor 永为 0，不采样）
+    neighbor_heightmap_tex: Gd<godot::classes::ImageTexture>,
+    /// 专用 ShaderMaterial
+    material: Gd<ShaderMaterial>,
+    /// 上次 snap 位置（避免冗余 set_global_position）
+    last_snap: (f64, f64),
+    /// 顶点间距
+    spacing: f64,
+    /// 该层 heightmap 纹理分辨率（像素，正方形）
+    hm_size: u32,
+    /// 当前高度图中心（世界坐标，用于 drift 检测）
+    hm_center: (f64, f64),
+    /// 高度图 job 正在生成中
+    hm_in_flight: bool,
+    /// 漂移余量（= hm_extent/2 - max_range - spacing）
+    margin: f64,
+    /// 当前 heightmap 的 grid_origin（用于下层 fine_grid_origin 引用）
+    grid_origin: (f64, f64),
 }
 
 // ── GodotClass ────────────────────
@@ -45,14 +78,19 @@ struct LodLayer {
 #[class(base = Node3D)]
 pub struct WorldDriver {
     terrain: HeightfieldTerrain,
+    ocean: HeightfieldOcean,
     clock: WorldClock,
     atmosphere: AtmosphereSynthesizer,
-    clipmap: ClipmapManager,
 
-    /// 每个 LOD 级别一个合并 MeshInstance3D（索引=level）
+    /// 每个 LOD 级别一个 GPU-driven clipmap 层
     lod_layers: [Option<LodLayer>; 8],
-    /// 所有 Tile 共享一份材质
-    shared_material: Option<Gd<ShaderMaterial>>,
+
+    /// 后台 heightmap 生成 → 主线程收割
+    hm_job_tx: mpsc::Sender<HeightmapJob>,
+    hm_job_rx: mpsc::Receiver<HeightmapJob>,
+
+    /// SurfaceMaterial → RGBA 色表（编译时嵌入，rayon job 共享）
+    material_colors: HashMap<SurfaceMaterial, [f32; 4]>,
 
     // 缓存的 Godot 节点引用
     sun: Option<Gd<DirectionalLight3D>>,
@@ -68,16 +106,17 @@ pub struct WorldDriver {
 #[godot_api]
 impl INode3D for WorldDriver {
     fn init(base: Base<Node3D>) -> Self {
-        let terrain = HeightfieldTerrain::default();
-        let clipmap = ClipmapManager::new_async(Arc::new(terrain.clone()));
+        let (tx, rx) = mpsc::channel();
         Self {
-            terrain,
+            terrain: HeightfieldTerrain::default(),
+            ocean: HeightfieldOcean::default(),
             clock: WorldClock::new(DEFAULT_SECONDS_PER_DAY),
             atmosphere: AtmosphereSynthesizer::from_embedded_toml()
                 .expect("embedded time_curve.toml must be valid"),
-            clipmap,
             lod_layers: Default::default(),
-            shared_material: None,
+            hm_job_tx: tx,
+            hm_job_rx: rx,
+            material_colors: HashMap::new(),
             sun: None,
             world_env: None,
             terrain_parent: None,
@@ -88,92 +127,283 @@ impl INode3D for WorldDriver {
     }
 
     fn ready(&mut self) {
-        // ── 1. 创建 HeightfieldTerrain（含群系）────
-        let seed: u64 = 42;
-        let params = NoiseParams {
-            continent_scale: 0.001,
-            detail_scale: 0.005,
-            mountain_scale: 0.001,
-            sea_threshold: -0.5,
-            height_amplitude: 120.0,
-            sea_depth: 400.0,
-            climate_scale: 0.005,
-        };
-        let noise = WorldNoise::with_params(seed, params);
+        use godot::classes::image::Format;
+        use godot::builtin::PackedByteArray;
+        use godot::classes::ImageTexture;
 
+        // ── 1. 创建 HeightfieldTerrain（含群系）────
+        let seed: u64 = 99;
+        let params = NoiseParams::from_toml_str(include_str!(
+            "../../../assets/noise_params.toml"
+        ))
+        .expect("noise_params.toml must be valid");
+        let noise = WorldNoise::with_params(seed, params);
         let biome_toml = include_str!("../../../assets/biomes.toml");
         let biome_classifier = BiomeClassifier::from_toml_str(biome_toml, noise.clone())
             .expect("Failed to parse biomes.toml");
-
+        // 海洋——与 terrain 共享同一个 Arc<WorldNoise>
+        self.ocean = HeightfieldOcean::new(noise.clone());
         let clock = WorldClock::new(DEFAULT_SECONDS_PER_DAY);
-        self.terrain = HeightfieldTerrain::with_noise(noise)
+        self.terrain = HeightfieldTerrain::with_noise(noise, seed)
             .with_clock(clock.clone())
             .with_biomes(biome_classifier);
         self.clock = clock;
 
-        self.clipmap = ClipmapManager::new_async(Arc::new(self.terrain.clone()));
+        // 加载材质色表（编译时嵌入——委托 woworld_worldgen 解析）
+        self.material_colors = load_material_colors(include_str!(
+            "../../../assets/material_colors.toml"
+        ))
+        .expect("material_colors.toml must be valid");
 
-        // ── 2. 缓存场景节点引用（零后续查找）──────
+        // ── 2. 缓存场景节点引用 ──────────
         self.sun = self.base().try_get_node_as::<DirectionalLight3D>("../Sun");
         self.world_env = self
             .base()
             .try_get_node_as::<WorldEnvironment>("../WorldEnvironment");
         self.terrain_parent = Some(self.base().clone().cast::<Node3D>());
         self.player_node = self.base().try_get_node_as::<Node3D>("../Player");
-
-        // OceanPlane 的 MeshInstance3D 子节点 —— 用于传水深 uniform
         self.ocean_mesh = self
             .base()
             .try_get_node_as::<Node3D>("../OceanPlane")
             .and_then(|ocean| ocean.get_node_or_null("OceanPlane"))
             .and_then(|n| n.try_cast::<MeshInstance3D>().ok());
 
-        match (&self.sun, &self.world_env) {
-            (Some(_), Some(_)) => {
-                godot_print!("WorldDriver: Sun + WorldEnvironment nodes cached")
+        // 加载 terrain.gdshader（全部 8 层共享）
+        use godot::classes::ResourceLoader;
+        let mut loader = ResourceLoader::singleton();
+        let terrain_shader = loader
+            .load("res://shaders/terrain.gdshader")
+            .expect("Failed to load terrain.gdshader from res://shaders/")
+            .cast::<Shader>();
+
+        // ── 3. 为每个 LOD 层级创建 GPU-driven clipmap ──
+        for level_idx in 0..8u8 {
+            let level = &LEVELS[level_idx as usize];
+            let spacing = level_spacing(level);
+            let tex_cfg = layer_tex_config(level);
+            let hm_size = tex_cfg.hm_size;
+            let hm_extent = tex_cfg.hm_extent as f32;
+
+            let grid = generate_clipmap_grid(level);
+            let grid_n = (grid.vertices.len() as f64).sqrt() as u32;
+
+            // 3b. 创建 Godot ArrayMesh（静态——不再修改）
+            let mut am = ArrayMesh::new_gd();
+            Self::upload_static_mesh(&mut am, &grid);
+            godot_print!(
+                "  LOD {}: {}×{} vertices, {} tris (hm: {}², margin: {:.0}m)",
+                level_idx,
+                grid_n, grid_n,
+                grid.indices.len() / 3,
+                hm_size,
+                hm_extent as f64 / 2.0 - level.max_range - spacing,
+            );
+
+            // 3c. 创建 R32F heightmap 纹理（按层分辨率）
+            let mut img = Image::create(
+                hm_size as i32, hm_size as i32, false, Format::RF,
+            )
+            .expect("Image::create for heightmap");
+            let mut bytes = PackedByteArray::new();
+            for _ in 0..(hm_size * hm_size) {
+                for &b in &0.0f32.to_le_bytes() {
+                    bytes.push(b);
+                }
             }
-            (None, _) => godot_error!("WorldDriver: ../Sun not found — day/night disabled"),
-            (_, None) => godot_error!("WorldDriver: ../WorldEnvironment not found — sky disabled"),
-        }
+            img.set_data(hm_size as i32, hm_size as i32, false, Format::RF, &bytes);
+            let ht_tex = ImageTexture::create_from_image(&img)
+                .expect("ImageTexture::create_from_image for heightmap");
 
-        // ── 3. 共享 ShaderMaterial（vertex shader camera-relative）──
-        let mut mat = ShaderMaterial::new_gd();
-        let mut shader = Shader::new_gd();
-        shader.set_code("shader_type spatial;
-render_mode unshaded, cull_disabled;
-uniform vec3 camera_pos = vec3(0.0);
-void vertex() {
-    vec3 rel = VERTEX - camera_pos;
-    vec3 view_pos = mat3(VIEW_MATRIX) * rel;
-    POSITION = PROJECTION_MATRIX * vec4(view_pos, 1.0);
-}
-void fragment() {
-    ALBEDO = COLOR.rgb;
-}");
-        mat.set_shader(&shader);
-        self.shared_material = Some(mat);
+            // 3c-bis. 创建 RGBA8 材质纹理（初始化为沙色）
+            let mut mat_img = Image::create(
+                hm_size as i32, hm_size as i32, false, Format::RGBA8,
+            )
+            .expect("Image::create for material map");
+            let mut mat_bytes = PackedByteArray::new();
+            for _ in 0..(hm_size * hm_size) {
+                for &b in &[191u8, 178, 128, 255] {
+                    // sand #BFB280
+                    mat_bytes.push(b);
+                }
+            }
+            mat_img.set_data(hm_size as i32, hm_size as i32, false, Format::RGBA8, &mat_bytes);
+            let mt_tex = ImageTexture::create_from_image(&mat_img)
+                .expect("ImageTexture::create_from_image for material map");
 
-        // ── 4. 创建每 LOD 级别的合并 MeshInstance3D ──
-        for level in 0..8u8 {
+            // 3d. 创建 ShaderMaterial（全部 8 层共享同一个 .gdshader）
+            let mut mat = ShaderMaterial::new_gd();
+            mat.set_shader(&terrain_shader);
+            mat.set_shader_parameter(
+                &StringName::from("heightmap"),
+                &ht_tex.to_variant(),
+            );
+            mat.set_shader_parameter(
+                &StringName::from("material_map"),
+                &mt_tex.to_variant(),
+            );
+            mat.set_shader_parameter(
+                &StringName::from("hm_extent"),
+                &Variant::from(hm_extent),
+            );
+            mat.set_shader_parameter(
+                &StringName::from("grid_origin"),
+                &Variant::from(Vector2::new(0.0, 0.0)),
+            );
+
+            // 3e. 创建 MeshInstance3D
             let mut mi = MeshInstance3D::new_alloc();
-            let am = ArrayMesh::new_gd();
-            mi.set_name(&format!("LOD_{}", level));
+            mi.set_name(&format!("LOD_{}", level_idx));
             mi.set_mesh(&am);
-            // 材质在首次 terrain mesh 上传时应用（此时 mesh 为空，无表面可用）
+            mi.set_extra_cull_margin(10000.0);
             if let Some(ref mut parent) = self.terrain_parent {
                 parent.add_child(&mi.clone().upcast::<Node>());
             }
-            self.lod_layers[level as usize] = Some(LodLayer {
+            mi.set_surface_override_material(0, &mat);
+
+            self.lod_layers[level_idx as usize] = Some(LodLayer {
                 instance: mi,
-                mesh: am,
-                active_keys: HashSet::new(),
-                completed: HashMap::new(),
-                dirty: true,  // 新创建 → 首次需合并上传
+                heightmap_tex: ht_tex.clone(),
+                material_tex: mt_tex,
+                neighbor_heightmap_tex: ht_tex, // placeholder — updated below
+                material: mat,
+                last_snap: (f64::MAX, f64::MAX),
+                spacing,
+                hm_size,
+                hm_center: (f64::MAX, f64::MAX),
+                hm_in_flight: false,
+                margin: tex_cfg.hm_extent / 2.0 - level.max_range - spacing,
+                grid_origin: (0.0, 0.0),
             });
         }
 
+        // ── 4. 设置细层交叉采样 uniform（L1-L7 引用 L0-L6 的 heightmap）──
+        for level_idx in 1..8u8 {
+            let (left, right) = self.lod_layers.split_at_mut(level_idx as usize);
+            let finer = left[level_idx as usize - 1].as_ref().unwrap();
+            let layer = right[0].as_mut().unwrap();
+            let fine_level = &LEVELS[level_idx as usize - 1];
+            let fine_spacing = level_spacing(fine_level);
+            let inner_bound = LEVELS[level_idx as usize].min_range as f32;
+            let blend_zone = (5.0 * fine_spacing) as f32;
+
+            layer.material.set_shader_parameter(
+                &StringName::from("fine_heightmap"),
+                &finer.heightmap_tex.to_variant(),
+            );
+            layer.material.set_shader_parameter(
+                &StringName::from("fine_grid_origin"),
+                &Variant::from(Vector2::new(0.0, 0.0)),
+            );
+            layer.material.set_shader_parameter(
+                &StringName::from("fine_hm_extent"),
+                &Variant::from(layer_tex_config(fine_level).hm_extent as f32),
+            );
+            layer.material.set_shader_parameter(
+                &StringName::from("inner_bound"),
+                &Variant::from(inner_bound),
+            );
+            layer.material.set_shader_parameter(
+                &StringName::from("blend_zone"),
+                &Variant::from(blend_zone),
+            );
+        }
+        // L0: 无更细层，设 inner_bound=-1 禁用内边界 morphing
+        //     外边界 morphing: L0 → L1（Hoppe w=n/10）
+        {
+            let (l0_slice, l1_slice) = self.lod_layers.split_at_mut(1);
+            let l0 = l0_slice[0].as_mut().unwrap();
+            let l1 = l1_slice[0].as_ref().unwrap();
+            l0.material.set_shader_parameter(
+                &StringName::from("fine_heightmap"),
+                &l0.heightmap_tex.to_variant(),
+            );
+            l0.material.set_shader_parameter(
+                &StringName::from("inner_bound"),
+                &Variant::from(-1.0f32),
+            );
+            let l0_level = &LEVELS[0];
+            let l1_level = &LEVELS[1];
+            let n = (2.0 * l0_level.max_range / level_spacing(l0_level)).ceil() as u32 + 1;
+            let outer_w = (n as f32 / 10.0) * level_spacing(l0_level) as f32;
+            l0.material.set_shader_parameter(
+                &StringName::from("coarse_heightmap"),
+                &l1.heightmap_tex.to_variant(),
+            );
+            l0.material.set_shader_parameter(
+                &StringName::from("coarse_grid_origin"),
+                &Variant::from(Vector2::new(0.0, 0.0)),
+            );
+            l0.material.set_shader_parameter(
+                &StringName::from("coarse_hm_extent"),
+                &Variant::from(layer_tex_config(l1_level).hm_extent as f32),
+            );
+            l0.material.set_shader_parameter(
+                &StringName::from("outer_bound"),
+                &Variant::from(l0_level.max_range as f32),
+            );
+            l0.material.set_shader_parameter(
+                &StringName::from("outer_blend_zone"),
+                &Variant::from(outer_w),
+            );
+        }
+
+        // ── 5. 外边界 coarse 交叉采样（L1-L6 引用 L2-L7 的 heightmap）──
+        for level_idx in 1..7u8 {
+            let (left, right) = self.lod_layers.split_at_mut(level_idx as usize + 1);
+            let coarser = right[0].as_ref().unwrap();
+            let layer = left[level_idx as usize].as_mut().unwrap();
+            let cur_level = &LEVELS[level_idx as usize];
+            let next_level = &LEVELS[level_idx as usize + 1];
+            let n = (2.0 * cur_level.max_range / level_spacing(cur_level)).ceil() as u32 + 1;
+            let outer_w = (n as f32 / 10.0) * level_spacing(cur_level) as f32;
+
+            layer.material.set_shader_parameter(
+                &StringName::from("coarse_heightmap"),
+                &coarser.heightmap_tex.to_variant(),
+            );
+            layer.material.set_shader_parameter(
+                &StringName::from("coarse_grid_origin"),
+                &Variant::from(Vector2::new(0.0, 0.0)),
+            );
+            layer.material.set_shader_parameter(
+                &StringName::from("coarse_hm_extent"),
+                &Variant::from(layer_tex_config(next_level).hm_extent as f32),
+            );
+            layer.material.set_shader_parameter(
+                &StringName::from("outer_bound"),
+                &Variant::from(cur_level.max_range as f32),
+            );
+            layer.material.set_shader_parameter(
+                &StringName::from("outer_blend_zone"),
+                &Variant::from(outer_w),
+            );
+        }
+        // L7: 无更粗层，设 outer_bound=99999 禁用外边界 morphing
+        if let Some(ref mut l7) = self.lod_layers[7] {
+            l7.material.set_shader_parameter(
+                &StringName::from("coarse_heightmap"),
+                &l7.heightmap_tex.to_variant(),
+            );
+            l7.material.set_shader_parameter(
+                &StringName::from("outer_bound"),
+                &Variant::from(99999.0f32),
+            );
+        }
+
+        // ── 6. 邻居高度图引用（L[n] → L[n+1], L7 → 自身）──
+        for i in 0..7u8 {
+            let (left, right) = self.lod_layers.split_at_mut(i as usize + 1);
+            let neighbor_tex = right[0].as_ref().unwrap().heightmap_tex.clone();
+            if let Some(ref mut layer) = left[i as usize] {
+                layer.neighbor_heightmap_tex = neighbor_tex;
+            }
+        }
+        if let Some(ref mut l7) = self.lod_layers[7] {
+            l7.neighbor_heightmap_tex = l7.heightmap_tex.clone();
+        }
+
         self.base_mut().set_process(true);
-        godot_print!("WorldDriver: 8 LOD layers ready");
+        godot_print!("WorldDriver: 8 GPU-driven clipmap layers ready");
     }
 
     fn process(&mut self, delta: f64) {
@@ -181,7 +411,7 @@ void fragment() {
         let wt = &self.clock.current;
         self.terrain.clock = Some(self.clock.clone());
 
-        // 天空/太阳：每帧更新（保持太阳运动连续）
+        // 天空/太阳
         {
             let origin = WorldPos { x: 0.0, y: 0.0, z: 0.0 };
             let atm = self.atmosphere.resolve(wt, origin);
@@ -189,60 +419,236 @@ void fragment() {
         }
 
         let player_pos = self.get_player_position();
+        let px = player_pos.x as f32;
+        let pz = player_pos.z as f32;
+        let py = player_pos.y as f32;
 
-        // ── Floating Origin (Shader) ──
-        // Vertex shader: VERTEX - camera_pos → GPU 坐标 < 500m
-        if let Some(ref mut mat) = self.shared_material {
-            let value = Variant::from(Vector3::new(
-                player_pos.x as f32,
-                player_pos.y as f32,
-                player_pos.z as f32,
-            ));
-            mat.set_shader_parameter("camera_pos", &value);
-        }
-
-        // 更新海水深度
-        if let Some(ref ocean_mesh) = self.ocean_mesh {
-            let terrain_h = self.terrain.height_at(player_pos);
-            let water_depth = if terrain_h < 0.0 {
-                (-terrain_h).max(0.1)
-            } else {
-                0.1
-            };
-            if let Some(mat) = ocean_mesh.get_surface_override_material(0) {
-                if let Ok(mut shader_mat) = mat.try_cast::<ShaderMaterial>() {
-                    shader_mat.set_shader_parameter("water_depth", &Variant::from(water_depth));
-                }
-            }
-        }
-
-        let events = self.clipmap.poll(player_pos);
-
-        for event in events {
-            match event {
-                TileEvent::Load { key, mesh } => {
-                    if let Some(ref mut layer) = self.lod_layers[key.level as usize] {
-                        if !mesh.vertices.is_empty() {
-                            layer.completed.insert(key, mesh);
+        // ── 收割后台完成的 heightmap job（双缓冲交换，无 GPU stall）──
+        use godot::classes::image::Format;
+        use godot::classes::ImageTexture;
+        while let Ok(job) = self.hm_job_rx.try_recv() {
+            let idx = job.level_idx as usize;
+            if let Some(ref mut layer) = self.lod_layers[idx] {
+                if !job.data.is_empty() {
+                    // 创建全新 ImageTexture（不修改 GPU 正采样的纹理 → 无管线停顿）
+                    let mut bytes = PackedByteArray::new();
+                    for &h in &job.data {
+                        for &b in &h.to_le_bytes() {
+                            bytes.push(b);
                         }
-                        layer.active_keys.insert(key);
-                        layer.dirty = true;
                     }
+                    let size = job.hm_size as i32;
+                    let mut img = Image::create(size, size, false, Format::RF)
+                        .expect("Image::create for heightmap swap");
+                    img.set_data(size, size, false, Format::RF, &bytes);
+                    let new_tex = ImageTexture::create_from_image(&img)
+                        .expect("ImageTexture::create_from_image for heightmap swap");
+
+                    // 原子交换：绑定新纹理 + 更新 UV 参考系
+                    layer.material.set_shader_parameter(
+                        &StringName::from("heightmap"),
+                        &new_tex.to_variant(),
+                    );
+                    layer.material.set_shader_parameter(
+                        &StringName::from("grid_origin"),
+                        &Variant::from(Vector2::new(
+                            job.grid_origin_x as f32,
+                            job.grid_origin_z as f32,
+                        )),
+                    );
+                    layer.grid_origin = (job.grid_origin_x, job.grid_origin_z);
+
+                    // 上传材质纹理（RGBA8——双缓冲交换，零管线停顿）
+                    let mut mat_bytes = PackedByteArray::new();
+                    for &[r, g, b, a] in &job.material_colors {
+                        for &v in &[
+                            (r * 255.0) as u8,
+                            (g * 255.0) as u8,
+                            (b * 255.0) as u8,
+                            (a * 255.0) as u8,
+                        ] {
+                            mat_bytes.push(v);
+                        }
+                    }
+                    let mut mat_img = Image::create(size, size, false, Format::RGBA8)
+                        .expect("Image::create for material map swap");
+                    mat_img.set_data(size, size, false, Format::RGBA8, &mat_bytes);
+                    let new_mt = ImageTexture::create_from_image(&mat_img)
+                        .expect("ImageTexture for material map swap");
+
+                    layer.material.set_shader_parameter(
+                        &StringName::from("material_map"),
+                        &new_mt.to_variant(),
+                    );
+
+                    // 替换活跃纹理（旧纹理被 Godot 引用计数释放）
+                    layer.heightmap_tex = new_tex;
+                    layer.material_tex = new_mt;
+
+                    // 更新该层高度图中心
+                    let half = job.hm_size as f64 * layer.spacing * 0.5;
+                    layer.hm_center = (job.grid_origin_x + half, job.grid_origin_z + half);
+                } else if job.panicked {
+                    godot_error!("LOD {} heightmap job panicked", job.level_idx);
                 }
-                TileEvent::Unload { key } => {
-                    if let Some(ref mut layer) = self.lod_layers[key.level as usize] {
-                        layer.active_keys.remove(&key);
-                        layer.completed.remove(&key);
-                        layer.dirty = true;
-                    }
+                layer.hm_in_flight = false;
+            }
+        }
+
+        // ── GPU-Driven Clipmap: recenter + per-layer async heightmap jobs ──
+        for level_idx in 0..8u8 {
+            if let Some(ref mut layer) = self.lod_layers[level_idx as usize] {
+                let spacing = layer.spacing;
+
+                // Grid recentering (only when snap position changed)
+                let snap_x = (player_pos.x / spacing).floor() * spacing;
+                let snap_z = (player_pos.z / spacing).floor() * spacing;
+                let snap = (snap_x, snap_z);
+                let snap_changed = snap != layer.last_snap;
+                if snap_changed {
+                    layer.last_snap = snap;
+                    layer.instance.set_global_position(Vector3::new(
+                        snap_x as f32, 0.0, snap_z as f32,
+                    ));
+                }
+
+                // Shader uniforms
+                layer.material.set_shader_parameter(
+                    &StringName::from("camera_pos"),
+                    &Variant::from(Vector3::new(px, py, pz)),
+                );
+                if snap_changed {
+                    layer.material.set_shader_parameter(
+                        &StringName::from("node_pos"),
+                        &Variant::from(Vector3::new(snap_x as f32, 0.0, snap_z as f32)),
+                    );
+                }
+
+                // 高度图更新：该层漂移超过余量时提交异步 job
+                let drift = (snap_x - layer.hm_center.0)
+                    .abs()
+                    .max((snap_z - layer.hm_center.1).abs());
+                if drift > layer.margin && !layer.hm_in_flight {
+                    layer.hm_in_flight = true;
+                    let tx = self.hm_job_tx.clone();
+                    let terrain = self.terrain.clone();
+                    let mc = self.material_colors.clone();
+                    let hm_size = layer.hm_size;
+                    let half = hm_size as f64 * spacing * 0.5;
+                    let grid_origin_x = snap_x - half;
+                    let grid_origin_z = snap_z - half;
+                    rayon::spawn(move || {
+                        let result =
+                            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                generate_heightmap_data(
+                                    &terrain, snap_x, snap_z, spacing, hm_size, &mc,
+                                )
+                            }));
+                        let (hd, panicked) = match result {
+                            Ok(hd) => (hd, false),
+                            Err(_) => {
+                                eprintln!("HM PANIC: L{}", level_idx);
+                                (
+                                    HeightmapData {
+                                        heights: Vec::new(),
+                                        material_colors: Vec::new(),
+                                    },
+                                    true,
+                                )
+                            }
+                        };
+                        let _ = tx.send(HeightmapJob {
+                            level_idx,
+                            data: hd.heights,
+                            material_colors: hd.material_colors,
+                            hm_size,
+                            panicked,
+                            grid_origin_x,
+                            grid_origin_z,
+                        });
+                    });
                 }
             }
         }
 
-        // 合并各 LOD 级别的 mesh 并上传
-        for level in 0..8u8 {
-            if let Some(ref mut layer) = self.lod_layers[level as usize] {
-                Self::merge_and_upload(layer, self.shared_material.as_ref());
+        // ── 细层交叉采样同步：L1-L7 的 fine_heightmap/grid_origin 跟踪 L0-L6 ──
+        for level_idx in 1..8u8 {
+            let (left, right) = self.lod_layers.split_at_mut(level_idx as usize);
+            if let (Some(ref finer), Some(ref mut coarser)) =
+                (&left[level_idx as usize - 1], &mut right[0])
+            {
+                // 纹理引用：每次 swap 后 old texture 被 Godot 回收 → 必须每帧刷新
+                coarser.material.set_shader_parameter(
+                    &StringName::from("fine_heightmap"),
+                    &finer.heightmap_tex.to_variant(),
+                );
+                let go = finer.grid_origin;
+                coarser.material.set_shader_parameter(
+                    &StringName::from("fine_grid_origin"),
+                    &Variant::from(Vector2::new(go.0 as f32, go.1 as f32)),
+                );
+            }
+        }
+
+        // ── 粗层交叉采样同步：L0-L6 的 coarse_heightmap/grid_origin 跟踪 L1-L7 ──
+        for level_idx in 0..7u8 {
+            let (left, right) = self.lod_layers.split_at_mut(level_idx as usize + 1);
+            if let (Some(ref mut layer), Some(ref coarser)) =
+                (&mut left[level_idx as usize], &right[0])
+            {
+                layer.material.set_shader_parameter(
+                    &StringName::from("coarse_heightmap"),
+                    &coarser.heightmap_tex.to_variant(),
+                );
+                let go = coarser.grid_origin;
+                layer.material.set_shader_parameter(
+                    &StringName::from("coarse_grid_origin"),
+                    &Variant::from(Vector2::new(go.0 as f32, go.1 as f32)),
+                );
+            }
+        }
+
+        // ── 水下 Environment 参数调制 ──
+        // 摄像机入水 → 插值雾色/环境光/饱和度（2m 过渡带，无硬切）
+        {
+            let time = self.clock.current.day_number as f64 * self.clock.seconds_per_day
+                + self.clock.current.day_progress * self.clock.seconds_per_day;
+            let underwater = self.ocean.is_underwater(player_pos, time);
+            let submersion = if underwater {
+                (self.ocean.sea_level_at(player_pos) - player_pos.y).max(0.0)
+            } else {
+                0.0
+            };
+            let t = (submersion / 2.0).clamp(0.0, 1.0) as f32;
+
+            fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
+                a + (b - a) * t
+            }
+
+            if let Some(ref world_env) = self.world_env {
+                if let Some(mut env) = world_env.get_environment() {
+                    if t > 0.0 {
+                        // 水下——蓝绿色雾 + 偏蓝环境光
+                        env.set_fog_enabled(true);
+                        env.set_fog_density(lerp_f32(0.001, 0.04, t));
+                        env.set_fog_light_color(Color::from_rgb(
+                            lerp_f32(0.8, 0.15, t),
+                            lerp_f32(0.85, 0.35, t),
+                            lerp_f32(0.7, 0.55, t),
+                        ));
+                        env.set_ambient_light_color(Color::from_rgb(
+                            lerp_f32(0.5, 0.1, t),
+                            lerp_f32(0.5, 0.25, t),
+                            lerp_f32(0.5, 0.4, t),
+                        ));
+                        env.set_adjustment_enabled(true);
+                        env.set_adjustment_saturation(lerp_f32(1.0, 0.7, t));
+                    } else {
+                        // 水上——关雾，让 update_sun_and_sky 的昼夜 ambient 生效
+                        env.set_fog_enabled(false);
+                        env.set_adjustment_enabled(false);
+                    }
+                }
             }
         }
     }
@@ -265,173 +671,16 @@ impl WorldDriver {
         }
     }
 
-    /// 合并某 LOD 级别所有已完成 tile mesh，上传到该级别的 ArrayMesh
-    fn merge_and_upload(layer: &mut LodLayer, material: Option<&Gd<ShaderMaterial>>) {
-        // 无变化 → 跳过昂贵的合并和上传
-        if !layer.dirty {
-            return;
-        }
+    /// 将静态网格上传到 ArrayMesh（仅启动时调用一次）
+    fn upload_static_mesh(am: &mut Gd<ArrayMesh>, mesh: &woworld_worldgen::TerrainMeshData) {
+        use godot::builtin::PackedVector3Array;
+        use godot::builtin::PackedColorArray;
+        use godot::builtin::PackedInt32Array;
+        use godot::builtin::Array;
 
-        // 清理已离开活跃集的 tile 的旧 mesh
-        layer
-            .completed
-            .retain(|k, _| layer.active_keys.contains(k));
-
-        if layer.active_keys.is_empty() {
-            layer.mesh.clear_surfaces();
-            layer.dirty = false;
-            return;
-        }
-
-        // 检查是否所有活跃 tile 都已完成
-        if !layer
-            .active_keys
-            .iter()
-            .all(|k| layer.completed.contains_key(k))
-        {
-            return; // 仍待生成——保留 dirty 等待完成
-        }
-
-        let entries: Vec<(&LodKey, &TerrainMeshData)> = layer.completed.iter().collect();
-        if entries.is_empty() {
-            return;
-        }
-        let meshes: Vec<&TerrainMeshData> = entries.iter().map(|(_, m)| *m).collect();
-        let origins: Vec<(f64, f64, f64)> = entries
-            .iter()
-            .map(|(key, _)| {
-                let ts = match key.level {
-                    0 => 16.0,
-                    1 => 32.0,
-                    2 => 64.0,
-                    3 => 128.0,
-                    4 => 256.0,
-                    5 => 512.0,
-                    6 => 1024.0,
-                    7 => 2048.0,
-                    _ => 0.0,
-                };
-                (key.gx as f64 * ts, key.gz as f64 * ts, ts)
-            })
-            .collect();
-
-        let merged = Self::merge_meshes(&meshes, &origins);
-        Self::update_array_mesh(&mut layer.mesh, &merged);
-        if let Some(mat) = material {
-            layer.instance.set_surface_override_material(0, mat);
-        }
-        layer.dirty = false;
-    }
-
-    /// 合并多个 TerrainMeshData 为一个（边界顶点焊接）
-    ///
-    /// 仅对 tile 边界附近（≤1m）的顶点进行焊接去重，
-    /// 消除相邻 tile 独立等值面提取产生的边界裂缝。
-    /// 内部顶点不焊接——避免意外合并不同位置的顶点。
-    fn merge_meshes(
-        meshes: &[&TerrainMeshData],
-        origins: &[(f64, f64, f64)], // (ox, oz, tile_size) per mesh
-    ) -> TerrainMeshData {
-        use glam::Vec3;
-        let weld_eps: f32 = 0.2; // 20cm — Transvoxel 边界顶点偏差可达 10-15cm
-        let boundary_margin: f32 = 1.0; // 距 tile 边界 1m 内 = 边界顶点
-        let cell_size = weld_eps;
-
-        let mut vertices: Vec<Vec3> = Vec::new();
-        let mut normals: Vec<Vec3> = Vec::new();
-        let mut colors: Vec<Vec3> = Vec::new();
-        let mut indices: Vec<u32> = Vec::new();
-        // 仅存储边界顶点的空间哈希（内部顶点不参与焊接）
-        let mut boundary_grid: HashMap<(i32, i32, i32), Vec<(u32, Vec3)>> = HashMap::new();
-
-        for (mi, mesh) in meshes.iter().enumerate() {
-            let (ox, oz, tile_sz) = origins[mi];
-            let min_x = ox as f32;
-            let max_x = (ox + tile_sz) as f32;
-            let min_z = oz as f32;
-            let max_z = (oz + tile_sz) as f32;
-
-            let mut local_to_global: Vec<u32> = Vec::with_capacity(mesh.vertices.len());
-
-            for vi in 0..mesh.vertices.len() {
-                let v = mesh.vertices[vi];
-                let on_boundary = (v.x - min_x).abs() < boundary_margin
-                    || (v.x - max_x).abs() < boundary_margin
-                    || (v.z - min_z).abs() < boundary_margin
-                    || (v.z - max_z).abs() < boundary_margin;
-
-                let g_idx = if on_boundary {
-                    let cell = (
-                        (v.x / cell_size).floor() as i32,
-                        (v.y / cell_size).floor() as i32,
-                        (v.z / cell_size).floor() as i32,
-                    );
-                    let mut found = None;
-                    'search: for dx in -1..=1 {
-                        for dy in -1..=1 {
-                            for dz in -1..=1 {
-                                let key = (cell.0 + dx, cell.1 + dy, cell.2 + dz);
-                                if let Some(candidates) = boundary_grid.get(&key) {
-                                    for &(idx, cv) in candidates {
-                                        if (v - cv).length_squared() < weld_eps * weld_eps {
-                                            found = Some(idx);
-                                            break 'search;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if let Some(existing) = found {
-                        existing
-                    } else {
-                        let new_idx = vertices.len() as u32;
-                        vertices.push(v);
-                        normals.push(mesh.normals[vi]);
-                        colors.push(mesh.colors[vi]);
-                        boundary_grid
-                            .entry(cell)
-                            .or_default()
-                            .push((new_idx, v));
-                        new_idx
-                    }
-                } else {
-                    // 内部顶点——直接添加，不焊接
-                    let new_idx = vertices.len() as u32;
-                    vertices.push(v);
-                    normals.push(mesh.normals[vi]);
-                    colors.push(mesh.colors[vi]);
-                    new_idx
-                };
-                local_to_global.push(g_idx);
-            }
-
-            for &local_idx in &mesh.indices {
-                indices.push(local_to_global[local_idx as usize]);
-            }
-        }
-
-        TerrainMeshData {
-            vertices,
-            normals,
-            indices,
-            colors,
-        }
-    }
-
-    /// 原地更新 ArrayMesh 的表面数据（复用已有 Godot 对象）
-    fn update_array_mesh(am: &mut Gd<ArrayMesh>, mesh: &TerrainMeshData) {
         let mut vertices = PackedVector3Array::new();
         let mut normals = PackedVector3Array::new();
         let mut colors = PackedColorArray::new();
-
-        // 单次遍历：同时构建数组 + 计算 AABB（消除双次遍历）
-        let mut min_x = f32::MAX;
-        let mut min_y = f32::MAX;
-        let mut min_z = f32::MAX;
-        let mut max_x = f32::MIN;
-        let mut max_y = f32::MIN;
-        let mut max_z = f32::MIN;
 
         for i in 0..mesh.vertices.len() {
             let v = mesh.vertices[i];
@@ -439,13 +688,6 @@ impl WorldDriver {
             normals.push(Vector3::new(mesh.normals[i].x, mesh.normals[i].y, mesh.normals[i].z));
             let c = mesh.colors[i];
             colors.push(Color::from_rgb(c.x, c.y, c.z));
-
-            min_x = min_x.min(v.x);
-            min_y = min_y.min(v.y);
-            min_z = min_z.min(v.z);
-            max_x = max_x.max(v.x);
-            max_y = max_y.max(v.y);
-            max_z = max_z.max(v.z);
         }
 
         let mut indices = PackedInt32Array::new();
@@ -454,8 +696,7 @@ impl WorldDriver {
         }
 
         let mut arrays = Array::new();
-        let nil = Variant::nil();
-        arrays.resize(13, &nil);
+        arrays.resize(13, &Variant::nil());
         arrays.set(0, &vertices.to_variant());
         arrays.set(1, &normals.to_variant());
         arrays.set(3, &colors.to_variant());
@@ -463,20 +704,6 @@ impl WorldDriver {
 
         am.clear_surfaces();
         am.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
-
-        // 膨胀 AABB 防视锥体裁剪误裁边缘三角形
-        {
-            let margin: f32 = 1.0;
-            let aabb = godot::builtin::Aabb::new(
-                Vector3::new(min_x - margin, min_y - margin, min_z - margin),
-                Vector3::new(
-                    max_x - min_x + 2.0 * margin,
-                    max_y - min_y + 2.0 * margin,
-                    max_z - min_z + 2.0 * margin,
-                ),
-            );
-            am.set_custom_aabb(aabb);
-        }
     }
 
     /// 太阳位置 + 天空材质 + 环境光
@@ -537,7 +764,7 @@ impl WorldDriver {
     }
 }
 
-// ── GDScript 接口 ──────────────────────
+/// GDScript 接口 ──────────────────────
 
 #[godot_api]
 impl WorldDriver {
@@ -547,4 +774,5 @@ impl WorldDriver {
         let pos = WorldPos { x, y: 0.0, z };
         self.terrain.height_at(pos)
     }
+
 }

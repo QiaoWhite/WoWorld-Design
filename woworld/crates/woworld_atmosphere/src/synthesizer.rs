@@ -170,7 +170,24 @@ mod tests {
         let s = synth();
         let time = WorldTime::from_progress(0.3, 0, 120);
         let result = s.resolve(&time, WorldPos::default());
-        let arr = result.as_float_array();
-        assert_eq!(arr.len(), crate::resolved_atmosphere::array_index::LEN);
+        // ResolvedAtmosphere 有 17 个字段——直接通过访问验证（as_float_array 已删除）
+        let _ = result.sky_zenith_color;
+        let _ = result.sky_horizon_color;
+        let _ = result.ambient_color;
+        let _ = result.sun_color;
+        let _ = result.sun_energy;
+        let _ = result.sun_elevation;
+        let _ = result.rayleigh_mult;
+        let _ = result.mie_mult;
+        let _ = result.exposure_mult;
+        let _ = result.saturation_mult;
+        let _ = result.fog_color;
+        let _ = result.fog_density;
+        let _ = result.shadow_tint;
+        let _ = result.ambient_sky_contrib;
+        let _ = result.night_brightness;
+        let _ = result.ground_horizon;
+        let _ = result.ground_curve;
+        // 以上就是 17 个字段——如果编译不过，说明结构体字段变了
     }
 }

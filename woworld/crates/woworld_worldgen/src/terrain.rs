@@ -4,7 +4,10 @@
 //! 不存储体素数据——所有查询通过噪声函数实时计算。
 //! 可选集成: WorldClock (昼夜) + BiomeClassifier (群系)
 
+use std::sync::Arc;
+
 use glam::Vec3;
+use woworld_core::density::{DensityProvider, DensityStack};
 use woworld_core::prelude::*;
 use woworld_core::spatial::TerrainQuery;
 
@@ -12,23 +15,69 @@ use crate::biome::BiomeClassifier;
 use crate::noise_gen::WorldNoise;
 use woworld_core::time::WorldClock;
 
+// ── P2a: 地形基底密度层 ─────────────────
+
+/// 地形基底密度层——P2 噪声驱动的基础地形
+///
+/// 将 Perlin 高度场包装为 `DensityProvider`——密度场层叠体系的第一个实现。
+/// `density_at(pos) = pos.y - noise.sample_height(pos.x, pos.z)`
+/// 正值 = 实体（ground），负值 = 空（air/water）。
+#[derive(Debug)]
+pub struct TerrainBaseDensity {
+    noise: Arc<WorldNoise>,
+}
+
+impl TerrainBaseDensity {
+    pub fn new(noise: Arc<WorldNoise>) -> Self {
+        Self { noise }
+    }
+}
+
+impl DensityProvider for TerrainBaseDensity {
+    fn density_at(&self, pos: WorldPos) -> f32 {
+        let h = self.noise.sample_height(pos.x, pos.z) as f32;
+        h - pos.y as f32 // 正值=地下实体，负值=空中
+    }
+    fn material_at(&self, pos: WorldPos) -> u8 {
+        let h = self.noise.sample_height(pos.x, pos.z);
+        HeightfieldTerrain::material_from_height(h, 0.0) as u8
+    }
+    fn priority(&self) -> u8 {
+        0
+    }
+    fn layer_name(&self) -> &'static str {
+        "terrain_base"
+    }
+}
+
+// ── HeightfieldTerrain ──────────────────
+
 /// 高度场地形——无状态，纯函数式查询
 ///
 /// `clock` 和 `biome_classifier` 为 `Option`——向后兼容，
 /// 未设置时退化到当前行为（light=1.0, 高度法选材质）。
+///
+/// `noise` 为 `Arc<WorldNoise>`——与 `BiomeClassifier` 共享同一噪声实例。
+/// `density_stack` 包含至少 1 层 `TerrainBaseDensity`——密度场层叠体系的入口。
 #[derive(Clone, Debug)]
 pub struct HeightfieldTerrain {
-    noise: WorldNoise,
+    noise: Arc<WorldNoise>,
     seed: u64,
+    density_stack: DensityStack,
     pub clock: Option<WorldClock>,
     pub biome_classifier: Option<BiomeClassifier>,
 }
 
 impl Default for HeightfieldTerrain {
     fn default() -> Self {
+        let noise = Arc::new(WorldNoise::new(42));
+        let mut density_stack = DensityStack::new();
+        density_stack.push(Arc::new(TerrainBaseDensity::new(noise.clone())));
+        density_stack.push(crate::cave::CaveDensity::new_arc(42, Default::default()));
         Self {
-            noise: WorldNoise::new(42),
+            noise,
             seed: 42,
+            density_stack,
             clock: None,
             biome_classifier: None,
         }
@@ -38,18 +87,27 @@ impl Default for HeightfieldTerrain {
 impl HeightfieldTerrain {
     pub fn new(seed: u32) -> Self {
         let s = seed as u64;
+        let noise = Arc::new(WorldNoise::new(s));
+        let mut density_stack = DensityStack::new();
+        density_stack.push(Arc::new(TerrainBaseDensity::new(noise.clone())));
+        density_stack.push(crate::cave::CaveDensity::new_arc(s, Default::default()));
         Self {
-            noise: WorldNoise::new(s),
+            noise,
             seed: s,
+            density_stack,
             clock: None,
             biome_classifier: None,
         }
     }
 
-    pub fn with_noise(noise: WorldNoise) -> Self {
+    pub fn with_noise(noise: Arc<WorldNoise>, seed: u64) -> Self {
+        let mut density_stack = DensityStack::new();
+        density_stack.push(Arc::new(TerrainBaseDensity::new(noise.clone())));
+        density_stack.push(crate::cave::CaveDensity::new_arc(seed, Default::default()));
         Self {
             noise,
-            seed: 0, // 不透明噪声——无种子可追溯
+            seed,
+            density_stack,
             clock: None,
             biome_classifier: None,
         }
@@ -70,12 +128,22 @@ impl HeightfieldTerrain {
         &self.noise
     }
 
+    /// 底层地形高度（内部——2D 高度场权威入口）
+    ///
+    /// 不走 `DensityStack`（3D 密度场 ≠ 2D 高度场）。
+    /// `sample_vertex()` / `calc_normal()` / `surface_material_at()` 等
+    /// 所有 2D 高度查询统一走此方法。
+    #[inline]
+    fn terrain_height(&self, x: f64, z: f64) -> f64 {
+        self.noise.sample_height(x, z)
+    }
+
     /// 合并查询：一次采样得高度、法线、材质（消除冗余噪声调用）
     ///
     /// `height_at` + `normal_at` + `surface_material_at` 各自独立调用
     /// `sample_height` — 每顶点最高 10 次噪声调用。本方法共享结果，降至约 4 次。
     pub fn sample_vertex(&self, x: f64, z: f64) -> (f32, Vec3, SurfaceMaterial) {
-        let h = self.noise.sample_height(x, z);
+        let h = self.terrain_height(x, z);
         let normal = self.calc_normal(x, z, 0.5);
         let steepness = (1.0 - normal.y).abs();
 
@@ -106,9 +174,9 @@ impl HeightfieldTerrain {
 
     /// 在 (x, z) 采样高度，有限差分计算法线
     fn calc_normal(&self, x: f64, z: f64, eps: f64) -> Vec3 {
-        let h_center = self.noise.sample_height(x, z);
-        let h_right = self.noise.sample_height(x + eps, z);
-        let h_forward = self.noise.sample_height(x, z + eps);
+        let h_center = self.terrain_height(x, z);
+        let h_right = self.terrain_height(x + eps, z);
+        let h_forward = self.terrain_height(x, z + eps);
 
         // 梯度: (-dh/dx, 1.0, -dh/dz) 归一化
         let dx = (h_center - h_right) / eps;
@@ -141,7 +209,7 @@ impl HeightfieldTerrain {
 
 impl TerrainQuery for HeightfieldTerrain {
     fn height_at(&self, pos: WorldPos) -> f32 {
-        self.noise.sample_height(pos.x, pos.z) as f32
+        self.terrain_height(pos.x, pos.z) as f32
     }
 
     fn normal_at(&self, pos: WorldPos) -> Vec3 {
@@ -178,16 +246,11 @@ impl TerrainQuery for HeightfieldTerrain {
     }
 
     fn density_at(&self, pos: WorldPos) -> f32 {
-        let terrain_h = self.noise.sample_height(pos.x, pos.z);
-        if pos.y < terrain_h {
-            1.0
-        } else {
-            0.0
-        }
+        self.density_stack.density_at(pos)
     }
 
     fn is_walkable(&self, pos: WorldPos) -> bool {
-        let h = self.noise.sample_height(pos.x, pos.z);
+        let h = self.terrain_height(pos.x, pos.z);
         let on_surface = (pos.y - h).abs() < 1.0;
         if !on_surface {
             return false;
@@ -199,7 +262,7 @@ impl TerrainQuery for HeightfieldTerrain {
     }
 
     fn surface_material_at(&self, pos: WorldPos) -> SurfaceMaterial {
-        let h = self.noise.sample_height(pos.x, pos.z);
+        let h = self.terrain_height(pos.x, pos.z);
         let normal = self.calc_normal(pos.x, pos.z, 0.5);
         let steepness = (1.0 - normal.y).abs();
 
@@ -216,7 +279,7 @@ impl TerrainQuery for HeightfieldTerrain {
     }
 
     fn medium_at(&self, pos: WorldPos) -> Medium {
-        let h = self.noise.sample_height(pos.x, pos.z);
+        let h = self.terrain_height(pos.x, pos.z);
         if h < 0.0 && pos.y < 0.0 && pos.y > h {
             Medium::Water
         } else {
@@ -267,13 +330,13 @@ mod tests {
             y: 0.0,
             z: 100.0,
         });
-        // 地下任意点密度应为 1.0
+        // 地下 200m 深度——远超洞穴层 80m 幅值，地形密度应主导
         let d = terrain.density_at(WorldPos {
             x: 100.0,
-            y: (h - 10.0) as f64,
+            y: (h - 200.0) as f64,
             z: 100.0,
         });
-        assert!(d > 0.5, "underground density should be solid");
+        assert!(d > 0.5, "underground density should be solid (got {d})");
     }
 
     #[test]

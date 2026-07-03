@@ -372,6 +372,8 @@
 | 概念 | Owner | 消费方 | 关键约定 |
 |------|-------|--------|---------|
 | TerrainQuery | **world_gen** (密度场) | 感官/导航/动画/战斗 | height_at/normal_at/terrain_raycast/density_at/is_walkable/surface_material_at/medium_at/light_level_at/sample_horizon。纯函数。DDA 射线在密度场上步进，~10µs/射线 |
+| DensityProvider | **woworld_core** (trait 定义) | world_gen(基底层)/建筑(地基切削)/NPC(挖掘)/玩家(SDF雕刻) | density_at(WorldPos)→f32 + material_at→u8 + priority→u8 + layer_name→&str。Send+Sync。正值=实体，负值=空。优先级升序叠加——低prio先叠加，高prio后覆盖 |
+| DensityStack | **woworld_worldgen** (编排器) | HeightfieldTerrain(内部查询) | 有序层叠容器。push() 插入保持排序，density_at() 累加所有层 |
 | EntityIndex | **woworld_spatial** | 所有模块 | register/unregister/update_transform/entities_in_aabb/entity_aabb/acoustic_tag_at/close_relations/position_of。稀疏哈希网格 O(1)。layer_mask 过滤 |
 | SpatialEventBus | **woworld_spatial** | 所有模块 | recent_events_in/push_event/scent_sources_in。Chunk ring buffer(64 entry,LRU)。事件自动过期 max(intensity×10s, 5s) |
 | VisibilityQuery | **woworld_spatial** (Arc<TerrainQuery> + &EntityIndex) | 感官/战斗/大日志 | line_of_sight/line_of_sight_hit。DDA 同时检查密度场+实体AABB。命中返回 TerrainHit/EntityHit/WaterSurface |

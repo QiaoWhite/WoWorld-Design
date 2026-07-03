@@ -6,6 +6,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Handoff — root-level session-handoff files are deprecated; use woworld-dev-plan/handoff/
+session-handoff*
+
 # Claude (runtime artifacts only — skills & hooks are tracked)
 .claude/audit-reports/
 .claude/temp/

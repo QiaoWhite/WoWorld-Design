@@ -5,8 +5,10 @@
 //!
 //! 参见: `WoWorld-Design/开发路线图/002-轨A-正式开发.md` A.2 阶段二
 
+pub mod density;
 pub mod id;
 pub mod material;
+pub mod ocean;
 pub mod spatial;
 pub mod time;
 pub mod types;

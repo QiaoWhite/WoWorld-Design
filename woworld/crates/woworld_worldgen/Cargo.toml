@@ -9,6 +9,5 @@ license.workspace = true
 woworld_core = { path = "../woworld_core", features = ["serde"] }
 glam = "0.28"
 noise = "0.9"
-rayon = "1"
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"

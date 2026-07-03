@@ -11,9 +11,7 @@ crate-type = ["cdylib"]
 [dependencies]
 # GDExtension Rust 绑定
 godot = "0.5"
-
-# SIMD 向量
-glam = "0.28"
+rayon = "1.10"
 
 # 核心类型（workspace 内部依赖）
 woworld_core = { path = "../woworld_core" }

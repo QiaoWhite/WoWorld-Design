@@ -1,0 +1,16 @@
+# WoWorld 噪声参数配置
+# 编译时通过 include_str! 嵌入——零运行时 I/O。
+
+[noise]
+continent_scale = 0.0001   # ~10km 波长——大陆轮廓
+detail_scale = 0.005       # ~200m 波长——地形起伏
+mountain_scale = 0.001     # ~1km 波长——山脊
+sea_threshold = 0.2        # 海:陆≈6:4（Perlin ∈ [-1,1]）
+height_amplitude = 350.0   # 最高~630m（v3.0 spec）
+sea_depth = 400.0          # 最深~400m
+climate_scale = 0.005      # ~200m 波长——温度/降水噪声
+
+[cave]
+frequency = 0.04           # Worley 3D 频率——控制洞穴密度/大小
+threshold = 0.15           # F2-F1 低于此值 = 洞穴空洞
+amplitude = 80.0           # 洞穴负密度幅值（抵消地形正密度~最高80m深）

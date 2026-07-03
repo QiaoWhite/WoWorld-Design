@@ -53,63 +53,6 @@ pub struct ResolvedAtmosphere {
     pub ground_curve: f32,
 }
 
-impl ResolvedAtmosphere {
-    /// 输出为 `[f32; 51]`（17 参数 × 3 分量/vec）
-    ///
-    /// 顺序：sky_zenith(3) → sky_horizon(3) → ambient(3) → sun_color(3) → sun_energy(1) →
-    /// sun_elevation(1) → rayleigh_mult(3) → mie_mult(3) → exposure_mult(1) →
-    /// saturation_mult(1) → fog_color(3) → fog_density(1) → shadow_tint(3) →
-    /// ambient_sky_contrib(1) → night_brightness(1) → ground_horizon(3) → ground_curve(1)
-    ///
-    /// 索引按此顺序固定——消费者用命名常量访问，不依赖魔术数字。
-    pub fn as_float_array(&self) -> [f32; array_index::LEN] {
-        let mut a = [0.0f32; array_index::LEN];
-        let mut i: usize = 0;
-
-        macro_rules! push3 {
-            ($v:expr) => {
-                a[i] = $v[0];
-                a[i + 1] = $v[1];
-                a[i + 2] = $v[2];
-                i += 3;
-            };
-        }
-        macro_rules! push1 {
-            ($v:expr) => {
-                a[i] = $v;
-                i += 1;
-            };
-        }
-
-        push3!(self.sky_zenith_color);
-        push3!(self.sky_horizon_color);
-        push3!(self.ambient_color);
-        push3!(self.sun_color);
-        push1!(self.sun_energy);
-        push1!(self.sun_elevation);
-        push3!(self.rayleigh_mult);
-        push3!(self.mie_mult);
-        push1!(self.exposure_mult);
-        push1!(self.saturation_mult);
-        push3!(self.fog_color);
-        push1!(self.fog_density);
-        push3!(self.shadow_tint);
-        push1!(self.ambient_sky_contrib);
-        push1!(self.night_brightness);
-        push3!(self.ground_horizon);
-        push1!(self.ground_curve);
-
-        assert_eq!(
-            i,
-            array_index::LEN,
-            "wrote {} params, expected {}",
-            i,
-            array_index::LEN
-        );
-        a
-    }
-}
-
 impl Default for ResolvedAtmosphere {
     fn default() -> Self {
         Self {
@@ -134,38 +77,3 @@ impl Default for ResolvedAtmosphere {
     }
 }
 
-// ── 命名常量：PackedFloat32Array 索引 ──────────────
-
-/// `ResolvedAtmosphere::as_float_array()` 输出的索引常量
-pub mod array_index {
-    pub const SKY_ZENITH: usize = 0;
-    pub const SKY_HORIZON: usize = 3;
-    pub const AMBIENT: usize = 6;
-    pub const SUN_COLOR: usize = 9;
-    pub const SUN_ENERGY: usize = 12;
-    pub const SUN_ELEVATION: usize = 13;
-    pub const RAYLEIGH_MULT: usize = 14;
-    pub const MIE_MULT: usize = 17;
-    pub const EXPOSURE_MULT: usize = 20;
-    pub const SATURATION_MULT: usize = 21;
-    pub const FOG_COLOR: usize = 22;
-    pub const FOG_DENSITY: usize = 25;
-    pub const SHADOW_TINT: usize = 26;
-    pub const AMBIENT_SKY_CONTRIB: usize = 29;
-    pub const NIGHT_BRIGHTNESS: usize = 30;
-    pub const GROUND_HORIZON: usize = 31;
-    pub const GROUND_CURVE: usize = 34;
-    pub const LEN: usize = 35;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_array_len_matches_declared() {
-        let atm = ResolvedAtmosphere::default();
-        let arr = atm.as_float_array();
-        assert_eq!(arr.len(), array_index::LEN);
-    }
-}

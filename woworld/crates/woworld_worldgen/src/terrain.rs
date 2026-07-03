@@ -276,9 +276,13 @@ impl TerrainQuery for HeightfieldTerrain {
         let normal = self.calc_normal(pos.x, pos.z, 0.5);
         let steepness = (1.0 - normal.y).abs();
 
-        // 水下统一为沙色——避免 biome 颜色（Grass/Snow 等）透过浅水可见
-        if h < 0.0 {
-            return SurfaceMaterial::Sand;
+        // 水下材质：基于深度分层（避免 biome 颜色 Grass/Snow 透出水面）
+        if h < -100.0 {
+            return SurfaceMaterial::Stone;  // 深海岩层
+        } else if h < -10.0 {
+            return SurfaceMaterial::Gravel; // 大陆架
+        } else if h < 0.0 {
+            return SurfaceMaterial::Sand;   // 浅滩
         }
 
         // 1. 尝试群系分类

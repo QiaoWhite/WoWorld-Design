@@ -307,7 +307,7 @@ pub fn transvoxel_extract(
                 }
                 let tris = tri_table_entry(case_idx);
                 let mut ti = 0;
-                while ti < 16 && tris[ti] != -1 {
+                while ti + 2 < 16 && tris[ti] != -1 {
                     indices.push(edge_vert_idx[tris[ti] as usize]);
                     indices.push(edge_vert_idx[tris[ti+1] as usize]);
                     indices.push(edge_vert_idx[tris[ti+2] as usize]);

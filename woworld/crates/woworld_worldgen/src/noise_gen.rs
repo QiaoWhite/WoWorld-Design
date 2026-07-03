@@ -129,14 +129,18 @@ impl WorldNoise {
             };
 
             let base_height = land_factor * 280.0; // 海岸→内陆基准上升 (~280m 内陆平原)
-            let detail_height = detail_val * p.height_amplitude * 0.6;
-            let mountain_height = mountain_val * mountain_factor * p.height_amplitude * 0.4;
+            let detail_height = land_factor * detail_val * p.height_amplitude * 0.6;
+            let mountain_height = land_factor * mountain_val * mountain_factor * p.height_amplitude * 0.4;
 
             base_height + detail_height + mountain_height
         } else {
-            // 海洋——海床深度
-            let sea_factor = (p.sea_threshold - continent_val) / (p.sea_threshold + 1.0); // 0→1 越远离海岸越深
-            -sea_factor * p.sea_depth
+            // 海洋——海床深度（非线性：近岸浅，远岸快速加深）
+            let sea_factor = (p.sea_threshold - continent_val) / (p.sea_threshold + 1.0); // 0→1
+            let ocean_depth = sea_factor.powf(0.4) * p.sea_depth;
+
+            // 海床细部起伏——detail noise 加权，近岸更明显
+            let ocean_detail = self.detail.get([x * p.detail_scale * 0.5, z * p.detail_scale * 0.5]);
+            -ocean_depth + ocean_detail * sea_factor * 50.0
         }
     }
 

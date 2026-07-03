@@ -276,6 +276,11 @@ impl TerrainQuery for HeightfieldTerrain {
         let normal = self.calc_normal(pos.x, pos.z, 0.5);
         let steepness = (1.0 - normal.y).abs();
 
+        // 水下统一为沙色——避免 biome 颜色（Grass/Snow 等）透过浅水可见
+        if h < 0.0 {
+            return SurfaceMaterial::Sand;
+        }
+
         // 1. 尝试群系分类
         if let Some(ref classifier) = self.biome_classifier {
             if let Some(biome) = classifier.classify(pos) {

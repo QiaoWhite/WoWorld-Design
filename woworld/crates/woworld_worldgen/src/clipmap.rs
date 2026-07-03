@@ -62,7 +62,7 @@ pub fn layer_tex_config(level: &LodLevel) -> LayerTexConfig {
         0 => (256u32, 128.0),   // 0.5m/texel, 覆盖 128m
         1 => (256u32, 256.0),   // 1.0m/texel, 覆盖 256m
         2 => (256u32, 512.0),   // 2.0m/texel, 覆盖 512m
-        3 => (256u32, 1024.0),  // 4.0m/texel, 覆盖 1024m
+        3 => (512u32, 2048.0),  // 4.0m/texel, 覆盖 2048m, margin=520m
         _ => (512u32, 512.0 * spacing), // L4-L7: 保持 512²
     };
     LayerTexConfig { hm_size, hm_extent }

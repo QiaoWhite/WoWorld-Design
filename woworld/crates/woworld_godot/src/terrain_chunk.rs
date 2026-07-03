@@ -90,6 +90,12 @@ struct LodLayer {
     margin: f64,
     /// 当前 heightmap 的 grid_origin（用于下层 fine_grid_origin 引用）
     grid_origin: (f64, f64),
+    /// Texture pool: standby Image + ImageTexture for double-buffered heightmap update
+    hm_standby_img: Gd<godot::classes::Image>,
+    hm_standby_tex: Gd<godot::classes::ImageTexture>,
+    /// Texture pool: standby Image + ImageTexture for material map
+    mat_standby_img: Gd<godot::classes::Image>,
+    mat_standby_tex: Gd<godot::classes::ImageTexture>,
 }
 
 // ── GodotClass ────────────────────
@@ -286,6 +292,21 @@ impl INode3D for WorldDriver {
             }
             mi.set_surface_override_material(0, &mat);
 
+            // 3f. Texture pool: create standby Image + ImageTexture (double-buffering)
+            let mut hm_standby_img = Image::create(
+                hm_size as i32, hm_size as i32, false, Format::RF,
+            ).expect("Image::create for standby heightmap");
+            hm_standby_img.set_data(hm_size as i32, hm_size as i32, false, Format::RF, &bytes);
+            let hm_standby_tex = ImageTexture::create_from_image(&hm_standby_img)
+                .expect("ImageTexture for standby heightmap");
+
+            let mut mat_standby_img = Image::create(
+                hm_size as i32, hm_size as i32, false, Format::RGBA8,
+            ).expect("Image::create for standby material map");
+            mat_standby_img.set_data(hm_size as i32, hm_size as i32, false, Format::RGBA8, &mat_bytes);
+            let mat_standby_tex = ImageTexture::create_from_image(&mat_standby_img)
+                .expect("ImageTexture for standby material map");
+
             self.lod_layers[level_idx as usize] = Some(LodLayer {
                 instance: mi,
                 heightmap_tex: ht_tex.clone(),
@@ -299,6 +320,10 @@ impl INode3D for WorldDriver {
                 hm_in_flight: false,
                 margin: tex_cfg.hm_extent / 2.0 - level.max_range - spacing,
                 grid_origin: (0.0, 0.0),
+                hm_standby_img,
+                hm_standby_tex,
+                mat_standby_img,
+                mat_standby_tex,
             });
         }
 
@@ -452,42 +477,35 @@ impl INode3D for WorldDriver {
         let pz = player_pos.z as f32;
         let py = player_pos.y as f32;
 
-        // ── 收割后台完成的 heightmap job（双缓冲交换，无 GPU stall）──
+        // ── 收割后台完成的 heightmap job ──
+        // 纹理池双缓冲：每层预分配 2 套 Image+ImageTexture，harvest 用 update() 原地更新
+        // 帧预算：每帧最多 1 次 harvest（削平多 job 同时完成产生的尖峰）
         use godot::classes::image::Format;
-        use godot::classes::ImageTexture;
-        while let Ok(job) = self.hm_job_rx.try_recv() {
+        use std::mem;
+        let mut uploaded_this_frame = 0u32;
+        const MAX_UPLOADS_PER_FRAME: u32 = 1;
+        while uploaded_this_frame < MAX_UPLOADS_PER_FRAME {
+            let job = match self.hm_job_rx.try_recv() {
+                Ok(j) => j,
+                Err(_) => break,
+            };
             let idx = job.level_idx as usize;
             if let Some(ref mut layer) = self.lod_layers[idx] {
                 if !job.data.is_empty() {
-                    // 创建全新 ImageTexture（不修改 GPU 正采样的纹理 → 无管线停顿）
-                    let mut bytes = PackedByteArray::new();
+                    let size = job.hm_size as i32;
+
+                    // Heightmap: pack → standby Image → update standby Texture → swap
+                    let mut hm_bytes = PackedByteArray::new();
                     for &h in &job.data {
                         for &b in &h.to_le_bytes() {
-                            bytes.push(b);
+                            hm_bytes.push(b);
                         }
                     }
-                    let size = job.hm_size as i32;
-                    let mut img = Image::create(size, size, false, Format::RF)
-                        .expect("Image::create for heightmap swap");
-                    img.set_data(size, size, false, Format::RF, &bytes);
-                    let new_tex = ImageTexture::create_from_image(&img)
-                        .expect("ImageTexture::create_from_image for heightmap swap");
+                    layer.hm_standby_img.set_data(size, size, false, Format::RF, &hm_bytes);
+                    layer.hm_standby_tex.update(&layer.hm_standby_img);
+                    mem::swap(&mut layer.heightmap_tex, &mut layer.hm_standby_tex);
 
-                    // 原子交换：绑定新纹理 + 更新 UV 参考系
-                    layer.material.set_shader_parameter(
-                        &StringName::from("heightmap"),
-                        &new_tex.to_variant(),
-                    );
-                    layer.material.set_shader_parameter(
-                        &StringName::from("grid_origin"),
-                        &Variant::from(Vector2::new(
-                            job.grid_origin_x as f32,
-                            job.grid_origin_z as f32,
-                        )),
-                    );
-                    layer.grid_origin = (job.grid_origin_x, job.grid_origin_z);
-
-                    // 上传材质纹理（RGBA8——双缓冲交换，零管线停顿）
+                    // Material map: pack → standby Image → update standby Texture → swap
                     let mut mat_bytes = PackedByteArray::new();
                     for &[r, g, b, a] in &job.material_colors {
                         for &v in &[
@@ -499,28 +517,36 @@ impl INode3D for WorldDriver {
                             mat_bytes.push(v);
                         }
                     }
-                    let mut mat_img = Image::create(size, size, false, Format::RGBA8)
-                        .expect("Image::create for material map swap");
-                    mat_img.set_data(size, size, false, Format::RGBA8, &mat_bytes);
-                    let new_mt = ImageTexture::create_from_image(&mat_img)
-                        .expect("ImageTexture for material map swap");
+                    layer.mat_standby_img.set_data(size, size, false, Format::RGBA8, &mat_bytes);
+                    layer.mat_standby_tex.update(&layer.mat_standby_img);
+                    mem::swap(&mut layer.material_tex, &mut layer.mat_standby_tex);
 
+                    // Bind the now-current textures (swapped in above) to shader
+                    layer.material.set_shader_parameter(
+                        &StringName::from("heightmap"),
+                        &layer.heightmap_tex.to_variant(),
+                    );
+                    layer.material.set_shader_parameter(
+                        &StringName::from("grid_origin"),
+                        &Variant::from(Vector2::new(
+                            job.grid_origin_x as f32,
+                            job.grid_origin_z as f32,
+                        )),
+                    );
+                    layer.grid_origin = (job.grid_origin_x, job.grid_origin_z);
                     layer.material.set_shader_parameter(
                         &StringName::from("material_map"),
-                        &new_mt.to_variant(),
+                        &layer.material_tex.to_variant(),
                     );
 
-                    // 替换活跃纹理（旧纹理被 Godot 引用计数释放）
-                    layer.heightmap_tex = new_tex;
-                    layer.material_tex = new_mt;
-
-                    // 更新该层高度图中心
+                    // Update heightmap center
                     let half = job.hm_size as f64 * layer.spacing * 0.5;
                     layer.hm_center = (job.grid_origin_x + half, job.grid_origin_z + half);
                 } else if job.panicked {
                     godot_error!("LOD {} heightmap job panicked", job.level_idx);
                 }
                 layer.hm_in_flight = false;
+                uploaded_this_frame += 1;
             }
         }
 

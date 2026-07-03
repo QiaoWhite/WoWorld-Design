@@ -16,8 +16,9 @@ uniform vec4 shallow_color : source_color = vec4(0.05, 0.45, 0.55, 1.0);
 uniform vec4 foam_color : source_color = vec4(0.9, 0.95, 1.0, 1.0);
 uniform float depth_blend : hint_range(0.0, 500.0) = 200.0;
 
-// ★ Godot 4.x: DEPTH_TEXTURE built-in 已移除 → hint_depth_texture 声明
-uniform sampler2D depth_texture : hint_depth_texture, repeat_disable, filter_nearest;
+// 海底高度（世界 Y 坐标，米）— 由 Rust WorldDriver 每帧传入
+// 替换 hint_depth_texture → 消除 Depth Pre-Pass（地形不再渲染两次）
+uniform float seabed_y = 0.0;
 
 // Gerstner 波函数
 vec3 gerstner_wave(vec4 wave_params, vec3 pos, float time, inout vec3 tangent, inout vec3 binormal) {
@@ -69,17 +70,8 @@ void vertex() {
 }
 
 void fragment() {
-	// ★ Per-fragment 海深：从 DEPTH_TEXTURE 重建海底世界坐标
-	float depth_tex = texture(depth_texture, SCREEN_UV).x;
-	vec3 ndc = vec3(SCREEN_UV * 2.0 - 1.0, depth_tex);
-	vec4 view_pos = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
-	view_pos.xyz /= view_pos.w;
-	vec3 world_pos = (INV_VIEW_MATRIX * vec4(view_pos.xyz, 1.0)).xyz;
-	float seabed_y = world_pos.y;
-
-	// 深度驱动颜色：浅水绿松石 → 深海暗蓝
-	// 海底未渲染 → depth=1.0 (reverse-Z 远平面) → seabed_y 极负 → 深海色
-	float water_depth = max(0.0, 0.0 - seabed_y);
+	// 海深：seabed_y uniform 由 Rust 每帧传入（替代原来的 DEPTH_TEXTURE 矩阵重建）
+	float water_depth = max(0.0, -seabed_y);
 	float depth_factor = clamp(water_depth / depth_blend, 0.0, 1.0);
 	ALBEDO = mix(shallow_color.rgb, deep_color.rgb, depth_factor);
 
@@ -87,9 +79,7 @@ void fragment() {
 	float foam = 1.0 - smoothstep(0.5, 5.0, water_depth);
 	ALBEDO = mix(ALBEDO, foam_color.rgb, foam * 0.35);
 
-	// 透明度：陆地上方 → 完全透明，海面 → 不透明
-	// seabed_y > 0 = 陆地高于海平面 → 海面在下方，不应可见
-	// seabed_y < 0 = 真正的海洋 → 显示海面
+	// 透明度：seabed_y > 0 = 陆地 → 海洋透明
 	ALPHA = 1.0 - smoothstep(-2.0, 2.0, seabed_y);
 
 	ROUGHNESS = 0.15;

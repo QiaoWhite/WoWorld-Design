@@ -50,7 +50,7 @@ void vertex() {
 
 	// 梯度法线（Godot Forward+ PBR——必须 view-space）
 	float ts = hm_extent / float(textureSize(heightmap, 0).x);
-	float h_c = texture(heightmap, uv).r;
+	float h_c = current_h;
 	float h_r = texture(heightmap, uv + vec2(ts / hm_extent, 0.0)).r;
 	float h_u = texture(heightmap, uv + vec2(0.0, ts / hm_extent)).r;
 	float gx = (h_r - h_c) / ts;

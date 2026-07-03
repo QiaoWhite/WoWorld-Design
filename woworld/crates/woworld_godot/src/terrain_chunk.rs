@@ -96,6 +96,9 @@ struct LodLayer {
     /// Texture pool: standby Image + ImageTexture for material map
     mat_standby_img: Gd<godot::classes::Image>,
     mat_standby_tex: Gd<godot::classes::ImageTexture>,
+    /// Dirty flags: only update cross-sampling uniforms when layer actually moved
+    fine_origin_dirty: bool,
+    coarse_origin_dirty: bool,
 }
 
 // ── GodotClass ────────────────────
@@ -324,6 +327,8 @@ impl INode3D for WorldDriver {
                 hm_standby_tex,
                 mat_standby_img,
                 mat_standby_tex,
+                fine_origin_dirty: true,
+                coarse_origin_dirty: true,
             });
         }
 
@@ -542,6 +547,10 @@ impl INode3D for WorldDriver {
                     // Update heightmap center
                     let half = job.hm_size as f64 * layer.spacing * 0.5;
                     layer.hm_center = (job.grid_origin_x + half, job.grid_origin_z + half);
+
+                    // Mark cross-sampling uniforms dirty — neighbors need update
+                    layer.fine_origin_dirty = true;
+                    layer.coarse_origin_dirty = true;
                 } else if job.panicked {
                     godot_error!("LOD {} heightmap job panicked", job.level_idx);
                 }
@@ -632,16 +641,17 @@ impl INode3D for WorldDriver {
             if let (Some(ref finer), Some(ref mut coarser)) =
                 (&left[level_idx as usize - 1], &mut right[0])
             {
-                // 纹理引用：每次 swap 后 old texture 被 Godot 回收 → 必须每帧刷新
-                coarser.material.set_shader_parameter(
-                    &StringName::from("fine_heightmap"),
-                    &finer.heightmap_tex.to_variant(),
-                );
-                let go = finer.grid_origin;
-                coarser.material.set_shader_parameter(
-                    &StringName::from("fine_grid_origin"),
-                    &Variant::from(Vector2::new(go.0 as f32, go.1 as f32)),
-                );
+                if finer.coarse_origin_dirty {
+                    coarser.material.set_shader_parameter(
+                        &StringName::from("fine_heightmap"),
+                        &finer.heightmap_tex.to_variant(),
+                    );
+                    let go = finer.grid_origin;
+                    coarser.material.set_shader_parameter(
+                        &StringName::from("fine_grid_origin"),
+                        &Variant::from(Vector2::new(go.0 as f32, go.1 as f32)),
+                    );
+                }
             }
         }
 
@@ -651,15 +661,40 @@ impl INode3D for WorldDriver {
             if let (Some(ref mut layer), Some(ref coarser)) =
                 (&mut left[level_idx as usize], &right[0])
             {
-                layer.material.set_shader_parameter(
-                    &StringName::from("coarse_heightmap"),
-                    &coarser.heightmap_tex.to_variant(),
-                );
-                let go = coarser.grid_origin;
-                layer.material.set_shader_parameter(
-                    &StringName::from("coarse_grid_origin"),
-                    &Variant::from(Vector2::new(go.0 as f32, go.1 as f32)),
-                );
+                if coarser.fine_origin_dirty {
+                    layer.material.set_shader_parameter(
+                        &StringName::from("coarse_heightmap"),
+                        &coarser.heightmap_tex.to_variant(),
+                    );
+                    let go = coarser.grid_origin;
+                    layer.material.set_shader_parameter(
+                        &StringName::from("coarse_grid_origin"),
+                        &Variant::from(Vector2::new(go.0 as f32, go.1 as f32)),
+                    );
+                }
+            }
+        }
+
+        // Reset dirty flags after cross-sampling sync
+        for layer in self.lod_layers.iter_mut().flatten() {
+            layer.fine_origin_dirty = false;
+            layer.coarse_origin_dirty = false;
+        }
+
+        // ── Ocean seabed_y uniform（替代 hint_depth_texture → 消除 Depth Pre-Pass）──
+        if let Some(ref ocean_mesh) = self.ocean_mesh {
+            let seabed_y = self.terrain.height_at(WorldPos {
+                x: player_pos.x,
+                y: 0.0,
+                z: player_pos.z,
+            });
+            if let Some(mat) = ocean_mesh.get_surface_override_material(0) {
+                if let Ok(mut sm) = mat.try_cast::<ShaderMaterial>() {
+                    sm.set_shader_parameter(
+                        &StringName::from("seabed_y"),
+                        &Variant::from(seabed_y),
+                    );
+                }
             }
         }
 
@@ -804,8 +839,6 @@ impl WorldDriver {
                                 atm.ground_horizon[1],
                                 atm.ground_horizon[2],
                             ));
-                            proc_sky.set_sun_angle_max(5.0);
-                            proc_sky.set_sun_curve(0.5);
                         }
                     }
                 }

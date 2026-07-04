@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_back;
+render_mode cull_disabled; // FIXME: 部分三角形绕序不一致，诊断后恢复 cull_back
 
 // Camera-relative floating origin — 与 terrain.gdshader 一致
 uniform vec3 camera_pos = vec3(0.0);

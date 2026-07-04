@@ -51,8 +51,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **写/读 Rust 代码** | `woworld/` — workspace 结构见下方「代码架构」 |
 | **构建项目** | `cd woworld && cargo build --workspace` |
 | **启动 Godot 编辑器** | `tools/godot/Godot_v4.7-stable_win64.exe woworld/godot/project.godot` |
-| **看最新开发日志** | `DEVLOG-2026-07-04.md` (Sprint 029+030: 海洋+Transvoxel) |
-| **看最新交接文档** | `woworld-dev-plan/handoff/handoff-20260704-022.md` |
+| **看最新开发日志** | `DEVLOG-2026-07-05.md` (Sprint 031: VoxelChunk 集成) |
+| **看最新交接文档** | `woworld-dev-plan/handoff/handoff-20260704-024.md` |
 
 ## 文档结构
 
@@ -138,7 +138,7 @@ cargo build --release --workspace
 cargo check --workspace
 
 # 运行所有测试
-cargo test --workspace           # 4 crates，全部 53 个测试
+cargo test --workspace           # 4 crates，全部 72 个测试
 
 # 运行单个 crate 的测试
 cargo test -p woworld_worldgen
@@ -175,8 +175,8 @@ cargo check --workspace && cargo test --workspace && cargo clippy --workspace --
 
 | Crate | 测试数 | 位置 |
 |-------|--------|------|
-| `woworld_core` | 14 | `time.rs` (14) — WorldTime/WorldClock 昼夜循环 |
-| `woworld_worldgen` | 30 | `clipmap.rs` (17) + `terrain.rs` (8) + `biome.rs` (5) |
+| `woworld_core` | 14 | `time.rs` (12) + `density.rs` (2) — WorldTime/WorldClock + DensityStack |
+| `woworld_worldgen` | 48 | `biome.rs` (5) + `cave.rs` (6) + `clipmap.rs` (3) + `noise_gen.rs` (15) + `ocean.rs` (7) + `terrain.rs` (8) + `transvoxel.rs` (4) |
 | `woworld_atmosphere` | 10 | `time_curve.rs` (6) + `synthesizer.rs` (4) |
 | `woworld_godot` | 0 | （测试已迁移至 woworld_worldgen — cdylib 不便于单元测试） |
 
@@ -195,16 +195,23 @@ woworld/
 │   │       ├── spatial.rs      #   4 大 trait: TerrainQuery(9方法), EntityIndex(6方法),
 │   │       │                   #     SpatialEventBus(3方法), VisibilityQuery(2方法)
 │   │       ├── material.rs     #   SurfaceMaterial(21变体), Medium(4变体)
+│   │       ├── density.rs      #   DensityStack — 分层密度场 + LayerPriority 排序
+│   │       ├── ocean.rs        #   OceanProvider trait (6方法) — 海平面/水深/水下检测
 │   │       ├── time.rs         #   WorldTime, WorldClock, TimeOfDay — 昼夜循环权威定义
 │   │       └── vegetation.rs   #   VegetationProvider trait + PlantCommunitySnapshot + 植被类型
-│   ├── woworld_worldgen/       # GPU-Driven Clipmap 世界生成 (8 级 LOD + 海洋)
+│   ├── woworld_worldgen/       # GPU-Driven Clipmap 世界生成 (8 级 LOD + 海洋 + 洞穴)
 │   │   └── src/
 │   │       ├── lib.rs          #   导出 HeightfieldTerrain, BiomeClassifier, TerrainMeshData
-│   │       ├── noise_gen.rs    #   双层 Perlin 噪声 (continent+detail+mountain) + 气候场
+│   │       ├── noise_gen.rs    #   双层 Perlin 噪声 (continent+detail+mountain) + 气候场 + 3D Worley
 │   │       ├── biome.rs        #   温度×降水 2D 噪声 → 5 群系硬盒分类 (TOML 数据驱动)
 │   │       ├── terrain.rs      #   HeightfieldTerrain — 完整 TerrainQuery trait 实现
 │   │       ├── terrain_mesh.rs #   纯 Rust 网格生成 (引擎无关) — 顶点/索引/法线
-│   │       └── clipmap.rs      #   GPU-Driven Clipmap — 8 层 LOD 环形网格 + Heightmap 纹理
+│   │       ├── cave.rs         #   CaveDensity — 3D Worley 洞穴密度层
+│   │       ├── ocean.rs        #   HeightfieldOcean — OceanProvider trait 实现 (Gerstner 波)
+│   │       ├── clipmap.rs      #   GPU-Driven Clipmap — 8 层 LOD 环形网格 + Heightmap 纹理
+│   │       ├── transvoxel.rs   #   Transvoxel 提取 — 密度场 → 过渡网格曲面
+│   │       ├── transition_tables.rs # Transvoxel 过渡查找表 (4096 条目)
+│   │       └── tri_table_data.rs    # Marching Cubes 三角剖分查找表 (256 条目)
 │   │                           #   LOD 速查: L0(0-30m·TV·0.5m) → L4(500-1500m·TV·8m)
 │   │                           #             L5(1500-4000m·SH·16m) → L7(7000-10000m·SH·64m)
 │   ├── woworld_atmosphere/     # 大气与氛围系统 — 17 参数合成 (CHG-064)
@@ -221,6 +228,7 @@ woworld/
 │           ├── lib.rs          #   WoWorldExtension GDExtension 入口
 │           ├── terrain_chunk.rs#   WorldDriver GodotClass — 8 层 LodLayer + ShaderMaterial
 │           │                   #   Vertex Shader Camera-Relative Floating Origin
+│           ├── voxel_chunk.rs  #   VoxelChunk GodotClass — Transvoxel 网格生成 + 顶点色
 │           └── ocean.rs        #   Ocean GodotClass — Gerstner 波海洋渲染
 ├── godot/                      # Godot 4.7 项目
 │   ├── project.godot           #   引擎配置（Forward+, GodotPhysics3D, MSAA 2x）
@@ -243,9 +251,9 @@ woworld_core (glam 0.28)
 ### 架构原则
 
 - **`woworld_core` — 最少依赖**：所有 ID 类型（`ItemDefId`, `SkillId`, `EntityId`, `ProfessionTagId`）、空间查询 trait（`TerrainQuery`, `EntityIndex`, `SpatialEventBus`, `VisibilityQuery`）、植被 trait（`VegetationProvider`）、共享数据结构均在此定义。仅依赖 `glam`（SIMD 向量运算）。引擎无关，不依赖 Godot。
-- **`woworld_worldgen` — GPU-Driven Clipmap 世界生成**：双层 Perlin 噪声高度场 + 5 群系硬盒分类（温度×降水 TOML 数据驱动）+ `TerrainQuery` trait 完整实现。8 层 Clipmap LOD（L0-L4 Transvoxel 0.5-8m 体素 + L5-L7 Signed Heightfield 16-64m 间距）。GPU-Driven 架构——网格启动时生成一次，Vertex Shader 通过 heightmap 纹理采样完成 Y 轴位移，运行时零 CPU mesh 修改。纯 Rust 网格生成器（`terrain_mesh.rs`，引擎无关）。依赖 `woworld_core` + `noise` crate。
+- **`woworld_worldgen` — GPU-Driven Clipmap 世界生成**：双层 Perlin 噪声高度场 + 5 群系硬盒分类（温度×降水 TOML 数据驱动）+ `TerrainQuery` trait 完整实现。8 层 Clipmap LOD（L0-L4 Transvoxel 0.5-8m 体素 + L5-L7 Signed Heightfield 16-64m 间距）。GPU-Driven 架构——网格启动时生成一次，Vertex Shader 通过 heightmap 纹理采样完成 Y 轴位移，运行时零 CPU mesh 修改。DensityStack 分层密度（高度场 + 3D Worley 洞穴层）。`OceanProvider` trait 实现（Gerstner 程序化波 + 海深色变）。纯 Rust 网格生成器（`terrain_mesh.rs`，引擎无关）+ Transvoxel 过渡网格（`transvoxel.rs`）。依赖 `woworld_core` + `noise` crate。
 - **`woworld_atmosphere` — 大气与氛围系统**：合成 `ResolvedAtmosphere`（17 参数：天空色/雾/环境光/曝光/太阳色等），输出 `PackedFloat32Array` 供 Godot shader 消费。时间曲线优先——群系/天气/季节调制预留 trait stub。依赖仅 `woworld_core`（WorldTime, WorldPos）。引擎无关。
-- **`woworld_godot` — 薄桥接层**：Rust 类型 ↔ Godot GDExtension API 的转换。不包含游戏逻辑。编译为 `cdylib`，由 Godot 运行时动态加载。包含 WorldDriver GodotClass（8 层 LodLayer + Vertex Shader Camera-Relative Floating Origin）和 Ocean GodotClass（Gerstner 波海洋渲染）。
+- **`woworld_godot` — 薄桥接层**：Rust 类型 ↔ Godot GDExtension API 的转换。不包含游戏逻辑。编译为 `cdylib`，由 Godot 运行时动态加载。包含 WorldDriver GodotClass（8 层 LodLayer + Vertex Shader Camera-Relative Floating Origin）、VoxelChunk GodotClass（Transvoxel 网格 + 顶点色专用 shader）和 Ocean GodotClass（Gerstner 波海洋渲染）。
 - **Godot 项目 — 纯表现层**：渲染、UI、音频、输入、玩家物理（仅玩家保留 `PhysicsServer3D`——其他全部 Rust 侧空间查询）。
 - **数据流**：`TOML 数据文件` → 各 crate 通过 `include_str!()` 平等加载 → `woworld_godot`（桥接层）→ Godot 场景树。
 - **godot-rust 版本**：`godot` crate 0.5.x（GDExtension API）。

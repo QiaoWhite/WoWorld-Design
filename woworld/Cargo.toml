@@ -14,7 +14,7 @@ rust-version = "1.80"
 license = "MIT"
 
 [profile.dev]
-opt-level = 1         # 轻度优化（内联+简单优化），编译仍快，运行接近 release 60-80%
+opt-level = 0         # debug mode — no optimization, fast compile
 
 [profile.release]
 lto = "fat"           # 链接时优化，跨 crate 边界内联

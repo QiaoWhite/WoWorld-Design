@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_disabled;
+render_mode blend_mix, depth_draw_opaque, cull_back;
 
 // Gerstner 波参数
 uniform float time_scale : hint_range(0.1, 2.0) = 0.5;

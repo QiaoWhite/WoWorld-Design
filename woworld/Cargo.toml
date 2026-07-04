@@ -13,6 +13,9 @@ edition = "2021"
 rust-version = "1.80"
 license = "MIT"
 
+[profile.dev]
+opt-level = 1         # 轻度优化（内联+简单优化），编译仍快，运行接近 release 60-80%
+
 [profile.release]
 lto = "fat"           # 链接时优化，跨 crate 边界内联
 codegen-units = 1     # 单代码生成单元，最大化优化（编译时间换运行性能）

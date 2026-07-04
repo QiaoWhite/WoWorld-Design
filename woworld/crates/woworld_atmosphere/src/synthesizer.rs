@@ -9,19 +9,14 @@ use woworld_core::prelude::*;
 
 use crate::resolved_atmosphere::ResolvedAtmosphere;
 use crate::time_curve::AtmosCurve;
-// 未来 trait（群系/天气/季节就绪后激活）：
-// use crate::traits::{BiomeAtmosQuery, SeasonAtmosQuery, WeatherAtmosQuery};
 
 /// 大气合成器
 ///
 /// 组装四层调制并输出 `ResolvedAtmosphere`。
-/// 当前层一（大气曲线）由太阳高度角驱动；其余层恒等。
+/// 层一（大气曲线）由太阳高度角驱动——与天文学同步。
+/// 层三（天气）和层四（季节）由调用方传入；层二（群系）推迟至气候场就绪。
 pub struct AtmosphereSynthesizer {
     pub(crate) curve: AtmosCurve,
-    // 未来扩展：
-    // biome_query: Box<dyn BiomeAtmosQuery>,
-    // weather_query: Box<dyn WeatherAtmosQuery>,
-    // season_query: Box<dyn SeasonAtmosQuery>,
 }
 
 impl Default for AtmosphereSynthesizer {
@@ -42,25 +37,45 @@ impl AtmosphereSynthesizer {
         Ok(Self { curve })
     }
 
-    /// 每帧调用 —— 合成一帧的 17 参数大气输出
+    /// 每帧调用 —— 合成一帧的 17 参数大气输出（无天气/季节调制）
+    pub fn resolve(&self, time: &WorldTime, pos: WorldPos) -> ResolvedAtmosphere {
+        self.resolve_with_weather(time, pos, [1.0; 3], 0.0, 1.0, 1.0, 1.0, 0.0)
+    }
+
+    /// 每帧调用 —— 含天气/季节调制参数。
     ///
     /// 性能预算: <0.02ms（设计文档规定）
-    pub fn resolve(&self, time: &WorldTime, pos: WorldPos) -> ResolvedAtmosphere {
+    #[allow(clippy::too_many_arguments)]
+    pub fn resolve_with_weather(
+        &self,
+        time: &WorldTime,
+        pos: WorldPos,
+        weather_sky_mult: [f32; 3],
+        weather_fog: f32,
+        weather_exposure: f32,
+        weather_saturation: f32,
+        season_saturation: f32,
+        season_warmth: f32,
+    ) -> ResolvedAtmosphere {
         // 层一：大气曲线（太阳高度角驱动——与天文学同步）
         let ts = self.curve.evaluate(time.sun_elevation);
 
-        // 层二：群系调制 — stub（恒等）
+        // 层二：群系调制 — stub（恒等，待气候场就绪）
         let bio_zenith = stub_biome_zenith_tint(pos);
         let bio_horizon = stub_biome_horizon_tint(pos);
         let bio_ambient = stub_biome_ambient_tint(pos);
         let bio_shadow = stub_biome_shadow_tint(pos);
         let bio_night = stub_biome_night_brightness(pos);
 
-        // 层三：天气调制 — stub（恒等）
-        let (wea_sky_mult, wea_fog, wea_exp, wea_sat) = stub_weather(time, pos);
+        // 层三：天气调制（调用方传入）
+        let wea_sky_mult = weather_sky_mult;
+        let wea_fog = weather_fog;
+        let wea_exp = weather_exposure;
+        let wea_sat = weather_saturation;
 
-        // 层四：季节调制 — stub（恒等）
-        let (sea_sat, sea_warmth) = stub_season(time.season_progress);
+        // 层四：季节调制（调用方传入）
+        let sea_sat = season_saturation;
+        let sea_warmth = season_warmth;
 
         // 合成最终颜色（逐通道乘数）
         let final_sat = wea_sat * sea_sat;
@@ -111,14 +126,6 @@ fn stub_biome_shadow_tint(_pos: WorldPos) -> [f32; 3] {
 }
 fn stub_biome_night_brightness(_pos: WorldPos) -> f32 {
     0.12
-}
-
-fn stub_weather(_time: &WorldTime, _pos: WorldPos) -> ([f32; 3], f32, f32, f32) {
-    ([1.0, 1.0, 1.0], 0.0, 1.0, 1.0)
-}
-
-fn stub_season(_season_progress: f64) -> (f32, f32) {
-    (1.0, 0.0)
 }
 
 /// 逐通道乘法

@@ -1,5 +1,11 @@
 # ONBOARDING.md — 开发者认知接入
 
+> ⚠️ **已迁移** (2026-07-04): 本文件内容已拆解吸收到新的六阶段开发流程体系中。
+> - 快速入门 → [`woworld-dev-plan/README.md`](README.md)
+> - AI 启动流程 → [`woworld-dev-plan/00-流程总览.md`](00-流程总览.md) §三
+> - 仓库地图 → [`woworld-dev-plan/README.md`](README.md)
+> - 本文件保留作为历史参考。
+>
 > 5 分钟了解 WoWorld 是什么、仓库怎么组织、怎么开始工作。
 
 ---

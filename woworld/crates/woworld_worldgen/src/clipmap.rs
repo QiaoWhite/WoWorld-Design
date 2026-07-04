@@ -37,8 +37,8 @@ pub const LEVELS: [LodLevel; 8] = [
     LodLevel { index: 3, min_range: 200.0,   max_range: 500.0,   algorithm: MeshAlgorithm::Transvoxel { voxel_size: 4.0 } },
     LodLevel { index: 4, min_range: 500.0,   max_range: 1500.0,  algorithm: MeshAlgorithm::Transvoxel { voxel_size: 8.0 } },
     LodLevel { index: 5, min_range: 1500.0,  max_range: 4000.0,  algorithm: MeshAlgorithm::SignedHeightfield { spacing: 16.0 } },
-    LodLevel { index: 6, min_range: 4000.0,  max_range: 7000.0,  algorithm: MeshAlgorithm::SignedHeightfield { spacing: 32.0 } },
-    LodLevel { index: 7, min_range: 7000.0,  max_range: 10000.0, algorithm: MeshAlgorithm::SignedHeightfield { spacing: 64.0 } },
+    LodLevel { index: 6, min_range: 4000.0,  max_range: 10000.0, algorithm: MeshAlgorithm::SignedHeightfield { spacing: 32.0 } },
+    LodLevel { index: 7, min_range: 10000.0, max_range: 15000.0, algorithm: MeshAlgorithm::SignedHeightfield { spacing: 64.0 } },
 ];
 
 // ── 按层高度图纹理配置 ──────────────────

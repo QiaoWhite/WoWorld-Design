@@ -49,6 +49,33 @@ fn interpolate(p1: Vec3, p2: Vec3, d1: f32, d2: f32) -> Vec3 {
     p1 + (p2 - p1) * t
 }
 
+// ── 三角形绕序运行时校验 ──────────────
+/// 检测三角形当前绕序的面法线方向是否符合 Godot `cull_back` 要求。
+///
+/// Godot 4.7 `cull_back` 要求面法线（cross product 方向）指向**实体内部**
+///（与 clipmap 地形网格一致——面法线朝下，顶点法线朝上）。
+/// 顶点法线由密度梯度取反得到，指向空气。
+/// 因此正确绕序的面法线应与顶点法线**反向**。
+///
+/// 返回 `None`：退化三角形（零面积或 NaN）。
+/// 返回 `Some(true)`：绕序正确——面法线指向实体内部。
+/// 返回 `Some(false)`：需要反转绕序（swap i1↔i2）。
+#[inline]
+fn winding_is_godot_front(
+    p0: Vec3, p1: Vec3, p2: Vec3,
+    n0: Vec3, n1: Vec3, n2: Vec3,
+) -> Option<bool> {
+    let face_normal = (p1 - p0).cross(p2 - p0);
+    let face_len_sq = face_normal.length_squared();
+    // 退化三角形：零面积或 NaN
+    if !face_len_sq.is_finite() || face_len_sq <= 1e-12 {
+        return None;
+    }
+    let avg_normal = n0 + n1 + n2;
+    // dot < 0 → 面法线与顶点法线反向 → 面法线指向实体内部 → Godot front face
+    Some(face_normal.dot(avg_normal) < 0.0)
+}
+
 // ── 3D 有限差分梯度 ──────────────────
 fn gradient_from_stack(stack: &DensityStack, x: f64, y: f64, z: f64) -> Vec3 {
     let eps = GRADIENT_EPS;
@@ -144,7 +171,6 @@ fn extract_transition_cell(
 
     let cell_class = TRANSITION_CELL_CLASS[case_idx];
     let class_idx = (cell_class & 0x7F) as usize;
-    let reverse_winding = (cell_class & 0x80) != 0;
     let counts = TRANSITION_CELL_DATA_COUNTS[class_idx];
     let vertex_count = (counts >> 4) as usize;
     let triangle_count = (counts & 0x0F) as usize;
@@ -198,10 +224,26 @@ fn extract_transition_cell(
         let i1 = TRANSITION_CELL_INDICES[base + 1] as usize;
         let i2 = TRANSITION_CELL_INDICES[base + 2] as usize;
         if i0 >= face_vert_indices.len() || i1 >= face_vert_indices.len() || i2 >= face_vert_indices.len() { continue; }
-        if reverse_winding {
-            indices.push(face_vert_indices[i0]); indices.push(face_vert_indices[i2]); indices.push(face_vert_indices[i1]);
-        } else {
-            indices.push(face_vert_indices[i0]); indices.push(face_vert_indices[i1]); indices.push(face_vert_indices[i2]);
+
+        let vi0 = face_vert_indices[i0] as usize;
+        let vi1 = face_vert_indices[i1] as usize;
+        let vi2 = face_vert_indices[i2] as usize;
+
+        match winding_is_godot_front(
+            vertices[vi0], vertices[vi1], vertices[vi2],
+            normals[vi0], normals[vi1], normals[vi2],
+        ) {
+            None => { /* degenerate — skip */ }
+            Some(true) => {
+                indices.push(face_vert_indices[i0]);
+                indices.push(face_vert_indices[i1]);
+                indices.push(face_vert_indices[i2]);
+            }
+            Some(false) => {
+                indices.push(face_vert_indices[i0]);
+                indices.push(face_vert_indices[i2]);
+                indices.push(face_vert_indices[i1]);
+            }
         }
     }
 }
@@ -309,9 +351,29 @@ pub fn transvoxel_extract(
                 let tris = tri_table_entry(case_idx);
                 let mut ti = 0;
                 while ti + 2 < 16 && tris[ti] != -1 {
-                    indices.push(edge_vert_idx[tris[ti] as usize]);
-                    indices.push(edge_vert_idx[tris[ti+1] as usize]);
-                    indices.push(edge_vert_idx[tris[ti+2] as usize]);
+                    let e0 = tris[ti] as usize;
+                    let e1 = tris[ti + 1] as usize;
+                    let e2 = tris[ti + 2] as usize;
+                    let vi0 = edge_vert_idx[e0] as usize;
+                    let vi1 = edge_vert_idx[e1] as usize;
+                    let vi2 = edge_vert_idx[e2] as usize;
+
+                    match winding_is_godot_front(
+                        vertices[vi0], vertices[vi1], vertices[vi2],
+                        normals[vi0], normals[vi1], normals[vi2],
+                    ) {
+                        None => { /* degenerate — skip */ }
+                        Some(true) => {
+                            indices.push(edge_vert_idx[e0]);
+                            indices.push(edge_vert_idx[e1]);
+                            indices.push(edge_vert_idx[e2]);
+                        }
+                        Some(false) => {
+                            indices.push(edge_vert_idx[e0]);
+                            indices.push(edge_vert_idx[e2]);
+                            indices.push(edge_vert_idx[e1]);
+                        }
+                    }
                     ti += 3;
                 }
             }
@@ -359,12 +421,6 @@ pub fn transvoxel_extract(
             }
             _ => {}
         }
-    }
-
-    // Reverse triangle winding — MC TRI_TABLE faces toward solid (positive density),
-    // but we want faces visible from the air side. Swap index[1]↔index[2] per triangle.
-    for tri in indices.chunks_exact_mut(3) {
-        tri.swap(1, 2);
     }
 
     TerrainMeshData { vertices, normals, indices, colors }
@@ -476,5 +532,52 @@ mod tests {
         let max_if_unshared = mesh.indices.len();
         assert!(unique_vertices < max_if_unshared,
             "vertex sharing should reduce vertex count: {unique_vertices} < {max_if_unshared}");
+    }
+
+    #[test]
+    fn test_winding_consistency() {
+        // 球体密度场提取 mesh——每个三角形的面法线应与顶点法线反向
+        //（Godot cull_back 要求面法线指向实体内部，顶点法线指向空气）
+        let mut stack = DensityStack::new();
+        let sphere = Arc::new(SphereDensity { cx: 4.0, cy: 4.0, cz: 4.0, r: 3.0 });
+        stack.push(sphere.clone());
+        let colors = HashMap::new();
+        let mesh = transvoxel_extract(&stack, &*sphere, 0.0, 0.0, 0.0, 8, 8, 8, 1.0, 0, &colors);
+
+        assert!(mesh.indices.len() >= 3, "should have at least one triangle");
+
+        let (mut correct, mut total, mut degenerate) = (0usize, 0usize, 0usize);
+
+        for tri in mesh.indices.chunks_exact(3) {
+            let i0 = tri[0] as usize;
+            let i1 = tri[1] as usize;
+            let i2 = tri[2] as usize;
+
+            let p0 = mesh.vertices[i0];
+            let p1 = mesh.vertices[i1];
+            let p2 = mesh.vertices[i2];
+            let n0 = mesh.normals[i0];
+            let n1 = mesh.normals[i1];
+            let n2 = mesh.normals[i2];
+
+            let face_normal = (p1 - p0).cross(p2 - p0);
+            let face_len_sq = face_normal.length_squared();
+            if !face_len_sq.is_finite() || face_len_sq <= 1e-12 {
+                degenerate += 1;
+                continue;
+            }
+
+            let avg_normal = n0 + n1 + n2;
+            total += 1;
+            // Godot cull_back: face_normal should point toward solid (opposite to vertex normals → air)
+            if face_normal.dot(avg_normal) < 0.0 {
+                correct += 1;
+            }
+        }
+
+        assert_eq!(degenerate, 0, "should have no degenerate triangles");
+        assert_eq!(correct, total,
+            "all {total} triangles must have correct winding; {correct} correct, {} wrong",
+            total - correct);
     }
 }

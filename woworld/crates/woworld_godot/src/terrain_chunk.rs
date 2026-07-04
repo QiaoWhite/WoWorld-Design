@@ -12,11 +12,11 @@ use std::sync::Arc;
 use woworld_core::density::{DensityProvider, DensityStack};
 
 use godot::classes::{
-    ArrayMesh, DirectionalLight3D, Image, MeshInstance3D, ProceduralSkyMaterial, Shader,
+    ArrayMesh, DirectionalLight3D, Image, Input, MeshInstance3D, ProceduralSkyMaterial, Shader,
     ShaderMaterial, WorldEnvironment,
 };
 use godot::prelude::*;
-use woworld_atmosphere::AtmosphereSynthesizer;
+use woworld_atmosphere::{AtmosphereSynthesizer, SeasonAtmosQuery, SimpleSeasonProvider, SimpleWeatherDriver, WeatherAtmosQuery};
 use woworld_core::prelude::*;
 use woworld_core::spatial::TerrainQuery;
 use std::collections::HashMap;
@@ -34,7 +34,8 @@ use crate::voxel_chunk::VoxelChunk;
 
 // ── 缺省参数 ────────────────────
 /// 默认每秒对应的游戏天数（30s/天方便观察，正式 3600s/天）
-const DEFAULT_SECONDS_PER_DAY: f64 = 30.0;
+/// 现实秒 / 游戏天（3600 = 60 分钟/天，设计默认；调试可临时改为 30）
+const DEFAULT_SECONDS_PER_DAY: f64 = 3600.0;
 /// DirectionalLight3D 距离世界原点的距离（米）
 const SUN_ORBIT_RADIUS: f32 = 500.0;
 /// 后台线程完成的 heightmap 数据
@@ -104,6 +105,15 @@ pub struct WorldDriver {
     clock: WorldClock,
     atmosphere: AtmosphereSynthesizer,
 
+    /// Phase 1 天气驱动（简化 Markov，每帧 tick）
+    weather_driver: SimpleWeatherDriver,
+    /// Phase 1 季节提供者（纯函数 total_days → season）
+    season_provider: SimpleSeasonProvider,
+    /// 上次更新的游戏天数（检测季节变更）
+    last_game_day: u64,
+    /// 调试：天气快捷键防抖计时器
+    debug_weather_cooldown: f64,
+
     /// 每个 LOD 级别一个 GPU-driven clipmap 层
     lod_layers: [Option<LodLayer>; 8],
 
@@ -139,6 +149,9 @@ pub struct WorldDriver {
     /// 所有 VoxelChunk 共享的 ShaderMaterial（camera_pos 每帧更新一次）
     voxel_material: Option<Gd<ShaderMaterial>>,
 
+    /// Phase 1 LOD: 植被提供者，每帧接收 scene_lod 更新
+    vegetation_provider: Option<Arc<dyn VegetationProvider>>,
+
     #[base]
     base: Base<Node3D>,
 }
@@ -154,6 +167,10 @@ impl INode3D for WorldDriver {
             clock: WorldClock::new(DEFAULT_SECONDS_PER_DAY),
             atmosphere: AtmosphereSynthesizer::from_embedded_toml()
                 .expect("embedded time_curve.toml must be valid"),
+            weather_driver: SimpleWeatherDriver::new(0),
+            season_provider: SimpleSeasonProvider::new(0),
+            last_game_day: 0,
+            debug_weather_cooldown: 0.0,
             lod_layers: Default::default(),
             hm_job_tx: tx,
             hm_job_rx: rx,
@@ -171,6 +188,7 @@ impl INode3D for WorldDriver {
             voxel_wy: 0.0,
             voxel_vy: 32,
             voxel_material: None,
+            vegetation_provider: None,
             base,
         }
     }
@@ -303,7 +321,7 @@ impl INode3D for WorldDriver {
             let mut mi = MeshInstance3D::new_alloc();
             mi.set_name(&format!("LOD_{}", level_idx));
             mi.set_mesh(&am);
-            mi.set_extra_cull_margin(10000.0);
+            mi.set_extra_cull_margin(15000.0);
             if let Some(ref mut parent) = self.terrain_parent {
                 parent.add_child(&mi.clone().upcast::<Node>());
             }
@@ -465,17 +483,84 @@ impl INode3D for WorldDriver {
 
     fn process(&mut self, delta: f64) {
         self.clock.advance(delta);
+
+        // 调试：数字键 1-6 切换天气 / 7-0 切换时段（0.3s 防抖，必须在 wt borrow 之前）
+        self.debug_weather_cooldown = (self.debug_weather_cooldown - delta).max(0.0);
+        if self.debug_weather_cooldown <= 0.0 {
+            let input = Input::singleton();
+            use woworld_core::weather_types::WeatherState;
+            let mut target_weather: Option<WeatherState> = None;
+            let mut target_time: Option<f64> = None;
+
+            if input.is_key_pressed(godot::global::Key::KEY_1) { target_weather = Some(WeatherState::Clear); }
+            if input.is_key_pressed(godot::global::Key::KEY_2) { target_weather = Some(WeatherState::PartlyCloudy); }
+            if input.is_key_pressed(godot::global::Key::KEY_3) { target_weather = Some(WeatherState::Overcast); }
+            if input.is_key_pressed(godot::global::Key::KEY_4) { target_weather = Some(WeatherState::LightPrecip); }
+            if input.is_key_pressed(godot::global::Key::KEY_5) { target_weather = Some(WeatherState::ModeratePrecip); }
+            if input.is_key_pressed(godot::global::Key::KEY_6) { target_weather = Some(WeatherState::HeavyStorm); }
+            if input.is_key_pressed(godot::global::Key::KEY_7) { target_time = Some(0.25); } // Dawn
+            if input.is_key_pressed(godot::global::Key::KEY_8) { target_time = Some(0.50); } // Noon
+            if input.is_key_pressed(godot::global::Key::KEY_9) { target_time = Some(0.75); } // Dusk
+            if input.is_key_pressed(godot::global::Key::KEY_0) { target_time = Some(0.00); } // Midnight
+
+            if let Some(state) = target_weather {
+                self.weather_driver.debug_set_state(state);
+                self.debug_weather_cooldown = 0.3;
+                godot_print!("[Debug] Weather → {:?} | sky_mult={:?} fog={:.2} exp={:.2} sat={:.2}",
+                    state,
+                    self.weather_driver.sky_mult(),
+                    self.weather_driver.fog_density(),
+                    self.weather_driver.exposure_mult(),
+                    self.weather_driver.saturation_mult(),
+                );
+            }
+            if let Some(prog) = target_time {
+                self.clock.set_time(prog);
+                self.debug_weather_cooldown = 0.3;
+                let phase = self.clock.current.phase;
+                godot_print!("[Debug] Time → day_progress={:.2} phase={:?} light={:.2}",
+                    prog, phase, self.clock.current.light_level);
+            }
+        }
+
         let wt = &self.clock.current;
         self.terrain.clock = Some(self.clock.clone());
 
-        // 天空/太阳
+        let player_pos = self.get_player_position();
+
+        // 天气驱动 tick
+        self.weather_driver.tick(delta);
+
+        // 季节检测（每天一次）
+        let total_days = self.clock.current.day_number;
+        if total_days != self.last_game_day {
+            self.season_provider.update(total_days);
+            self.last_game_day = total_days;
+        }
+
+        // 天空/太阳（含天气+季节调制，使用真实玩家位置）
         {
-            let origin = WorldPos { x: 0.0, y: 0.0, z: 0.0 };
-            let atm = self.atmosphere.resolve(wt, origin);
+            let ws = self.weather_driver.sky_mult();
+            let wf = self.weather_driver.fog_density();
+            let we = self.weather_driver.exposure_mult();
+            let wsa = self.weather_driver.saturation_mult();
+            let ss = self.season_provider.saturation_mult();
+            let sw = self.season_provider.warmth();
+
+            let atm = self.atmosphere.resolve_with_weather(
+                wt, player_pos, ws, wf, we, wsa, ss, sw,
+            );
             self.update_sun_and_sky(&atm);
         }
 
-        let player_pos = self.get_player_position();
+        // Phase 1 LOD: 水平距离 → scene_lod (CHG-049 距离带)
+        let player_dist =
+            (player_pos.x * player_pos.x + player_pos.z * player_pos.z).sqrt();
+        let scene_lod = distance_to_scene_lod(player_dist);
+        if let Some(ref vp) = self.vegetation_provider {
+            vp.set_scene_lod(scene_lod);
+        }
+
         let px = player_pos.x as f32;
         let pz = player_pos.z as f32;
         let py = player_pos.y as f32;
@@ -863,6 +948,12 @@ impl WorldDriver {
         } else {
             WorldPos::default()
         }
+    }
+
+    /// 设置植被提供者——LODCoordinator 每帧通过 `set_scene_lod` 驱动植被细节。
+    #[allow(dead_code)]
+    pub fn set_vegetation_provider(&mut self, vp: Arc<dyn VegetationProvider>) {
+        self.vegetation_provider = Some(vp);
     }
 
     /// 将静态网格上传到 ArrayMesh（仅启动时调用一次）

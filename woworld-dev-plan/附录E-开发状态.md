@@ -1,9 +1,13 @@
+> **旧文件**: DEVELOPMENT_STATUS.md 内容已迁移至此。原文件保留作为历史参考。
+
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-06-28
+> **最后更新**: 2026-07-04
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `DEPENDENCY_GRAPH.md` · `../CLAUDE-INTERFACES.md`
 > **审计基准**: `audit-reports/20250625-code-vs-design/README.md`
+
+> **活文档**: 本文件每个冲刺结束时更新。是开发流程体系的「当前位置」权威数据源。
 
 ---
 
@@ -19,6 +23,19 @@
 | Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 6 级 CHG-049 对齐（0.5m-16m voxel, 4km 视野）+ Signed Heightfield (scene_lod 5) + 海洋 + 大气 + 昼夜 |
 | 当前冲刺 | Sprint-015 完成（Signed Heightfield — scene_lod 5 远距离渲染）→ 下一步待定 |
 | 最新 CHG | CHG-064（2026-06-24）— 轨A 昼夜循环 + 5群系系统 |
+
+---
+
+## Phase 映射总览
+
+| Phase | 覆盖层 | 涉及模块数 | 代码状态 | 设计状态 |
+|-------|--------|----------|---------|---------|
+| Phase 1: 核心基础 | Layer 0-1 | 10 模块 | 5/10 🟡 | 10/10 ✅ |
+| Phase 2: 垂直切片 | Layer 1-2 子集 | 待定 | 0 🟡 | 待 Phase 1 完成后细化 |
+| Phase 3: 系统完形 | Layer 2-4 | ~17 模块 | 0 🔴 | 17/17 🟡 |
+| Phase 4: 世界填充 | — | 0 新模块 | 0 🔴 | — |
+| Phase 5: 打磨发布 | — | 0 新模块 | 0 🔴 | — |
+| Phase 6: 持续运营 | — | 0 新模块 | 0 🔴 | — |
 
 ---
 
@@ -119,60 +136,60 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 ### 全局基础（3 个）
 
-| 模块 | 等级 | 代码 | 备注 |
-|------|------|------|------|
-| 技术栈方案 | 🟡 就绪 | — | v4.0 权威方案 |
-| 模块接头总览 | 🟡 就绪 | — | 102 文件/~6,100 行。12/27 模块时间戳待更新 |
-| 存档系统 | 🟡 就绪 | — | v2.0 (CHG-055/056)。LMDB 方案完整 |
+| 模块 | Phase | 等级 | 代码 | 备注 |
+|------|-------|------|------|------|
+| 技术栈方案 | P1 | 🟡 就绪 | — | v4.0 权威方案 |
+| 模块接头总览 | P1 | 🟡 就绪 | — | 102 文件/~6,100 行。12/27 模块时间戳待更新 |
+| 存档系统 | P1 | 🟡 就绪 | — | v2.0 (CHG-055/056)。LMDB 方案完整 |
 
 ### 世界框架（4 个）
 
-| 模块 | 等级 | 代码 | 备注 |
-|------|------|------|------|
-| 世界生成 | 🟡 部分实现 | ✅ 5 crates | 15 阶段管线仅完成 P0+P2。5 个红色偏离待修复 |
-| 生命 | 🟡 就绪 | — | Vitals/Mana/DeathCause(30种6类) 契约完整 |
-| 历史 | 🟡 就绪 | — | AetherImprint/KnowledgeSeed 契约完整 |
-| 天气与季节系统 | 🟡 就绪 | — | WeatherSample/Markov 6-state 契约完整 |
+| 模块 | Phase | 等级 | 代码 | 备注 |
+|------|-------|------|------|------|
+| 世界生成 | P1 | 🟡 部分实现 | ✅ 5 crates | 15 阶段管线仅完成 P0+P2。5 个红色偏离待修复 |
+| 生命 | P1 | 🟡 就绪 | — | Vitals/Mana/DeathCause(30种6类) 契约完整 |
+| 历史 | P3 | 🟡 就绪 | — | AetherImprint/KnowledgeSeed 契约完整 |
+| 天气与季节系统 | P1 | 🟡 就绪 | — | WeatherSample/Markov 6-state 契约完整 |
 
 ### NPC 核心（2 个 + 7 子模块）
 
-| 模块 | 等级 | 代码 | 备注 |
-|------|------|------|------|
-| NPC活人感模块 | 🟡 就绪 | — | v2.0 总规格。~8,000 行设计规格 |
-| ↳ 03-基本需求系统 | 🟡 就绪 | — | 已审核 vs CHG-027 |
-| ↳ 04-进阶需求系统 | 🟡 就绪 | — | ERG 挫折回归模型已定义 |
-| ↳ 05-审美与艺术 | 🟡 就绪 | — | AestheticSignal(6 dims)+AestheticTaste SoA |
-| ↳ 06-认知与智慧系统 | 🟡 就绪 | — | v1.1 (CHG-057/058/059)。PatternExpression 数学地基 |
-| ↳ 07-生命周期系统 | 🟡 就绪 | — | v1.0 (CHG-041)。AgeClock/Gompertz/InfantDependency |
-| ↳ 08-NPC行动涌现 | 🟡 就绪 | — | v1.0 (CHG-042)。3 层原子架构(35+~40+~25) |
-| 概念与语言地基 | 🟡 就绪 | — | v1.0 (CHG-044)。3 层模型 |
+| 模块 | Phase | 等级 | 代码 | 备注 |
+|------|-------|------|------|------|
+| NPC活人感模块 | P3 | 🟡 就绪 | — | v2.0 总规格。~8,000 行设计规格 |
+| ↳ 03-基本需求系统 | P3 | 🟡 就绪 | — | 已审核 vs CHG-027 |
+| ↳ 04-进阶需求系统 | P3 | 🟡 就绪 | — | ERG 挫折回归模型已定义 |
+| ↳ 05-审美与艺术 | P3 | 🟡 就绪 | — | AestheticSignal(6 dims)+AestheticTaste SoA |
+| ↳ 06-认知与智慧系统 | P3 | 🟡 就绪 | — | v1.1 (CHG-057/058/059)。PatternExpression 数学地基 |
+| ↳ 07-生命周期系统 | P3 | 🟡 就绪 | — | v1.0 (CHG-041)。AgeClock/Gompertz/InfantDependency |
+| ↳ 08-NPC行动涌现 | P3 | 🟡 就绪 | — | v1.0 (CHG-042)。3 层原子架构(35+~40+~25) |
+| 概念与语言地基 | P3 | 🟡 就绪 | — | v1.0 (CHG-044)。3 层模型 |
 
 ### 社会系统（4 个）
 
-| 模块 | 等级 | 代码 | 备注 |
-|------|------|------|------|
-| 经济系统 | 🟡 就绪 | — | v1.0。OrderBook/Market/NpcEconomicState |
-| 权力系统 | 🟡 就绪 | — | v1.0。17 PowerAtoms/PowerTopology/Legitimacy |
-| 文化系统 | 🟡 就绪 | — | v1.0。CultureCoreParams(10)/Voronoi 屏障/4 路径演化 |
-| 信仰系统 | 🟡 就绪 | — | v1.0。FaithTheology(10)/实践先于教义 |
+| 模块 | Phase | 等级 | 代码 | 备注 |
+|------|-------|------|------|------|
+| 经济系统 | P3 | 🟡 就绪 | — | v1.0。OrderBook/Market/NpcEconomicState |
+| 权力系统 | P3 | 🟡 就绪 | — | v1.0。17 PowerAtoms/PowerTopology/Legitimacy |
+| 文化系统 | P3 | 🟡 就绪 | — | v1.0。CultureCoreParams(10)/Voronoi 屏障/4 路径演化 |
+| 信仰系统 | P3 | 🟡 就绪 | — | v1.0。FaithTheology(10)/实践先于教义 |
 
 ### 交互/表现/建造/辅助（13 个）
 
-| 模块 | 等级 | 代码 | 备注 |
-|------|------|------|------|
-| 战斗 | 🟡 就绪 | — | 三层模型(本能→节奏→战略)/半自动 |
-| **魔法** | **🔴 冻结** | — | **零性能预算 — 预算建立前不可编码** |
-| 物品系统 | 🟡 就绪 | — | ItemDefId/Assembly/Enchantment/CraftingRecipe |
-| 技能系统 | 🟡 就绪 | — | SkillId(5分类)/XP公式/天赋三层/教学四路径 |
-| 语言表达 | 🟡 就绪 | — | ExpressionRef/Conversation/信息传播 5 通道 |
-| 模型动作与物理 | 🟡 就绪 | — | 9 层动画栈/四 trait/5 子模块 |
-| 音频系统 | 🟡 就绪 | — | SoundFootprint/AudioQuery(30 methods) |
-| 感官与知觉系统 | 🟡 就绪 | — | PerceptBatch/4 查询 trait/PerceptualCache |
-| 建筑模块 | 🟡 就绪 | — | ComponentFamily/WFC 2.5D/BuildingGenerator |
-| 载具系统 | 🟡 就绪 | — | 5 动力类型/L1-L3 半自动控制 |
-| 大气与氛围系统 | 🟡 部分实现 | ✅ woworld_atmosphere | 3/4 调制层为身份存根 |
-| 小精灵系统 | 🟡 就绪 | — | v1.0 (CHG-052) |
-| 玩家系统 | 🟡 就绪 | — | ★ CHG-063。6篇~1,448行。玩家=NPC+I/O适配层 |
+| 模块 | Phase | 等级 | 代码 | 备注 |
+|------|-------|------|------|------|
+| 战斗 | P3 | 🟡 就绪 | — | 三层模型(本能→节奏→战略)/半自动 |
+| **魔法** | P3(冻结) | **🔴 冻结** | — | **零性能预算 — 预算建立前不可编码** |
+| 物品系统 | P1 | 🟡 就绪 | — | ItemDefId/Assembly/Enchantment/CraftingRecipe |
+| 技能系统 | P1 | 🟡 就绪 | — | SkillId(5分类)/XP公式/天赋三层/教学四路径 |
+| 语言表达 | P4 | 🟡 就绪 | — | ExpressionRef/Conversation/信息传播 5 通道 |
+| 模型动作与物理 | P4 | 🟡 就绪 | — | 9 层动画栈/四 trait/5 子模块 |
+| 音频系统 | P4 | 🟡 就绪 | — | SoundFootprint/AudioQuery(30 methods) |
+| 感官与知觉系统 | P3 | 🟡 就绪 | — | PerceptBatch/4 查询 trait/PerceptualCache |
+| 建筑模块 | P4 | 🟡 就绪 | — | ComponentFamily/WFC 2.5D/BuildingGenerator |
+| 载具系统 | P4 | 🟡 就绪 | — | 5 动力类型/L1-L3 半自动控制 |
+| 大气与氛围系统 | P1 | 🟡 部分实现 | ✅ woworld_atmosphere | 3/4 调制层为身份存根 |
+| 小精灵系统 | P3 | 🟡 就绪 | — | v1.0 (CHG-052) |
+| 玩家系统 | P2 | 🟡 就绪 | — | ★ CHG-063。6篇~1,448行。玩家=NPC+I/O适配层 |
 
 ### 设计补全待办（Track B/C 遗留）
 
@@ -254,15 +271,12 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | 文件 | 内容 |
 |------|------|
-| [handoff-20260704-024.md](01-核心基础/handoff/handoff-20260704-024.md) | ★ 最新 — Sprint-029~032（Transvoxel + 海洋 + VoxelChunk 修复）|
-| [handoff-20260704-023.md](01-核心基础/handoff/handoff-20260704-023.md) | Sprint-028 完成 |
-| [handoff-20260704-022.md](01-核心基础/handoff/handoff-20260704-022.md) | Sprint-027 准备 |
-| [handoff-20260703-021.md](01-核心基础/handoff/handoff-20260703-021.md) | Sprint-026 |
-| [handoff-20260702-020.md](01-核心基础/handoff/handoff-20260702-020.md) | Sprint-025 |
-| [handoff-20260701-019.md](01-核心基础/handoff/handoff-20260701-019.md) | Sprint-020~024（GPU-driven clipmap + Floating Origin）|
-| [archived/handoff-20260629-016.md](01-核心基础/handoff/archived/handoff-20260629-016.md) | Sprint-018（性能卡顿修复）|
-| [archived/handoff-20260628-015.md](01-核心基础/handoff/archived/handoff-20260628-015.md) | Sprint-017 就绪 |
-| [archived/handoff-20260628-014.md](01-核心基础/handoff/archived/handoff-20260628-014.md) | Sprint-016 就绪 |
+| [handoff-20260701-019.md](handoff/handoff-20260701-019.md) | ★ 最新 — Sprint-020~024（GPU-driven clipmap + Floating Origin）|
+| [handoff-20260701-018.md](handoff/handoff-20260701-018.md) | 裂缝问题诊断数据汇总 |
+| [handoff-20260630-017.md](handoff/handoff-20260630-017.md) | Sprint-019（Floating Origin 裂缝根因）|
+| [archived/handoff-20260629-016.md](handoff/archived/handoff-20260629-016.md) | Sprint-018（性能卡顿修复）|
+| [archived/handoff-20260628-015.md](handoff/archived/handoff-20260628-015.md) | Sprint-017 就绪 |
+| [archived/handoff-20260628-014.md](handoff/archived/handoff-20260628-014.md) | Sprint-016 就绪 |
 
 ---
 

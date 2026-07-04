@@ -8,7 +8,11 @@
 pub mod resolved_atmosphere;
 pub mod synthesizer;
 pub mod time_curve;
+pub mod traits;
+pub mod weather;
 
 pub use resolved_atmosphere::ResolvedAtmosphere;
 pub use synthesizer::AtmosphereSynthesizer;
 pub use time_curve::{AtmosAnchor, AtmosCurve};
+pub use traits::{SeasonAtmosQuery, WeatherAtmosQuery};
+pub use weather::{SimpleSeasonProvider, SimpleWeatherDriver};

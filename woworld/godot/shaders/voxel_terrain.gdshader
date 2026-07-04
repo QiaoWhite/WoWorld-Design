@@ -1,18 +1,31 @@
 shader_type spatial;
-render_mode cull_disabled; // FIXME: 部分三角形绕序不一致，诊断后恢复 cull_back
+render_mode cull_back;
 
-// Camera-relative floating origin — 与 terrain.gdshader 一致
 uniform vec3 camera_pos = vec3(0.0);
 
+varying vec3 world_pos_frag;
+
 void vertex() {
-	// MODEL_MATRIX 提供各 VoxelChunk 的世界位置（Node3D.position 为纯平移 → 数学等价于 VERTEX+node_pos）
 	vec3 world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	world_pos_frag = world_pos;
 	vec3 rel = world_pos - camera_pos;
 	POSITION = PROJECTION_MATRIX * vec4(mat3(VIEW_MATRIX) * rel, 1.0);
-	// 法线: 模型空间 → 世界空间 (MODEL_MATRIX 纯平移时等价于直传) → 视图空间
-	NORMAL = mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX) * NORMAL;
+	// NORMAL computed per-fragment from screen-space derivatives
 }
 
 void fragment() {
+	// Per-fragment world-space normal from screen-space derivatives
+	vec3 dx = dFdx(world_pos_frag);
+	vec3 dy = dFdy(world_pos_frag);
+	vec3 world_n = normalize(cross(dx, dy));
+	// Enforce upward-facing (terrain has no overhangs at this LOD)
+	if (world_n.y < 0.0) {
+		world_n = -world_n;
+	}
+	NORMAL = mat3(VIEW_MATRIX) * world_n;
+
+	ROUGHNESS = 1.0;
+	METALLIC = 0.0;
+	SPECULAR = 0.0;
 	ALBEDO = COLOR.rgb;
 }

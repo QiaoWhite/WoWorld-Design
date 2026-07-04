@@ -7,18 +7,22 @@
 
 pub mod density;
 pub mod id;
+pub mod lod;
 pub mod material;
 pub mod ocean;
 pub mod spatial;
 pub mod time;
 pub mod types;
 pub mod vegetation;
+pub mod weather_types;
 
 /// 常用类型统一导入
 pub mod prelude {
     pub use crate::id::*;
+    pub use crate::lod::*;
     pub use crate::material::*;
     pub use crate::time::*;
     pub use crate::types::*;
     pub use crate::vegetation::*;
+    pub use crate::weather_types::*;
 }

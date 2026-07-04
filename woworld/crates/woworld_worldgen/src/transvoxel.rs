@@ -361,6 +361,12 @@ pub fn transvoxel_extract(
         }
     }
 
+    // Reverse triangle winding — MC TRI_TABLE faces toward solid (positive density),
+    // but we want faces visible from the air side. Swap index[1]↔index[2] per triangle.
+    for tri in indices.chunks_exact_mut(3) {
+        tri.swap(1, 2);
+    }
+
     TerrainMeshData { vertices, normals, indices, colors }
 }
 

@@ -8,6 +8,8 @@
 use godot::classes::light_3d::Param;
 use godot::classes::mesh::PrimitiveType;
 use std::sync::mpsc;
+use std::sync::Arc;
+use woworld_core::density::{DensityProvider, DensityStack};
 
 use godot::classes::{
     ArrayMesh, DirectionalLight3D, Image, MeshInstance3D, ProceduralSkyMaterial, Shader,
@@ -745,8 +747,14 @@ impl INode3D for WorldDriver {
                         }
                         let wx = cx as f64 * CHUNK_SIZE as f64;
                         let wz = cz as f64 * CHUNK_SIZE as f64;
-                        let wy = self.voxel_wy;
-                        let vy = self.voxel_vy;
+                        // Per-chunk vertical range — avoids clipping when terrain
+                        // elevation differs from the init-time 25-chunk scan.
+                        let h = self.terrain.height_at(WorldPos {
+                            x: wx + 8.0, y: 0.0, z: wz + 8.0,
+                        }) as f64;
+                        let wy = (h - 4.0).max(0.0);
+                        let total_h = (h - wy + 12.0).max(16.0);
+                        let vy = ((total_h / 0.5).ceil() as u32).max(32);
 
                         let mut vc = VoxelChunk::new_alloc();
                         vc.bind_mut().set_world_origin(wx, wy, wz);
@@ -1004,13 +1012,18 @@ impl WorldDriver {
         self.vx_in_flight.insert((cx, cz));
 
         let tx = self.vx_result_tx.clone();
-        let stack = self.terrain.density_stack().clone();
         let noise_arc = self.terrain.noise_arc();
         let material_colors = self.material_colors.clone();
         let voxel_size = 0.5f64;
         let vx = 32u32; let vz = 32u32;
 
         rayon::spawn(move || {
+            // Construct surface-only density stack (no CaveDensity).
+            // LOD 0 matches clipmap LOD 1-7 — both use pure 2D heightfield, no caves.
+            // Caves will be re-enabled across all LODs when depth-constrained CaveDensity is ready.
+            let surface_layer: Arc<dyn DensityProvider> = Arc::new(TerrainBaseDensity::new(noise_arc.clone()));
+            let mut stack = DensityStack::new();
+            stack.push(surface_layer);
             let base_layer = TerrainBaseDensity::new(noise_arc);
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 transvoxel_extract(

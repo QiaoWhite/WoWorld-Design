@@ -58,8 +58,9 @@ fn gradient_from_stack(stack: &DensityStack, x: f64, y: f64, z: f64) -> Vec3 {
            - stack.density_at(WorldPos { x, y: y - eps, z });
     let dz = stack.density_at(WorldPos { x, y, z: z + eps })
            - stack.density_at(WorldPos { x, y, z: z - eps });
+    // 密度梯度指向固体内部（正密度方向）；表面法线应指向空气（负密度方向）
     let v = Vec3::new(dx, dy, dz);
-    if v.length_squared() < 1e-12 { Vec3::Y } else { v.normalize() }
+    if v.length_squared() < 1e-12 { -Vec3::Y } else { -v.normalize() }
 }
 
 // ── 全局边索引（顶点共享）────────────

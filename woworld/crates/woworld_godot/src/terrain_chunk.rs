@@ -703,7 +703,8 @@ impl INode3D for WorldDriver {
         }
 
         // ── VoxelChunk grid drift management ──
-        // When player crosses a chunk boundary, recycle out-of-range chunks
+        // Destroy out-of-range chunks, create new ones at missing positions.
+        // In-grid chunks keep their current mesh (no premature clearing).
         {
             const CHUNK_SIZE: i32 = 16;
             let pcx = (player_pos.x / CHUNK_SIZE as f64).floor() as i32;
@@ -711,38 +712,48 @@ impl INode3D for WorldDriver {
             let grid_radius: i32 = 2;
 
             if (pcx, pcz) != self.voxel_center {
-                let old_center = self.voxel_center;
                 self.voxel_center = (pcx, pcz);
 
-                // Identify chunks that left the grid
+                // Remove chunks outside the new grid
                 let to_remove: Vec<(i32, i32)> = self.voxel_chunks.keys()
                     .filter(|(cx, cz)| {
                         (cx - pcx).abs() > grid_radius || (cz - pcz).abs() > grid_radius
                     })
                     .copied()
                     .collect();
+                for key in to_remove {
+                    if let Some(mut vc) = self.voxel_chunks.remove(&key) {
+                        vc.bind_mut().set_terrain_mesh(None); // hide
+                        vc.clone().upcast::<Node>().queue_free(); // remove from scene tree
+                    }
+                    self.vx_in_flight.remove(&key);
+                }
 
-                // Reposition out-of-range chunks to the new grid frontier
-                for old_key in to_remove {
-                    if let Some(mut vc) = self.voxel_chunks.remove(&old_key) {
-                        // Map old position to new: find a missing slot in the new grid
-                        let new_cx = pcx + (old_key.0 - old_center.0).rem_euclid(2 * grid_radius + 1) - grid_radius;
-                        let new_cz = pcz + (old_key.1 - old_center.1).rem_euclid(2 * grid_radius + 1) - grid_radius;
-                        let new_key = (new_cx, new_cz);
-
-                        if !self.voxel_chunks.contains_key(&new_key) {
-                            let wx = new_cx as f64 * CHUNK_SIZE as f64;
-                            let wz = new_cz as f64 * CHUNK_SIZE as f64;
-                            let h = self.terrain.height_at(WorldPos {
-                                x: wx + 8.0, y: 0.0, z: wz + 8.0,
-                            });
-                            let wy = (h as f64 - 8.0).max(0.0);
-                            vc.bind_mut().set_world_origin(wx, wy, wz);
-                            vc.bind_mut().set_terrain_mesh(None); // clear old mesh
-                            self.vx_in_flight.remove(&new_key);
-                            self.submit_voxel_job(new_cx, new_cz, wx, wy, wz);
-                            self.voxel_chunks.insert(new_key, vc);
+                // Create new chunks at missing positions
+                for dx in -grid_radius..=grid_radius {
+                    for dz in -grid_radius..=grid_radius {
+                        let cx = pcx + dx;
+                        let cz = pcz + dz;
+                        if self.voxel_chunks.contains_key(&(cx, cz)) {
+                            continue;
                         }
+                        let wx = cx as f64 * CHUNK_SIZE as f64;
+                        let wz = cz as f64 * CHUNK_SIZE as f64;
+                        let h = self.terrain.height_at(WorldPos {
+                            x: wx + 8.0, y: 0.0, z: wz + 8.0,
+                        });
+                        let wy = (h as f64 - 8.0).max(0.0);
+
+                        let mut vc = VoxelChunk::new_alloc();
+                        vc.bind_mut().set_world_origin(wx, wy, wz);
+                        if let Some(ref voxel_mat) = self.voxel_material {
+                            vc.bind_mut().set_terrain_material(voxel_mat.clone().upcast());
+                        }
+                        if let Some(ref mut parent) = self.terrain_parent {
+                            parent.add_child(&vc.clone().upcast::<Node>());
+                        }
+                        self.submit_voxel_job(cx, cz, wx, wy, wz);
+                        self.voxel_chunks.insert((cx, cz), vc);
                     }
                 }
             }

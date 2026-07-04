@@ -130,6 +130,9 @@ pub struct WorldDriver {
     /// Voxel 块在途标记
     vx_in_flight: std::collections::HashSet<(i32, i32)>,
 
+    /// 所有 VoxelChunk 共享的 ShaderMaterial（camera_pos 每帧更新一次）
+    voxel_material: Option<Gd<ShaderMaterial>>,
+
     #[base]
     base: Base<Node3D>,
 }
@@ -159,6 +162,7 @@ impl INode3D for WorldDriver {
             vx_result_tx: vx_tx,
             vx_result_rx: vx_rx,
             vx_in_flight: std::collections::HashSet::new(),
+            voxel_material: None,
             base,
         }
     }
@@ -436,6 +440,15 @@ impl INode3D for WorldDriver {
         // ── 7. VoxelChunk 5×5 网格初始化 ──
         // LOD 0 由 Transvoxel 3D 等值面块覆盖 (32³ @ 0.5m = 16m³/chunk)
         // 5×5 网格 = 80m×80m, 最小覆盖 32m, 与 LOD 1 (30m 起) 2m 重叠
+        // 加载 voxel shader, 所有 25 chunks 共享一个 ShaderMaterial
+        let voxel_shader = loader
+            .load("res://shaders/voxel_terrain.gdshader")
+            .expect("Failed to load voxel_terrain.gdshader")
+            .cast::<Shader>();
+        let mut voxel_mat = ShaderMaterial::new_gd();
+        voxel_mat.set_shader(&voxel_shader);
+        self.voxel_material = Some(voxel_mat);
+
         self.init_voxel_grid();
 
         self.base_mut().set_process(true);
@@ -458,6 +471,14 @@ impl INode3D for WorldDriver {
         let px = player_pos.x as f32;
         let pz = player_pos.z as f32;
         let py = player_pos.y as f32;
+
+        // Update shared voxel material camera_pos (1 call for all 25 chunks)
+        if let Some(ref mut voxel_mat) = self.voxel_material {
+            voxel_mat.set_shader_parameter(
+                &StringName::from("camera_pos"),
+                &Variant::from(Vector3::new(px, py, pz)),
+            );
+        }
 
         // ── 收割后台完成的 heightmap job ──
         // 纹理池双缓冲：每层预分配 2 套 Image+ImageTexture，harvest 用 update() 原地更新
@@ -936,6 +957,10 @@ impl WorldDriver {
                 // Create VoxelChunk node (passive container — mesh set later)
                 let mut vc = VoxelChunk::new_alloc();
                 vc.bind_mut().set_world_origin(wx, wy, wz);
+                // Share one ShaderMaterial across all 25 chunks
+                if let Some(ref voxel_mat) = self.voxel_material {
+                    vc.bind_mut().set_terrain_material(voxel_mat.clone().upcast());
+                }
                 if let Some(ref mut parent) = self.terrain_parent {
                     parent.add_child(&vc.clone().upcast::<Node>());
                 }

@@ -43,6 +43,13 @@ impl INode3D for VoxelChunk {
 
 #[godot_api]
 impl VoxelChunk {
+    /// Set the material on the terrain MeshInstance3D. Called once from WorldDriver.
+    pub fn set_terrain_material(&mut self, material: Gd<godot::classes::Material>) {
+        if let Some(ref mut mi) = self.mesh_instance {
+            mi.set_surface_override_material(0, &material);
+        }
+    }
+
     /// Set the extracted terrain mesh. Called from Rust (WorldDriver).
     /// Passing `None` hides the chunk (e.g. all-air chunk).
     #[func]

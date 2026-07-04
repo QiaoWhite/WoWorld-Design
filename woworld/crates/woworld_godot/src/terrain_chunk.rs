@@ -47,21 +47,12 @@ struct HeightmapJob {
     grid_origin_z: f64,
 }
 
-/// 后台 Transvoxel 块提取描述（未来 rayon 后台使用）
-#[allow(dead_code)]
-struct VoxelJob {
-    cx: i32,
-    cz: i32,
-    origin_x: f64,
-    origin_y: f64,
-    origin_z: f64,
-}
-
-#[allow(dead_code)]
+/// Transvoxel 块提取结果（rayon → 主线程）
 struct VoxelResult {
     cx: i32,
     cz: i32,
     mesh: woworld_worldgen::TerrainMeshData,
+    panicked: bool,
 }
 
 /// 单个 LOD 级别的 GPU-driven clipmap 层
@@ -132,6 +123,13 @@ pub struct WorldDriver {
     voxel_chunks: HashMap<(i32, i32), Gd<VoxelChunk>>,
     voxel_center: (i32, i32),
 
+    /// 后台 voxel 提取 → 主线程收割
+    vx_result_tx: mpsc::Sender<VoxelResult>,
+    vx_result_rx: mpsc::Receiver<VoxelResult>,
+
+    /// Voxel 块在途标记
+    vx_in_flight: std::collections::HashSet<(i32, i32)>,
+
     #[base]
     base: Base<Node3D>,
 }
@@ -140,6 +138,7 @@ pub struct WorldDriver {
 impl INode3D for WorldDriver {
     fn init(base: Base<Node3D>) -> Self {
         let (tx, rx) = mpsc::channel();
+        let (vx_tx, vx_rx) = mpsc::channel::<VoxelResult>();
         Self {
             terrain: HeightfieldTerrain::default(),
             ocean: HeightfieldOcean::default(),
@@ -157,6 +156,9 @@ impl INode3D for WorldDriver {
             ocean_mesh: None,
             voxel_chunks: HashMap::new(),
             voxel_center: (i32::MAX, i32::MAX),
+            vx_result_tx: vx_tx,
+            vx_result_rx: vx_rx,
+            vx_in_flight: std::collections::HashSet::new(),
             base,
         }
     }
@@ -211,8 +213,8 @@ impl INode3D for WorldDriver {
             .expect("Failed to load terrain.gdshader from res://shaders/")
             .cast::<Shader>();
 
-        // ── 3. 为每个 LOD 层级创建 GPU-driven clipmap ──
-        for level_idx in 0..8u8 {
+        // ── 3. 为 LOD 1-7 创建 GPU-driven clipmap（LOD 0 由 VoxelChunk 覆盖）──
+        for level_idx in 1..8u8 {
             let level = &LEVELS[level_idx as usize];
             let spacing = level_spacing(level);
             let tex_cfg = layer_tex_config(level);
@@ -363,43 +365,16 @@ impl INode3D for WorldDriver {
                 &Variant::from(blend_zone),
             );
         }
-        // L0: 无更细层，设 inner_bound=-1 禁用内边界 morphing
-        //     外边界 morphing: L0 → L1（Hoppe w=n/10）
-        {
-            let (l0_slice, l1_slice) = self.lod_layers.split_at_mut(1);
-            let l0 = l0_slice[0].as_mut().unwrap();
-            let l1 = l1_slice[0].as_ref().unwrap();
-            l0.material.set_shader_parameter(
+        // L1: LOD 0 由 VoxelChunk 覆盖 → L1 为最内层 clipmap, 无更细层
+        //     设 inner_bound=-1 禁用内边界 morphing
+        if let Some(ref mut l1) = self.lod_layers[1] {
+            l1.material.set_shader_parameter(
                 &StringName::from("fine_heightmap"),
-                &l0.heightmap_tex.to_variant(),
-            );
-            l0.material.set_shader_parameter(
-                &StringName::from("inner_bound"),
-                &Variant::from(-1.0f32),
-            );
-            let l0_level = &LEVELS[0];
-            let l1_level = &LEVELS[1];
-            let n = (2.0 * l0_level.max_range / level_spacing(l0_level)).ceil() as u32 + 1;
-            let outer_w = (n as f32 / 10.0) * level_spacing(l0_level) as f32;
-            l0.material.set_shader_parameter(
-                &StringName::from("coarse_heightmap"),
                 &l1.heightmap_tex.to_variant(),
             );
-            l0.material.set_shader_parameter(
-                &StringName::from("coarse_grid_origin"),
-                &Variant::from(Vector2::new(0.0, 0.0)),
-            );
-            l0.material.set_shader_parameter(
-                &StringName::from("coarse_hm_extent"),
-                &Variant::from(layer_tex_config(l1_level).hm_extent as f32),
-            );
-            l0.material.set_shader_parameter(
-                &StringName::from("outer_bound"),
-                &Variant::from(l0_level.max_range as f32),
-            );
-            l0.material.set_shader_parameter(
-                &StringName::from("outer_blend_zone"),
-                &Variant::from(outer_w),
+            l1.material.set_shader_parameter(
+                &StringName::from("inner_bound"),
+                &Variant::from(-1.0f32),
             );
         }
 
@@ -458,11 +433,13 @@ impl INode3D for WorldDriver {
             l7.neighbor_heightmap_tex = l7.heightmap_tex.clone();
         }
 
-        // ── 7. Voxel chunk MVP: single chunk at origin ──
-        self.spawn_voxel_chunk(0.0, 0.0);
+        // ── 7. VoxelChunk 5×5 网格初始化 ──
+        // LOD 0 由 Transvoxel 3D 等值面块覆盖 (32³ @ 0.5m = 16m³/chunk)
+        // 5×5 网格 = 80m×80m, 最小覆盖 32m, 与 LOD 1 (30m 起) 2m 重叠
+        self.init_voxel_grid();
 
         self.base_mut().set_process(true);
-        godot_print!("WorldDriver: 8 GPU-driven clipmap layers + 1 VoxelChunk ready");
+        godot_print!("WorldDriver: 7 GPU-driven clipmap layers + 5×5 VoxelChunk grid ready");
     }
 
     fn process(&mut self, delta: f64) {
@@ -681,6 +658,75 @@ impl INode3D for WorldDriver {
             layer.coarse_origin_dirty = false;
         }
 
+        // ── VoxelChunk harvest（rayon 后台提取结果 → 主线程上传）──
+        // Frame budget: max 1 mesh upload per frame
+        {
+            let mut vx_uploaded = 0u32;
+            const VX_MAX_PER_FRAME: u32 = 1;
+            while vx_uploaded < VX_MAX_PER_FRAME {
+                let result = match self.vx_result_rx.try_recv() {
+                    Ok(r) => r,
+                    Err(_) => break,
+                };
+                self.vx_in_flight.remove(&(result.cx, result.cz));
+                if !result.panicked {
+                    if let Some(vc) = self.voxel_chunks.get(&(result.cx, result.cz)) {
+                        let mut vc_clone = vc.clone();
+                        Self::upload_voxel_mesh(&mut vc_clone, &result.mesh);
+                    }
+                } else {
+                    godot_error!("VoxelChunk ({},{}) extraction panicked", result.cx, result.cz);
+                }
+                vx_uploaded += 1;
+            }
+        }
+
+        // ── VoxelChunk grid drift management ──
+        // When player crosses a chunk boundary, recycle out-of-range chunks
+        {
+            const CHUNK_SIZE: i32 = 16;
+            let pcx = (player_pos.x / CHUNK_SIZE as f64).floor() as i32;
+            let pcz = (player_pos.z / CHUNK_SIZE as f64).floor() as i32;
+            let grid_radius: i32 = 2;
+
+            if (pcx, pcz) != self.voxel_center {
+                let old_center = self.voxel_center;
+                self.voxel_center = (pcx, pcz);
+
+                // Identify chunks that left the grid
+                let to_remove: Vec<(i32, i32)> = self.voxel_chunks.keys()
+                    .filter(|(cx, cz)| {
+                        (cx - pcx).abs() > grid_radius || (cz - pcz).abs() > grid_radius
+                    })
+                    .copied()
+                    .collect();
+
+                // Reposition out-of-range chunks to the new grid frontier
+                for old_key in to_remove {
+                    if let Some(mut vc) = self.voxel_chunks.remove(&old_key) {
+                        // Map old position to new: find a missing slot in the new grid
+                        let new_cx = pcx + (old_key.0 - old_center.0).rem_euclid(2 * grid_radius + 1) - grid_radius;
+                        let new_cz = pcz + (old_key.1 - old_center.1).rem_euclid(2 * grid_radius + 1) - grid_radius;
+                        let new_key = (new_cx, new_cz);
+
+                        if !self.voxel_chunks.contains_key(&new_key) {
+                            let wx = new_cx as f64 * CHUNK_SIZE as f64;
+                            let wz = new_cz as f64 * CHUNK_SIZE as f64;
+                            let h = self.terrain.height_at(WorldPos {
+                                x: wx + 8.0, y: 0.0, z: wz + 8.0,
+                            });
+                            let wy = (h as f64 - 8.0).max(0.0);
+                            vc.bind_mut().set_world_origin(wx, wy, wz);
+                            vc.bind_mut().set_terrain_mesh(None); // clear old mesh
+                            self.vx_in_flight.remove(&new_key);
+                            self.submit_voxel_job(new_cx, new_cz, wx, wy, wz);
+                            self.voxel_chunks.insert(new_key, vc);
+                        }
+                    }
+                }
+            }
+        }
+
         // ── Ocean seabed_y uniform（替代 hint_depth_texture → 消除 Depth Pre-Pass）──
         if let Some(ref ocean_mesh) = self.ocean_mesh {
             let seabed_y = self.terrain.height_at(WorldPos {
@@ -863,91 +909,128 @@ impl WorldDriver {
         self.terrain.height_at(pos)
     }
 
-    /// Create a single VoxelChunk, extract terrain mesh, and upload it (synchronous MVP).
-    /// `wx, wz` = chunk world-space southwest corner (x, z). y origin auto-computed.
-    fn spawn_voxel_chunk(&mut self, wx: f64, wz: f64) {
+    /// Initialize 5×5 VoxelChunk grid + submit first batch of rayon extraction jobs.
+    fn init_voxel_grid(&mut self) {
+        const CHUNK_SIZE: f64 = 16.0; // 32³ @ 0.5m
+        let grid_radius: i32 = 2; // 5×5 = 25 chunks
+
+        // Start at origin — player initial chunk is (0, 0)
+        let pcx: i32 = 0;
+        let pcz: i32 = 0;
+
+        for dx in -grid_radius..=grid_radius {
+            for dz in -grid_radius..=grid_radius {
+                let cx = pcx + dx;
+                let cz = pcz + dz;
+                let wx = cx as f64 * CHUNK_SIZE;
+                let wz = cz as f64 * CHUNK_SIZE;
+
+                // Sample terrain height for y-origin
+                let h = self.terrain.height_at(WorldPos {
+                    x: wx + CHUNK_SIZE * 0.5,
+                    y: 0.0,
+                    z: wz + CHUNK_SIZE * 0.5,
+                });
+                let wy = (h as f64 - CHUNK_SIZE * 0.5).max(0.0);
+
+                // Create VoxelChunk node (passive container — mesh set later)
+                let mut vc = VoxelChunk::new_alloc();
+                vc.bind_mut().set_world_origin(wx, wy, wz);
+                if let Some(ref mut parent) = self.terrain_parent {
+                    parent.add_child(&vc.clone().upcast::<Node>());
+                }
+                self.voxel_chunks.insert((cx, cz), vc);
+
+                // Submit rayon background extraction
+                self.submit_voxel_job(cx, cz, wx, wy, wz);
+            }
+        }
+        self.voxel_center = (pcx, pcz);
+    }
+
+    /// Submit a single transvoxel_extract job to rayon background thread pool.
+    fn submit_voxel_job(&mut self, cx: i32, cz: i32, wx: f64, wy: f64, wz: f64) {
+        if self.vx_in_flight.contains(&(cx, cz)) {
+            return;
+        }
+        self.vx_in_flight.insert((cx, cz));
+
+        let tx = self.vx_result_tx.clone();
+        let stack = self.terrain.density_stack().clone();
+        let noise_arc = self.terrain.noise_arc();
+        let material_colors = self.material_colors.clone();
+        let voxel_size = 0.5f64;
+        let vx = 32u32; let vy = 32u32; let vz = 32u32;
+
+        rayon::spawn(move || {
+            let base_layer = TerrainBaseDensity::new(noise_arc);
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                transvoxel_extract(
+                    &stack, &base_layer,
+                    wx, wy, wz,
+                    vx, vy, vz, voxel_size,
+                    0, // no transition faces
+                    &material_colors,
+                )
+            }));
+            match result {
+                Ok(mesh) => {
+                    let _ = tx.send(VoxelResult { cx, cz, mesh, panicked: false });
+                }
+                Err(_) => {
+                    let _ = tx.send(VoxelResult {
+                        cx, cz,
+                        mesh: woworld_worldgen::TerrainMeshData {
+                            vertices: Vec::new(),
+                            normals: Vec::new(),
+                            colors: Vec::new(),
+                            indices: Vec::new(),
+                        },
+                        panicked: true,
+                    });
+                }
+            }
+        });
+    }
+
+    /// Upload a completed TerrainMeshData to a VoxelChunk as ArrayMesh.
+    fn upload_voxel_mesh(vc: &mut Gd<VoxelChunk>, mesh: &woworld_worldgen::TerrainMeshData) {
         use godot::builtin::{Array, PackedColorArray, PackedInt32Array, PackedVector3Array};
         use godot::classes::mesh::PrimitiveType;
         use godot::classes::ArrayMesh;
 
-        let voxel_size = 0.5f64;
-        let vx = 32u32;
-        let vy = 32u32;
-        let vz = 32u32;
-        let chunk_size = voxel_size * vx as f64; // 16m
-
-        // Sample terrain height at chunk center for y-origin
-        let h = self.terrain.height_at(WorldPos {
-            x: wx + chunk_size * 0.5,
-            y: 0.0,
-            z: wz + chunk_size * 0.5,
-        });
-        let wy = (h as f64 - chunk_size * 0.5).max(0.0);
-
-        // Create VoxelChunk node
-        let mut vc = VoxelChunk::new_alloc();
-        vc.bind_mut().set_world_origin(wx, wy, wz);
-        if let Some(ref mut parent) = self.terrain_parent {
-            parent.add_child(&vc.clone().upcast::<Node>());
-        }
-
-        // Extract terrain mesh (synchronous)
-        let noise_arc = self.terrain.noise_arc();
-        let base_layer = TerrainBaseDensity::new(noise_arc);
-        let stack = self.terrain.density_stack().clone();
-
-        let mesh = transvoxel_extract(
-            &stack, &base_layer,
-            wx, wy, wz,
-            vx, vy, vz, voxel_size,
-            0, // no transition faces
-            &self.material_colors,
-        );
-
-        if !mesh.vertices.is_empty() {
-            let mut am = ArrayMesh::new_gd();
-            let mut vertices = PackedVector3Array::new();
-            let mut normals_packed = PackedVector3Array::new();
-            let mut colors_packed = PackedColorArray::new();
-
-            for i in 0..mesh.vertices.len() {
-                let v = mesh.vertices[i];
-                vertices.push(Vector3::new(v.x, v.y, v.z));
-                let n = mesh.normals[i];
-                normals_packed.push(Vector3::new(n.x, n.y, n.z));
-                let c = mesh.colors[i];
-                colors_packed.push(Color::from_rgb(c.x, c.y, c.z));
-            }
-
-            let mut indices = PackedInt32Array::new();
-            for idx in &mesh.indices {
-                indices.push(*idx as i32);
-            }
-
-            let mut arrays = Array::new();
-            arrays.resize(13, &Variant::nil());
-            arrays.set(0, &vertices.to_variant());
-            arrays.set(1, &normals_packed.to_variant());
-            arrays.set(3, &colors_packed.to_variant());
-            arrays.set(12, &indices.to_variant());
-
-            am.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
-
-            godot_print!(
-                "VoxelChunk @ ({:.0},{:.0},{:.0}): {} verts, {} tris",
-                wx, wy, wz,
-                mesh.vertices.len(),
-                mesh.indices.len() / 3,
-            );
-
-            vc.bind_mut().set_terrain_mesh(Some(am));
-        } else {
+        if mesh.vertices.is_empty() {
             vc.bind_mut().set_terrain_mesh(None);
+            return;
         }
 
-        let cx = (wx / chunk_size).floor() as i32;
-        let cz = (wz / chunk_size).floor() as i32;
-        self.voxel_chunks.insert((cx, cz), vc);
-        self.voxel_center = (cx, cz);
+        let mut am = ArrayMesh::new_gd();
+        let mut vertices = PackedVector3Array::new();
+        let mut normals_packed = PackedVector3Array::new();
+        let mut colors_packed = PackedColorArray::new();
+
+        for i in 0..mesh.vertices.len() {
+            let v = mesh.vertices[i];
+            vertices.push(Vector3::new(v.x, v.y, v.z));
+            let n = mesh.normals[i];
+            normals_packed.push(Vector3::new(n.x, n.y, n.z));
+            let c = mesh.colors[i];
+            colors_packed.push(Color::from_rgb(c.x, c.y, c.z));
+        }
+
+        let mut indices = PackedInt32Array::new();
+        for idx in &mesh.indices {
+            indices.push(*idx as i32);
+        }
+
+        let mut arrays = Array::new();
+        arrays.resize(13, &Variant::nil());
+        arrays.set(0, &vertices.to_variant());
+        arrays.set(1, &normals_packed.to_variant());
+        arrays.set(3, &colors_packed.to_variant());
+        arrays.set(12, &indices.to_variant());
+
+        am.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
+        vc.bind_mut().set_terrain_mesh(Some(am));
     }
 }

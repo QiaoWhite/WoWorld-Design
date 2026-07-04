@@ -25,11 +25,17 @@ use woworld_core::time::WorldClock;
 #[derive(Debug)]
 pub struct TerrainBaseDensity {
     noise: Arc<WorldNoise>,
+    biome: Option<BiomeClassifier>,
 }
 
 impl TerrainBaseDensity {
     pub fn new(noise: Arc<WorldNoise>) -> Self {
-        Self { noise }
+        Self { noise, biome: None }
+    }
+
+    pub fn with_biomes(mut self, classifier: BiomeClassifier) -> Self {
+        self.biome = Some(classifier);
+        self
     }
 }
 
@@ -40,6 +46,11 @@ impl DensityProvider for TerrainBaseDensity {
     }
     fn material_at(&self, pos: WorldPos) -> u8 {
         let h = self.noise.sample_height(pos.x, pos.z);
+        if let Some(ref classifier) = self.biome {
+            if let Some(biome) = classifier.classify(WorldPos { x: pos.x, y: h, z: pos.z }) {
+                return biome.surface_material as u8;
+            }
+        }
         HeightfieldTerrain::material_from_height(h, 0.0) as u8
     }
     fn priority(&self) -> u8 {

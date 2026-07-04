@@ -129,6 +129,10 @@ pub struct WorldDriver {
     vx_result_tx: mpsc::Sender<VoxelResult>,
     vx_result_rx: mpsc::Receiver<VoxelResult>,
 
+    /// VoxelGrid 统一 y-origin（init 扫描 25 chunk 取 min，drift 复用）
+    voxel_wy: f64,
+    voxel_vy: u32,
+
     /// Voxel 块在途标记
     vx_in_flight: std::collections::HashSet<(i32, i32)>,
 
@@ -164,6 +168,8 @@ impl INode3D for WorldDriver {
             vx_result_tx: vx_tx,
             vx_result_rx: vx_rx,
             vx_in_flight: std::collections::HashSet::new(),
+            voxel_wy: 0.0,
+            voxel_vy: 32,
             voxel_material: None,
             base,
         }
@@ -731,6 +737,26 @@ impl INode3D for WorldDriver {
                     self.vx_in_flight.remove(&key);
                 }
 
+                // Recompute unified y-range for new grid area
+                {
+                    let mut y_min = f64::MAX;
+                    let mut y_max = f64::MIN;
+                    for dx in -grid_radius..=grid_radius {
+                        for dz in -grid_radius..=grid_radius {
+                            let wx = (pcx + dx) as f64 * CHUNK_SIZE as f64;
+                            let wz = (pcz + dz) as f64 * CHUNK_SIZE as f64;
+                            let h = self.terrain.height_at(WorldPos {
+                                x: wx + 8.0, y: 0.0, z: wz + 8.0,
+                            }) as f64;
+                            y_min = y_min.min(h);
+                            y_max = y_max.max(h);
+                        }
+                    }
+                    self.voxel_wy = y_min - 4.0;
+                    let total_h = (y_max - self.voxel_wy + 12.0).max(16.0);
+                    self.voxel_vy = ((total_h / 0.5).ceil() as u32).max(32);
+                }
+
                 // Create new chunks at missing positions
                 for dx in -grid_radius..=grid_radius {
                     for dz in -grid_radius..=grid_radius {
@@ -741,14 +767,8 @@ impl INode3D for WorldDriver {
                         }
                         let wx = cx as f64 * CHUNK_SIZE as f64;
                         let wz = cz as f64 * CHUNK_SIZE as f64;
-                        // Per-chunk vertical range — avoids clipping when terrain
-                        // elevation differs from the init-time 25-chunk scan.
-                        let h = self.terrain.height_at(WorldPos {
-                            x: wx + 8.0, y: 0.0, z: wz + 8.0,
-                        }) as f64;
-                        let wy = h - 4.0;
-                        let total_h = (h - wy + 12.0).max(16.0);
-                        let vy = ((total_h / 0.5).ceil() as u32).max(32);
+                        let wy = self.voxel_wy;
+                        let vy = self.voxel_vy;
 
                         let mut vc = VoxelChunk::new_alloc();
                         vc.bind_mut().set_world_origin(wx, wy, wz);
@@ -955,20 +975,34 @@ impl WorldDriver {
         let pcx: i32 = 0;
         let pcz: i32 = 0;
 
-        // Per-chunk vertical range: each chunk computes its own wy/vy from its center height.
-        // This avoids vy blowup when terrain spans large elevation range (e.g. -200m to +500m).
+        // Pass 1: scan 25 chunk centers → unified wy (all chunks share same vertical origin)
+        let mut y_min = f64::MAX;
+        let mut y_max = f64::MIN;
+        for dx in -grid_radius..=grid_radius {
+            for dz in -grid_radius..=grid_radius {
+                let wx = (pcx + dx) as f64 * CHUNK_SIZE;
+                let wz = (pcz + dz) as f64 * CHUNK_SIZE;
+                let h = self.terrain.height_at(WorldPos {
+                    x: wx + 8.0, y: 0.0, z: wz + 8.0,
+                }) as f64;
+                y_min = y_min.min(h);
+                y_max = y_max.max(h);
+            }
+        }
+        let wy = y_min - 4.0; // no .max(0.0) — allow terrain below sea level
+        let total_h = (y_max - wy + 12.0).max(16.0);
+        let vy = ((total_h / VOXEL_SIZE).ceil() as u32).max(32);
+        godot_print!("VoxelGrid unified: wy={:.0} vy={}  y=[{:.0}, {:.0}]", wy, vy, y_min, y_max);
+        self.voxel_wy = wy;
+        self.voxel_vy = vy;
+
+        // Pass 2: create all 25 chunks with unified wy
         for dx in -grid_radius..=grid_radius {
             for dz in -grid_radius..=grid_radius {
                 let cx = pcx + dx;
                 let cz = pcz + dz;
                 let wx = cx as f64 * CHUNK_SIZE;
                 let wz = cz as f64 * CHUNK_SIZE;
-                let h = self.terrain.height_at(WorldPos {
-                    x: wx + 8.0, y: 0.0, z: wz + 8.0,
-                }) as f64;
-                let wy = h - 4.0;
-                let total_h = (h - wy + 12.0).max(16.0);
-                let vy = ((total_h / VOXEL_SIZE).ceil() as u32).max(32);
 
                 let mut vc = VoxelChunk::new_alloc();
                 vc.bind_mut().set_world_origin(wx, wy, wz);
@@ -994,6 +1028,7 @@ impl WorldDriver {
 
         let tx = self.vx_result_tx.clone();
         let noise_arc = self.terrain.noise_arc();
+        let biome = self.terrain.biome_classifier.clone();
         let material_colors = self.material_colors.clone();
         let voxel_size = 0.5f64;
         let vx = 32u32; let vz = 32u32;
@@ -1001,11 +1036,15 @@ impl WorldDriver {
         rayon::spawn(move || {
             // Construct surface-only density stack (no CaveDensity).
             // LOD 0 matches clipmap LOD 1-7 — both use pure 2D heightfield, no caves.
-            // Caves will be re-enabled across all LODs when depth-constrained CaveDensity is ready.
-            let surface_layer: Arc<dyn DensityProvider> = Arc::new(TerrainBaseDensity::new(noise_arc.clone()));
+            // Use biome classifier for material_at — same color as clipmap.
+            let mk_base = || -> TerrainBaseDensity {
+                let b = TerrainBaseDensity::new(noise_arc.clone());
+                if let Some(ref bc) = biome { b.with_biomes(bc.clone()) } else { b }
+            };
+            let surface_layer: Arc<dyn DensityProvider> = Arc::new(mk_base());
             let mut stack = DensityStack::new();
             stack.push(surface_layer);
-            let base_layer = TerrainBaseDensity::new(noise_arc);
+            let base_layer = mk_base();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 transvoxel_extract(
                     &stack, &base_layer,
@@ -1080,12 +1119,20 @@ impl WorldDriver {
 
         am.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
 
-        let (ox, oy, oz) = vc.bind().origin_tuple();
+        // Diagnostic: NaN, Inf, index OOB, sample normal
+        let nv = mesh.vertices.len() as u32;
+        let nan_v  = mesh.vertices.iter().filter(|v| v.x.is_nan() || v.y.is_nan() || v.z.is_nan()).count();
+        let inf_v  = mesh.vertices.iter().filter(|v| v.x.is_infinite() || v.y.is_infinite() || v.z.is_infinite()).count();
+        let nan_n  = mesh.normals.iter().filter(|n| n.x.is_nan() || n.y.is_nan() || n.z.is_nan()).count();
+        let oob    = mesh.indices.iter().filter(|&&i| i >= nv).count();
+        let mid    = mesh.vertices.len() / 2;
+        let sn     = if mid < mesh.normals.len() { (mesh.normals[mid].x, mesh.normals[mid].y, mesh.normals[mid].z) } else { (0.0f32, 0.0, 0.0) };
+
         godot_print!(
-            "Voxel uploaded @ ({:.0},{:.0},{:.0}): {} verts, {} tris",
-            ox, oy, oz,
-            mesh.vertices.len(),
-            mesh.indices.len() / 3,
+            "Voxel @({:.0},{:.0},{:.0}) {}v {}t NaN(v={} i={} n={}) OOB={}  n[{}]=({:.3},{:.3},{:.3})",
+            ox, oy, oz, mesh.vertices.len(), mesh.indices.len()/3,
+            nan_v, inf_v, nan_n, oob, mid,
+            sn.0, sn.1, sn.2,
         );
 
         vc.bind_mut().set_terrain_mesh(Some(am));

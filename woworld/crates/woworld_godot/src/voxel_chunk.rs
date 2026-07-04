@@ -59,6 +59,11 @@ impl VoxelChunk {
         }
     }
 
+    /// Get the chunk's world-space origin (Rust-only, not exposed to GDScript).
+    pub fn origin_tuple(&self) -> (f64, f64, f64) {
+        (self.origin_x, self.origin_y, self.origin_z)
+    }
+
     /// Move this chunk to a new world origin. Does NOT trigger re-extraction.
     #[func]
     pub fn set_world_origin(&mut self, x: f64, y: f64, z: f64) {

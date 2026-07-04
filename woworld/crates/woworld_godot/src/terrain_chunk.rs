@@ -337,8 +337,8 @@ impl INode3D for WorldDriver {
         // ── 4. 设置细层交叉采样 uniform（L1-L7 引用 L0-L6 的 heightmap）──
         for level_idx in 1..8u8 {
             let (left, right) = self.lod_layers.split_at_mut(level_idx as usize);
-            let finer = left[level_idx as usize - 1].as_ref().unwrap();
-            let layer = right[0].as_mut().unwrap();
+            let Some(finer) = left[level_idx as usize - 1].as_ref() else { continue; };
+            let Some(layer) = right[0].as_mut() else { continue; };
             let fine_level = &LEVELS[level_idx as usize - 1];
             let fine_spacing = level_spacing(fine_level);
             let inner_bound = LEVELS[level_idx as usize].min_range as f32;
@@ -1004,6 +1004,10 @@ impl WorldDriver {
             return;
         }
 
+        // transvoxel_extract returns world-space vertices; convert to local space
+        // (VoxelChunk Node3D position provides the world offset)
+        let (ox, oy, oz) = vc.bind().origin_tuple();
+
         let mut am = ArrayMesh::new_gd();
         let mut vertices = PackedVector3Array::new();
         let mut normals_packed = PackedVector3Array::new();
@@ -1011,7 +1015,7 @@ impl WorldDriver {
 
         for i in 0..mesh.vertices.len() {
             let v = mesh.vertices[i];
-            vertices.push(Vector3::new(v.x, v.y, v.z));
+            vertices.push(Vector3::new(v.x - ox as f32, v.y - oy as f32, v.z - oz as f32));
             let n = mesh.normals[i];
             normals_packed.push(Vector3::new(n.x, n.y, n.z));
             let c = mesh.colors[i];

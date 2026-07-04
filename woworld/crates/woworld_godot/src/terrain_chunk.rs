@@ -129,10 +129,6 @@ pub struct WorldDriver {
     vx_result_tx: mpsc::Sender<VoxelResult>,
     vx_result_rx: mpsc::Receiver<VoxelResult>,
 
-    /// VoxelGrid 统一 y-origin + 垂直体素数（消除 chunk 间间隙）
-    voxel_wy: f64,
-    voxel_vy: u32,
-
     /// Voxel 块在途标记
     vx_in_flight: std::collections::HashSet<(i32, i32)>,
 
@@ -168,8 +164,6 @@ impl INode3D for WorldDriver {
             vx_result_tx: vx_tx,
             vx_result_rx: vx_rx,
             vx_in_flight: std::collections::HashSet::new(),
-            voxel_wy: 0.0,
-            voxel_vy: 32,
             voxel_material: None,
             base,
         }
@@ -752,7 +746,7 @@ impl INode3D for WorldDriver {
                         let h = self.terrain.height_at(WorldPos {
                             x: wx + 8.0, y: 0.0, z: wz + 8.0,
                         }) as f64;
-                        let wy = (h - 4.0).max(0.0);
+                        let wy = h - 4.0;
                         let total_h = (h - wy + 12.0).max(16.0);
                         let vy = ((total_h / 0.5).ceil() as u32).max(32);
 
@@ -961,33 +955,20 @@ impl WorldDriver {
         let pcx: i32 = 0;
         let pcz: i32 = 0;
 
-        // ── Pass 1: compute common y-origin across all 25 chunks ──
-        let mut y_min = f64::MAX;
-        let mut y_max = f64::MIN;
-        for dx in -grid_radius..=grid_radius {
-            for dz in -grid_radius..=grid_radius {
-                let wx = (pcx + dx) as f64 * CHUNK_SIZE;
-                let wz = (pcz + dz) as f64 * CHUNK_SIZE;
-                let h = self.terrain.height_at(WorldPos { x: wx + 8.0, y: 0.0, z: wz + 8.0 }) as f64;
-                y_min = y_min.min(h);
-                y_max = y_max.max(h);
-            }
-        }
-        // Chunk vertical range: 4m below lowest surface to 12m above highest surface
-        let wy = (y_min - 4.0).max(0.0);
-        let total_h = (y_max - wy + 12.0).max(16.0);
-        let vy = ((total_h / VOXEL_SIZE).ceil() as u32).max(32);
-        godot_print!("VoxelGrid: wy={:.0} vy={} total_h={:.0}m  y_range=[{:.0}, {:.0}]", wy, vy, total_h, y_min, y_max);
-        self.voxel_wy = wy;
-        self.voxel_vy = vy;
-
-        // ── Pass 2: create chunks with common y-origin ──
+        // Per-chunk vertical range: each chunk computes its own wy/vy from its center height.
+        // This avoids vy blowup when terrain spans large elevation range (e.g. -200m to +500m).
         for dx in -grid_radius..=grid_radius {
             for dz in -grid_radius..=grid_radius {
                 let cx = pcx + dx;
                 let cz = pcz + dz;
                 let wx = cx as f64 * CHUNK_SIZE;
                 let wz = cz as f64 * CHUNK_SIZE;
+                let h = self.terrain.height_at(WorldPos {
+                    x: wx + 8.0, y: 0.0, z: wz + 8.0,
+                }) as f64;
+                let wy = h - 4.0;
+                let total_h = (h - wy + 12.0).max(16.0);
+                let vy = ((total_h / VOXEL_SIZE).ceil() as u32).max(32);
 
                 let mut vc = VoxelChunk::new_alloc();
                 vc.bind_mut().set_world_origin(wx, wy, wz);

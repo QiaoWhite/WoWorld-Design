@@ -28,6 +28,9 @@ pub struct VoxelChunk {
 
     /// Chunk active flag — if false, mesh is stale/discarded
     active: bool,
+
+    /// Material pending application (set before ready() fires)
+    pending_material: Option<Gd<godot::classes::Material>>,
 }
 
 #[godot_api]
@@ -36,6 +39,10 @@ impl INode3D for VoxelChunk {
         let mut mi = MeshInstance3D::new_alloc();
         mi.set_name("VoxelTerrain");
         mi.set_visible(false);
+        // Apply pending material if set before ready() fired
+        if let Some(ref mat) = self.pending_material {
+            mi.set_material_override(mat);
+        }
         self.base_mut().add_child(&mi);
         self.mesh_instance = Some(mi);
     }
@@ -46,7 +53,10 @@ impl VoxelChunk {
     /// Set the material on the terrain MeshInstance3D. Called once from WorldDriver.
     pub fn set_terrain_material(&mut self, material: Gd<godot::classes::Material>) {
         if let Some(ref mut mi) = self.mesh_instance {
-            mi.set_surface_override_material(0, &material);
+            mi.set_material_override(&material);
+        } else {
+            // ready() hasn't fired yet — store for later application
+            self.pending_material = Some(material);
         }
     }
 

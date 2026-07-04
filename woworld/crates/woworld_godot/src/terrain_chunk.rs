@@ -127,6 +127,10 @@ pub struct WorldDriver {
     vx_result_tx: mpsc::Sender<VoxelResult>,
     vx_result_rx: mpsc::Receiver<VoxelResult>,
 
+    /// VoxelGrid 统一 y-origin + 垂直体素数（消除 chunk 间间隙）
+    voxel_wy: f64,
+    voxel_vy: u32,
+
     /// Voxel 块在途标记
     vx_in_flight: std::collections::HashSet<(i32, i32)>,
 
@@ -162,6 +166,8 @@ impl INode3D for WorldDriver {
             vx_result_tx: vx_tx,
             vx_result_rx: vx_rx,
             vx_in_flight: std::collections::HashSet::new(),
+            voxel_wy: 0.0,
+            voxel_vy: 32,
             voxel_material: None,
             base,
         }
@@ -739,10 +745,8 @@ impl INode3D for WorldDriver {
                         }
                         let wx = cx as f64 * CHUNK_SIZE as f64;
                         let wz = cz as f64 * CHUNK_SIZE as f64;
-                        let h = self.terrain.height_at(WorldPos {
-                            x: wx + 8.0, y: 0.0, z: wz + 8.0,
-                        });
-                        let wy = (h as f64 - 8.0).max(0.0);
+                        let wy = self.voxel_wy;
+                        let vy = self.voxel_vy;
 
                         let mut vc = VoxelChunk::new_alloc();
                         vc.bind_mut().set_world_origin(wx, wy, wz);
@@ -752,7 +756,7 @@ impl INode3D for WorldDriver {
                         if let Some(ref mut parent) = self.terrain_parent {
                             parent.add_child(&vc.clone().upcast::<Node>());
                         }
-                        self.submit_voxel_job(cx, cz, wx, wy, wz);
+                        self.submit_voxel_job(cx, cz, wx, wy, wz, vy);
                         self.voxel_chunks.insert((cx, cz), vc);
                     }
                 }
@@ -943,13 +947,33 @@ impl WorldDriver {
 
     /// Initialize 5×5 VoxelChunk grid + submit first batch of rayon extraction jobs.
     fn init_voxel_grid(&mut self) {
-        const CHUNK_SIZE: f64 = 16.0; // 32³ @ 0.5m
-        let grid_radius: i32 = 2; // 5×5 = 25 chunks
-
-        // Start at origin — player initial chunk is (0, 0)
+        const CHUNK_SIZE: f64 = 16.0;
+        const VOXEL_SIZE: f64 = 0.5;
+        let grid_radius: i32 = 2;
         let pcx: i32 = 0;
         let pcz: i32 = 0;
 
+        // ── Pass 1: compute common y-origin across all 25 chunks ──
+        let mut y_min = f64::MAX;
+        let mut y_max = f64::MIN;
+        for dx in -grid_radius..=grid_radius {
+            for dz in -grid_radius..=grid_radius {
+                let wx = (pcx + dx) as f64 * CHUNK_SIZE;
+                let wz = (pcz + dz) as f64 * CHUNK_SIZE;
+                let h = self.terrain.height_at(WorldPos { x: wx + 8.0, y: 0.0, z: wz + 8.0 }) as f64;
+                y_min = y_min.min(h);
+                y_max = y_max.max(h);
+            }
+        }
+        // Chunk vertical range: 4m below lowest surface to 12m above highest surface
+        let wy = (y_min - 4.0).max(0.0);
+        let total_h = (y_max - wy + 12.0).max(16.0);
+        let vy = ((total_h / VOXEL_SIZE).ceil() as u32).max(32);
+        godot_print!("VoxelGrid: wy={:.0} vy={} total_h={:.0}m  y_range=[{:.0}, {:.0}]", wy, vy, total_h, y_min, y_max);
+        self.voxel_wy = wy;
+        self.voxel_vy = vy;
+
+        // ── Pass 2: create chunks with common y-origin ──
         for dx in -grid_radius..=grid_radius {
             for dz in -grid_radius..=grid_radius {
                 let cx = pcx + dx;
@@ -957,18 +981,8 @@ impl WorldDriver {
                 let wx = cx as f64 * CHUNK_SIZE;
                 let wz = cz as f64 * CHUNK_SIZE;
 
-                // Sample terrain height for y-origin
-                let h = self.terrain.height_at(WorldPos {
-                    x: wx + CHUNK_SIZE * 0.5,
-                    y: 0.0,
-                    z: wz + CHUNK_SIZE * 0.5,
-                });
-                let wy = (h as f64 - CHUNK_SIZE * 0.5).max(0.0);
-
-                // Create VoxelChunk node (passive container — mesh set later)
                 let mut vc = VoxelChunk::new_alloc();
                 vc.bind_mut().set_world_origin(wx, wy, wz);
-                // Share one ShaderMaterial across all 25 chunks
                 if let Some(ref voxel_mat) = self.voxel_material {
                     vc.bind_mut().set_terrain_material(voxel_mat.clone().upcast());
                 }
@@ -976,16 +990,14 @@ impl WorldDriver {
                     parent.add_child(&vc.clone().upcast::<Node>());
                 }
                 self.voxel_chunks.insert((cx, cz), vc);
-
-                // Submit rayon background extraction
-                self.submit_voxel_job(cx, cz, wx, wy, wz);
+                self.submit_voxel_job(cx, cz, wx, wy, wz, vy);
             }
         }
         self.voxel_center = (pcx, pcz);
     }
 
     /// Submit a single transvoxel_extract job to rayon background thread pool.
-    fn submit_voxel_job(&mut self, cx: i32, cz: i32, wx: f64, wy: f64, wz: f64) {
+    fn submit_voxel_job(&mut self, cx: i32, cz: i32, wx: f64, wy: f64, wz: f64, vy: u32) {
         if self.vx_in_flight.contains(&(cx, cz)) {
             return;
         }
@@ -996,7 +1008,7 @@ impl WorldDriver {
         let noise_arc = self.terrain.noise_arc();
         let material_colors = self.material_colors.clone();
         let voxel_size = 0.5f64;
-        let vx = 32u32; let vy = 32u32; let vz = 32u32;
+        let vx = 32u32; let vz = 32u32;
 
         rayon::spawn(move || {
             let base_layer = TerrainBaseDensity::new(noise_arc);
@@ -1036,6 +1048,8 @@ impl WorldDriver {
         use godot::classes::ArrayMesh;
 
         if mesh.vertices.is_empty() {
+            let (ox, oy, oz) = vc.bind().origin_tuple();
+            godot_print!("Voxel empty @ ({:.0},{:.0},{:.0}) — all-air chunk", ox, oy, oz);
             vc.bind_mut().set_terrain_mesh(None);
             return;
         }
@@ -1071,6 +1085,15 @@ impl WorldDriver {
         arrays.set(12, &indices.to_variant());
 
         am.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
+
+        let (ox, oy, oz) = vc.bind().origin_tuple();
+        godot_print!(
+            "Voxel uploaded @ ({:.0},{:.0},{:.0}): {} verts, {} tris",
+            ox, oy, oz,
+            mesh.vertices.len(),
+            mesh.indices.len() / 3,
+        );
+
         vc.bind_mut().set_terrain_mesh(Some(am));
     }
 }

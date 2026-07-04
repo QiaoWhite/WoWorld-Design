@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_back;
+render_mode cull_disabled;
 
 // Camera-relative floating origin — 与 terrain.gdshader 一致
 uniform vec3 camera_pos = vec3(0.0);

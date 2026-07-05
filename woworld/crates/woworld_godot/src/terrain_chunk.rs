@@ -1122,14 +1122,21 @@ impl WorldDriver {
         // ── ECS Phase 1: 生命 System ──────────
         {
             use hecs::CommandBuffer;
-            use woworld_ecs::systems::life::{death_watch, item_spawn, loot_roll};
+            use woworld_ecs::systems::life::{
+                cleanup, corpse_decay, death_watch, item_spawn, loot_roll, regen,
+            };
 
             self.frame_count += 1;
-            let mut cmd = CommandBuffer::new();
 
+            // Regen 直接写入 Vitals（需要 &mut World）——先于 CommandBuffer 执行
+            regen::regen_system(&mut self.ecs);
+
+            let mut cmd = CommandBuffer::new();
             death_watch::death_watch_system(&self.ecs, &mut cmd, self.frame_count);
             loot_roll::loot_roll_system(&self.ecs, &mut cmd, &self.loot_tables);
             item_spawn::item_spawn_system(&self.ecs, &mut cmd);
+            corpse_decay::corpse_decay_system(&self.ecs, &mut cmd, self.frame_count);
+            cleanup::cleanup_system(&self.ecs, &mut cmd);
 
             cmd.run_on(&mut self.ecs);
         }

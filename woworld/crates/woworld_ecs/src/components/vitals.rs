@@ -132,6 +132,65 @@ impl Default for LootResult {
     }
 }
 
+// ── CorpseLooted ──────────────────────
+
+/// 标记尸体已被搜刮——ItemSpawn 移除 LootResult 后插入
+#[derive(Debug, Clone, Copy)]
+pub struct CorpseLooted;
+
+impl Default for CorpseLooted {
+    fn default() -> Self {
+        Self
+    }
+}
+
+// ── DecayingRemains ──────────────────
+
+/// 腐败残骸——CorpseDecay 移除 Corpse 后插入
+#[derive(Debug, Clone, Copy)]
+pub struct DecayingRemains {
+    /// 腐败进度 0.0→1.0，满 1.0 时 CleanupSystem 移除 Entity
+    pub decay_progress: f32,
+}
+
+impl Default for DecayingRemains {
+    fn default() -> Self {
+        Self { decay_progress: 0.0 }
+    }
+}
+
+// ── PendingDespawn ────────────────────
+
+/// 标记 Entity 等待清理——零字段 tag
+#[derive(Debug, Clone, Copy)]
+pub struct PendingDespawn;
+
+impl Default for PendingDespawn {
+    fn default() -> Self {
+        Self
+    }
+}
+
+// ── RegenState ────────────────────────
+
+/// 基础再生率——不随帧更新的常量数据
+#[derive(Debug, Clone, Copy)]
+pub struct RegenState {
+    /// HP 每秒恢复量
+    pub hp_regen_rate: f32,
+    /// 体力每秒恢复量
+    pub stamina_regen_rate: f32,
+}
+
+impl Default for RegenState {
+    fn default() -> Self {
+        Self {
+            hp_regen_rate: 0.1,       // 0.1 HP/s, 10s 回 1 点
+            stamina_regen_rate: 1.0,  // 1.0 stamina/s
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

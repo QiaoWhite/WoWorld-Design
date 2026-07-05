@@ -21,7 +21,7 @@
 | Rust workspace | 5 crates, **113 tests 全绿** (core: 41 + worldgen: 49 + atmosphere: 17 + ecs: 6 + godot: 0), cargo clippy 零警告 |
 | ECS 架构 | **Phase 0 ✅** — hecs 0.10 就位，`woworld_ecs` crate 创建，5 Component 定义，WorldDriver 集成，LodCoordinatorSystem 就位。测试 113/113 全绿。Phase 1（生命系统）待启动。 |
 | Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 8 层 CHG-049 对齐（0.5m-64m, 15km 视野）+ Signed Heightfield (LOD 5-7) + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 |
-| 当前冲刺 | Sprint-036 完成（ECS Phase 1 生命系统上·死亡→掉落涌现链·126 tests）→ 下一步：Sprint-037 腐败链 |
+| 当前冲刺 | Sprint-037 完成（ECS Phase 1 生命系统下·腐败→消失+再生·136 tests）→ 下一步：天气涌现化 |
 | 最新 CHG | CHG-064（2026-06-24）— 轨A 昼夜循环 + 5群系系统 |
 
 ---
@@ -47,7 +47,7 @@
 | ECS Phase | 内容 | 状态 | 对应 Dev Phase | 关键交付 |
 |-----------|------|------|---------------|---------|
 | Phase 0 | hecs 基础设施 + 核心 Component + LodCoordinatorSystem | ✅ Sprint-035 完成 | Phase 1 (1J) | `woworld_ecs` crate, 5 Component, WorldDriver.ecs 字段 |
-| Phase 1 | 生命系统（首个完整 ECS 模块） | 🟡 Sprint-036 上完成 | Phase 1 (1H) | Vitals/Corpse/DeathCause, 3 System, 死亡→掉落链 |
+| Phase 1 | 生命系统（首个完整 ECS 模块） | 🟢 Sprint-036+037 完成 | Phase 1 (1H) | 完整生命周期：Vitals→死亡→掉落→腐败→消失+再生 |
 | Phase 2 | NPC 核心（批量 System 迁移） | — 阻塞于 Phase 1 | Phase 3 | NpcCore/Needs/Goal Component, Handle+Storage 模式 |
 | Phase 3 | 社会系统（懒加载·低频） | — 阻塞于 Phase 2 | Phase 3 | 经济/权力/文化/信仰 System |
 | Phase 4 | 交互系统（战斗/魔法/物品/技能） | — 阻塞于 Phase 3 | Phase 3 | CombatState/SpellSlots/InventoryHandle |
@@ -68,10 +68,10 @@
 ### ECS 当前进度
 
 - **hecs 依赖**: ✅ hecs 0.10.5
-- **Component 定义**: 10 / ~80 (Position, Rotation, Velocity, EntityKind, LodLevel, Vitals, DeathCause, Corpse, PendingLoot, LootResult)
-- **System 实现**: 4 / ~120 (LodCoordinatorSystem, DeathWatch, LootRoll, ItemSpawn)
+- **Component 定义**: 14 / ~80 (+CorpseLooted, DecayingRemains, PendingDespawn, RegenState)
+- **System 实现**: 7 / ~120 (+CorpseDecay, Cleanup, Regen)
 - **Resource 定义**: 1 / ~30 (LootTableRegistry)
-- **ECS 测试**: 19
+- **ECS 测试**: 29
 - **113 现有测试**: ✅ 全绿（迁移过程中每步必须保持）
 
 ---

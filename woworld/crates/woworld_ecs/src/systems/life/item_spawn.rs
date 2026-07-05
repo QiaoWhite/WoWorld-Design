@@ -9,7 +9,7 @@ use hecs::CommandBuffer;
 
 use crate::components::entity_kind::EntityKind;
 use crate::components::transform::Position;
-use crate::components::vitals::{Corpse, LootResult};
+use crate::components::vitals::{Corpse, CorpseLooted, LootResult};
 
 /// 每帧执行——将 LootResult 转换为实际的物品 Entity。
 pub fn item_spawn_system(world: &hecs::World, cmd: &mut CommandBuffer) {
@@ -32,8 +32,9 @@ pub fn item_spawn_system(world: &hecs::World, cmd: &mut CommandBuffer) {
             }
         }
 
-        // 移除 LootResult（已完成掉落物生成）
+        // 移除 LootResult，标记已搜刮（CorpseDecay 的前提条件）
         cmd.remove_one::<LootResult>(entity);
+        cmd.insert_one(entity, CorpseLooted);
     }
 }
 

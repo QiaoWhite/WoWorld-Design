@@ -1033,6 +1033,24 @@ impl INode3D for WorldDriver {
             }
         }
 
+        // ── 地形跟随: NPC 移动后 Y 锁定到地形高度 ──
+        {
+            use woworld_ecs::components::entity_kind::EntityKind;
+            use woworld_ecs::components::transform::Position;
+            for (_entity, (pos, kind)) in
+                self.ecs.query::<(&mut Position, &EntityKind)>().iter()
+            {
+                if matches!(*kind, EntityKind::Creature) {
+                    let terrain_y = self.terrain.height_at(WorldPos {
+                        x: pos.0.x as f64,
+                        y: 0.0,
+                        z: pos.0.z as f64,
+                    });
+                    pos.0.y = terrain_y + 0.5;
+                }
+            }
+        }
+
         // ── ECS → Godot 视觉同步（每帧，ECS tick 之后）──
         if let Some(ref mut renderer) = self.entity_renderer {
             renderer.sync(&self.ecs);

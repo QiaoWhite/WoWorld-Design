@@ -17,3 +17,7 @@ rayon = "1.10"
 woworld_core = { path = "../woworld_core" }
 woworld_worldgen = { path = "../woworld_worldgen" }
 woworld_atmosphere = { path = "../woworld_atmosphere" }
+woworld_ecs = { path = "../woworld_ecs" }
+
+# ECS 存储（仅 WorldDriver 使用）
+hecs = "0.10"

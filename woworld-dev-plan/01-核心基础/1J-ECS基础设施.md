@@ -1,6 +1,6 @@
 # 1J — ECS 基础设施
 
-> **状态**: 🔴 未开始
+> **状态**: 🟢 Phase 0 完成 — hecs 0.10 就位 + 5 Component + LodCoordinatorSystem
 > **所属阶段**: Phase 1 — 核心基础
 > **前置依赖**: 1A（Layer 0 核心类型——EntityId、WorldPos、LodPrescription 等值类型）
 

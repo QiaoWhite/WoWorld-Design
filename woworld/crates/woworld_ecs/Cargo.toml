@@ -1,0 +1,17 @@
+[package]
+name = "woworld_ecs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT"
+description = "WoWorld ECS — hecs-based Component definitions, Systems, and Resources"
+
+[dependencies]
+# ECS 存储
+hecs = "0.10"
+
+# 向量/矩阵（与 woworld_core 共享版本）
+glam = { version = "0.28", features = ["bytemuck"] }
+
+# 核心类型（EntityId, WorldPos, LodPrescription, etc.）
+woworld_core = { path = "../woworld_core" }

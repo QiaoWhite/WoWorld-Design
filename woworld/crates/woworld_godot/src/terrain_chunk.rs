@@ -18,6 +18,7 @@ use godot::classes::{
 use godot::prelude::*;
 use woworld_atmosphere::{AtmosphereSynthesizer, SeasonAtmosQuery, SimpleSeasonProvider, SimpleWeatherDriver, WeatherAtmosQuery};
 use woworld_core::lod::{LodCoordinator, LodCoordinatorInput, CameraState, PlayerAttention, FrameBudget, VramPressure, EntityLodInput, HysteresisState};
+use hecs::World as EcsWorld;
 use woworld_core::prelude::*;
 use woworld_core::spatial::TerrainQuery;
 use std::collections::HashMap;
@@ -153,6 +154,9 @@ pub struct WorldDriver {
     /// Phase 1 LOD: 植被提供者，每帧接收 scene_lod 更新
     vegetation_provider: Option<Arc<dyn VegetationProvider>>,
 
+    /// ECS World — 所有 Entity/Component 的权威存储
+    ecs: EcsWorld,
+
     /// Phase 2 LODCoordinator: 上一帧 LOD 处方（迟滞比较）
     lod_prev: HashMap<EntityId, LodPrescription>,
     /// Phase 2 LODCoordinator: 每实体迟滞状态（跨帧持久）
@@ -199,6 +203,7 @@ impl INode3D for WorldDriver {
             voxel_vy: 32,
             voxel_material: None,
             vegetation_provider: None,
+            ecs: EcsWorld::new(),
             lod_prev: HashMap::new(),
             lod_hyst: HashMap::new(),
             base,
@@ -489,8 +494,15 @@ impl INode3D for WorldDriver {
 
         self.init_voxel_grid();
 
+        // ECS Phase 0: spawn Player Entity
+        self.ecs.spawn((
+            woworld_ecs::components::transform::Position::default(),
+            woworld_ecs::prelude::EntityKind::Creature,
+            woworld_ecs::prelude::LodLevel::default(),
+        ));
+
         self.base_mut().set_process(true);
-        godot_print!("WorldDriver: 7 GPU-driven clipmap layers + 5×5 VoxelChunk grid ready");
+        godot_print!("WorldDriver: 7 GPU-driven clipmap layers + 5×5 VoxelChunk grid + ECS ready");
     }
 
     fn process(&mut self, delta: f64) {

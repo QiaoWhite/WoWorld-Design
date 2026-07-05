@@ -511,7 +511,7 @@ impl INode3D for WorldDriver {
         // ECS Phase 0: spawn Player Entity (保存 hecs Entity 用于互转)
         let player_terrain_y = self.terrain.height_at(WorldPos { x: 0.0, y: 0.0, z: 0.0 });
         let _player_entity = self.ecs.spawn((
-            woworld_ecs::components::transform::Position(glam::Vec3::new(0.0, player_terrain_y + 1.7, 0.0)),
+            woworld_ecs::components::transform::Position(glam::Vec3::new(0.0, player_terrain_y, 0.0)),
             woworld_ecs::prelude::EntityKind::Creature,
             woworld_ecs::prelude::LodLevel::default(),
         ));
@@ -526,7 +526,7 @@ impl INode3D for WorldDriver {
             let x = angle.cos() * dist;
             let z = angle.sin() * dist;
             let terrain_y = self.terrain.height_at(WorldPos { x: x as f64, y: 0.0, z: z as f64 });
-            let pos = glam::Vec3::new(x, terrain_y + 0.9, z); // CapsuleMesh 高 1.8m，中心 = 地面 + 0.9
+            let pos = glam::Vec3::new(x, terrain_y, z); // root 放地表，mesh 子节点向上偏移
             self.spawn_npc(npc_seed, pos);
         }
         godot_print!("WorldDriver: {} NPCs spawned within 30m radius", NPC_COUNT);
@@ -1034,12 +1034,11 @@ impl INode3D for WorldDriver {
         }
 
         // ── 地形跟随: NPC 移动后 Y 锁定到地形高度 ──
-        // Phase 1 临时方案: 每帧硬钳制。Phase 2 应为 terrain-aware movement system
-        // （movement_system 内部查询 TerrainQuery，或 target_pos 已含地形高度）。
+        // Phase 1 临时方案: 每帧硬钳制 Y → 地表。Phase 2 应为 terrain-aware movement。
+        // mesh 向上偏移在 EntityRenderer::create_npc_node 中处理。
         {
             use woworld_ecs::components::entity_kind::EntityKind;
             use woworld_ecs::components::transform::Position;
-            const CAPSULE_HALF_HEIGHT: f32 = 0.9; // CapsuleMesh 1.8m / 2
             for (_entity, (pos, kind)) in
                 self.ecs.query::<(&mut Position, &EntityKind)>().iter()
             {
@@ -1049,7 +1048,7 @@ impl INode3D for WorldDriver {
                         y: 0.0,
                         z: pos.0.z as f64,
                     });
-                    pos.0.y = terrain_y + CAPSULE_HALF_HEIGHT;
+                    pos.0.y = terrain_y;
                 }
             }
         }

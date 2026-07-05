@@ -82,8 +82,13 @@ impl EntityRenderer {
     }
 
     /// 为一个 NPC 创建 Node3D + CapsuleMesh 子节点
+    ///
+    /// root Node3D 放在地表（y = terrain），CapsuleMesh 子节点向上偏移
+    /// 半个高度，使胶囊体底部刚好贴地。
     fn create_npc_node(entity: hecs::Entity, pos: Vec3, parent: &mut Gd<Node3D>) -> Gd<Node3D> {
-        // Root Node3D
+        const CAPSULE_HEIGHT: f32 = 1.8;
+
+        // Root Node3D 定位到地表
         let mut root = Node3D::new_alloc();
         let name_str = format!("NPC_{}", entity.to_bits().get());
         root.set_name(&name_str);
@@ -91,10 +96,12 @@ impl EntityRenderer {
         // CapsuleMesh 占位（0.4m 半径 × 1.8m 高，近似人体）
         let mut capsule = godot::classes::CapsuleMesh::new_gd();
         capsule.set_radius(0.4);
-        capsule.set_height(1.8);
+        capsule.set_height(CAPSULE_HEIGHT);
 
         let mut mesh_instance = MeshInstance3D::new_alloc();
         mesh_instance.set_mesh(&capsule);
+        // Mesh 原点在几何中心 → 向上偏移半个高度让底部贴地
+        mesh_instance.set_position(Vector3::new(0.0, CAPSULE_HEIGHT * 0.5, 0.0));
 
         // 程序化颜色——从 entity bits 确定性派生
         let bits = entity.to_bits().get();
@@ -105,7 +112,6 @@ impl EntityRenderer {
 
         let mut mat = StandardMaterial3D::new_gd();
         mat.set_albedo(color);
-        // unshaded: 不依赖场景光照，保证在任何光照条件下可见
         mat.set_shading_mode(godot::classes::base_material_3d::ShadingMode::UNSHADED);
         mesh_instance.set_surface_override_material(0, &mat);
 

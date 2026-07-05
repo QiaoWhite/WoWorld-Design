@@ -21,7 +21,7 @@
 | Rust workspace | 5 crates, **113 tests 全绿** (core: 41 + worldgen: 49 + atmosphere: 17 + ecs: 6 + godot: 0), cargo clippy 零警告 |
 | ECS 架构 | **Phase 0 ✅** — hecs 0.10 就位，`woworld_ecs` crate 创建，5 Component 定义，WorldDriver 集成，LodCoordinatorSystem 就位。测试 113/113 全绿。Phase 1（生命系统）待启动。 |
 | Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 8 层 CHG-049 对齐（0.5m-64m, 15km 视野）+ Signed Heightfield (LOD 5-7) + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 |
-| 当前冲刺 | Sprint-037 完成（ECS Phase 1 生命系统下·腐败→消失+再生·136 tests）→ 下一步：天气涌现化 |
+| 当前冲刺 | Sprint-038 完成（天气系统涌现化·连续物理参数驱动·145 tests）→ 下一步待定 |
 | 最新 CHG | CHG-064（2026-06-24）— 轨A 昼夜循环 + 5群系系统 |
 
 ---

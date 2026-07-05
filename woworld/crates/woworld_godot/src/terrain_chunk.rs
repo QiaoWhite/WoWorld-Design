@@ -16,7 +16,7 @@ use godot::classes::{
     ShaderMaterial, WorldEnvironment,
 };
 use godot::prelude::*;
-use woworld_atmosphere::{AtmosphereSynthesizer, SeasonAtmosQuery, SimpleSeasonProvider, SimpleWeatherDriver, WeatherAtmosQuery};
+use woworld_atmosphere::{AtmosphereSynthesizer, SeasonAtmosQuery, SimpleSeasonProvider, WeatherAtmosQuery, WeatherDriver};
 use woworld_core::lod::{LodCoordinator, LodCoordinatorInput, CameraState, PlayerAttention, FrameBudget, VramPressure, EntityLodInput, HysteresisState};
 use hecs::World as EcsWorld;
 use woworld_core::prelude::*;
@@ -107,8 +107,8 @@ pub struct WorldDriver {
     clock: WorldClock,
     atmosphere: AtmosphereSynthesizer,
 
-    /// Phase 1 天气驱动（简化 Markov，每帧 tick）
-    weather_driver: SimpleWeatherDriver,
+    /// Phase 2 天气驱动（连续物理参数，每帧 tick）
+    weather_driver: WeatherDriver,
     /// Phase 1 季节提供者（纯函数 total_days → season）
     season_provider: SimpleSeasonProvider,
     /// 上次更新的游戏天数（检测季节变更）
@@ -185,7 +185,7 @@ impl INode3D for WorldDriver {
             clock: WorldClock::new(DEFAULT_SECONDS_PER_DAY),
             atmosphere: AtmosphereSynthesizer::from_embedded_toml()
                 .expect("embedded time_curve.toml must be valid"),
-            weather_driver: SimpleWeatherDriver::new(0),
+            weather_driver: WeatherDriver::new(0),
             season_provider: SimpleSeasonProvider::new(0),
             last_game_day: 0,
             debug_weather_cooldown: 0.0,
@@ -534,14 +534,10 @@ impl INode3D for WorldDriver {
             if input.is_key_pressed(godot::global::Key::KEY_0) { target_time = Some(0.00); } // Midnight
 
             if let Some(state) = target_weather {
-                self.weather_driver.debug_set_state(state);
+                self.weather_driver.set_preset(state);
                 self.debug_weather_cooldown = 0.3;
-                godot_print!("[Debug] Weather → {:?} | sky_mult={:?} fog={:.2} exp={:.2} sat={:.2}",
-                    state,
-                    self.weather_driver.sky_mult(),
-                    self.weather_driver.fog_density(),
-                    self.weather_driver.exposure_mult(),
-                    self.weather_driver.saturation_mult(),
+                godot_print!("[Debug] Weather preset → {:?} | params={:?}",
+                    state, self.weather_driver.params,
                 );
             }
             if let Some(prog) = target_time {
@@ -559,7 +555,7 @@ impl INode3D for WorldDriver {
         let player_pos = self.get_player_position();
 
         // 天气驱动 tick
-        self.weather_driver.tick(delta);
+        self.weather_driver.tick(delta, self.season_provider.current_season());
 
         // 季节检测（每天一次）
         let total_days = self.clock.current.day_number;

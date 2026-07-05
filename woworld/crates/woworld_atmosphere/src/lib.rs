@@ -15,4 +15,4 @@ pub use resolved_atmosphere::ResolvedAtmosphere;
 pub use synthesizer::AtmosphereSynthesizer;
 pub use time_curve::{AtmosAnchor, AtmosCurve};
 pub use traits::{SeasonAtmosQuery, WeatherAtmosQuery};
-pub use weather::{SimpleSeasonProvider, SimpleWeatherDriver};
+pub use weather::{SimpleSeasonProvider, WeatherDriver};

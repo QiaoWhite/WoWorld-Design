@@ -162,6 +162,11 @@ impl WorldClock {
         new_day_number > old_day_number
     }
 
+    /// 当前日内进度 0.0-1.0（0=午夜, 0.25=日出, 0.5=正午, 0.75=日落）
+    pub fn day_progress(&self) -> f32 {
+        (self.accumulator / self.seconds_per_day).fract() as f32
+    }
+
     /// 快进到特定日内时间（测试用）
     pub fn set_time(&mut self, day_progress: f64) {
         self.accumulator = day_progress * self.seconds_per_day;

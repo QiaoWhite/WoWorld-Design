@@ -4,6 +4,7 @@
 
 use hecs::CommandBuffer;
 
+use crate::components::circadian::{circadian_factor, Chronotype};
 use crate::components::needs::{Desire, DesireKind, NeedSensitivity, Needs};
 
 // ── 调优参数 (设计文档 §9) ──────────
@@ -20,18 +21,21 @@ const LIBIDO_DECAY_RATE: f32 = 0.003; // 性欲衰减
 
 // ── NeedsDecaySystem ──────────────────
 
-/// 每帧递增所有需求维度（含跨需求耦合）
-pub fn needs_decay_system(world: &mut hecs::World) {
-    for (_entity, needs) in world.query_mut::<&mut Needs>() {
+/// 每帧递增所有需求维度（含跨需求耦合 + 昼夜节律调制）
+///
+/// `day_progress`: 可选日内时间 0-1（0=午夜），用于昼夜节律调制
+pub fn needs_decay_system(world: &mut hecs::World, day_progress: Option<f32>) {
+    for (_entity, (needs, chrono)) in world.query_mut::<(&mut Needs, &Chronotype)>() {
+        let circ = day_progress.map(|dp| circadian_factor(*chrono, dp)).unwrap_or(1.0);
+
         // 跨需求耦合 (设计文档 §3.3):
-        //   疲劳 > 0.3 → 饥饿衰减 × 1.3
-        //   口渴 > 0.6 → 疲劳衰减 × 1.25
         let fatigue_mod = if needs.fatigue > 0.3 { 1.0 + SLEEP_DEBT_HUNGER_MOD } else { 1.0 };
         let thirst_fatigue = if needs.thirst > 0.6 { 1.0 + THIRST_FATIGUE_MOD } else { 1.0 };
 
-        needs.hunger = (needs.hunger + DECAY_RATE * fatigue_mod).min(1.0);
-        needs.thirst = (needs.thirst + DECAY_RATE).min(1.0);
-        needs.fatigue = (needs.fatigue + DECAY_RATE * thirst_fatigue).min(1.0);
+        // 生理需求受昼夜节律影响；心理/周期需求不受影响
+        needs.hunger = (needs.hunger + DECAY_RATE * fatigue_mod * circ).min(1.0);
+        needs.thirst = (needs.thirst + DECAY_RATE * circ).min(1.0);
+        needs.fatigue = (needs.fatigue + DECAY_RATE * thirst_fatigue * circ).min(1.0);
         needs.safety = (needs.safety + SAFETY_DECAY_RATE).min(1.0);
         needs.social = (needs.social + SOCIAL_ACCUM_RATE).min(1.0);
         needs.element_balance = (needs.element_balance + ELEMENT_DECAY_RATE).min(1.0);
@@ -91,8 +95,8 @@ mod tests {
     #[test]
     fn test_decay_increments_all_seven() {
         let mut world = hecs::World::new();
-        let e = world.spawn((Needs::default(),));
-        needs_decay_system(&mut world);
+        let e = world.spawn((Needs::default(), Chronotype::default()));
+        needs_decay_system(&mut world, None);
         let n = world.get::<&Needs>(e).unwrap();
         assert!(n.hunger > 0.0);
         assert!(n.social > 0.0);
@@ -103,10 +107,10 @@ mod tests {
     fn test_fatigue_amplifies_hunger() {
         let mut world = hecs::World::new();
         // 疲劳 > 0.3 → 饥饿衰减 × 1.3
-        let e1 = world.spawn((Needs { fatigue: 0.5, ..Needs::default() },));
-        let e2 = world.spawn((Needs { fatigue: 0.0, ..Needs::default() },));
+        let e1 = world.spawn((Needs { fatigue: 0.5, ..Needs::default() }, Chronotype::default()));
+        let e2 = world.spawn((Needs { fatigue: 0.0, ..Needs::default() }, Chronotype::default()));
 
-        needs_decay_system(&mut world);
+        needs_decay_system(&mut world, None);
 
         let n1 = world.get::<&Needs>(e1).unwrap();
         let n2 = world.get::<&Needs>(e2).unwrap();
@@ -117,10 +121,10 @@ mod tests {
     fn test_thirst_amplifies_fatigue() {
         let mut world = hecs::World::new();
         // 口渴 > 0.6 → 疲劳衰减 × 1.25
-        let e1 = world.spawn((Needs { thirst: 0.8, ..Needs::default() },));
-        let e2 = world.spawn((Needs { thirst: 0.0, ..Needs::default() },));
+        let e1 = world.spawn((Needs { thirst: 0.8, ..Needs::default() }, Chronotype::default()));
+        let e2 = world.spawn((Needs { thirst: 0.0, ..Needs::default() }, Chronotype::default()));
 
-        needs_decay_system(&mut world);
+        needs_decay_system(&mut world, None);
 
         let n1 = world.get::<&Needs>(e1).unwrap();
         let n2 = world.get::<&Needs>(e2).unwrap();
@@ -181,6 +185,6 @@ mod tests {
         let world = hecs::World::new();
         let mut cmd = CommandBuffer::new();
         need_evaluation_system(&world, &mut cmd);
-        needs_decay_system(&mut hecs::World::new());
+        needs_decay_system(&mut hecs::World::new(), None);
     }
 }

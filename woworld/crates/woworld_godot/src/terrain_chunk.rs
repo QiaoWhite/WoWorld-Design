@@ -509,20 +509,24 @@ impl INode3D for WorldDriver {
         self.init_voxel_grid();
 
         // ECS Phase 0: spawn Player Entity (保存 hecs Entity 用于互转)
+        let player_terrain_y = self.terrain.height_at(WorldPos { x: 0.0, y: 0.0, z: 0.0 });
         let _player_entity = self.ecs.spawn((
-            woworld_ecs::components::transform::Position::default(),
+            woworld_ecs::components::transform::Position(glam::Vec3::new(0.0, player_terrain_y + 1.7, 0.0)),
             woworld_ecs::prelude::EntityKind::Creature,
             woworld_ecs::prelude::LodLevel::default(),
         ));
         // Phase 3: entity_id_from_hecs(_player_entity) → EntityId 存入 PlayerState Resource
 
-        // Spawn NPC 种群（20 个，半径 30m 环形分布）
+        // Spawn NPC 种群（20 个，半径 30m 环形分布，Y 从地形查询）
         const NPC_COUNT: usize = 20;
         for i in 0..NPC_COUNT {
             let npc_seed = 1000 + i as u64;
             let angle = (i as f32 / NPC_COUNT as f32) * std::f32::consts::TAU;
             let dist = (i as f32 + 1.0) / NPC_COUNT as f32 * 30.0;
-            let pos = glam::Vec3::new(angle.cos() * dist, 0.0, angle.sin() * dist);
+            let x = angle.cos() * dist;
+            let z = angle.sin() * dist;
+            let terrain_y = self.terrain.height_at(WorldPos { x: x as f64, y: 0.0, z: z as f64 });
+            let pos = glam::Vec3::new(x, terrain_y + 0.5, z); // 0.5m 高于地面
             self.spawn_npc(npc_seed, pos);
         }
         godot_print!("WorldDriver: {} NPCs spawned within 30m radius", NPC_COUNT);

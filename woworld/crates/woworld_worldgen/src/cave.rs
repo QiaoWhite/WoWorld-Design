@@ -19,9 +19,9 @@ use crate::noise_gen;
 /// 洞穴参数
 #[derive(Clone, Debug)]
 pub struct CaveParams {
-    /// Worley 3D 频率——控制洞穴密度/大小（默认 0.04）
+    /// Worley 3D 频率——控制洞穴密度/大小（默认 0.05）
     pub frequency: f64,
-    /// 低于此值 = 洞穴空洞（默认 0.15）
+    /// 低于此值 = 洞穴空洞（默认 0.18）
     pub threshold: f64,
     /// 洞穴贡献的负密度幅值（默认 80.0）
     pub amplitude: f64,
@@ -30,8 +30,8 @@ pub struct CaveParams {
 impl Default for CaveParams {
     fn default() -> Self {
         Self {
-            frequency: 0.04,
-            threshold: 0.15,
+            frequency: 0.05,  // Sprint 045: 0.04→0.05 (稍多洞穴)
+            threshold: 0.18, // Sprint 045: 0.15→0.18 (稍大洞口)
             amplitude: 80.0,
         }
     }

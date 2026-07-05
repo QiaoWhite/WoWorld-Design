@@ -13,8 +13,9 @@ pub mod terrain_mesh;
 pub mod transition_tables;
 pub mod transvoxel;
 pub mod tri_table_data;
+pub mod vegetation;
 
-pub use biome::BiomeClassifier;
+pub use biome::{BiomeClassifier, BiomeDef};
 pub use cave::CaveDensity;
 pub use clipmap::{
     generate_clipmap_grid, generate_heightmap, generate_heightmap_data, layer_tex_config,
@@ -26,4 +27,5 @@ pub use ocean::HeightfieldOcean;
 pub use terrain::{HeightfieldTerrain, TerrainBaseDensity};
 pub use terrain_mesh::TerrainMeshData;
 pub use transvoxel::transvoxel_extract;
+pub use vegetation::BiomeVegetation;
 pub use woworld_core::time::WorldClock;

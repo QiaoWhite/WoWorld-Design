@@ -51,7 +51,10 @@ impl DensityProvider for TerrainBaseDensity {
                 return biome.surface_material as u8;
             }
         }
-        HeightfieldTerrain::material_from_height(h, 0.0) as u8
+        // 计算真实坡度——与 Clipmap 路径一致（Sprint 045 色差修复）
+        let normal = self.noise.calc_normal(pos.x, pos.z, 0.5);
+        let steepness = (1.0 - normal.y).abs(); // normal.y 已是 f32
+        HeightfieldTerrain::material_from_height(h, steepness) as u8
     }
     fn priority(&self) -> u8 {
         0

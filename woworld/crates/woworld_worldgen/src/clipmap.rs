@@ -216,7 +216,7 @@ pub fn generate_heightmap_data(
             let color = material_colors
                 .get(&material)
                 .copied()
-                .unwrap_or([0.76, 0.70, 0.50, 1.0]);
+                .unwrap_or([0.4, 0.5, 0.3, 1.0]); // 与 transvoxel 回退色统一 (Sprint 045)
             material_colors_out.push(color);
         }
     }

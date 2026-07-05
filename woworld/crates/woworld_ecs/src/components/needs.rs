@@ -31,6 +31,7 @@ impl Default for Needs {
 }
 
 /// 需求敏感度——从 BigFive 人格派生（Sprint 042 使用默认值，Phase 2 接入 BigFive）
+/// Sprint 053: 扩展 7→9 维（+esteem +competence，v2.0 进阶需求系统）
 #[derive(Debug, Clone, Copy)]
 pub struct NeedSensitivity {
     pub hunger_sens: f32,
@@ -40,6 +41,10 @@ pub struct NeedSensitivity {
     pub social_sens: f32,
     pub element_sens: f32,
     pub libido_sens: f32,
+    /// v2.0 进阶需求: 尊重认可敏感度
+    pub esteem_sens: f32,
+    /// v2.0 进阶需求: 胜任挫折敏感度
+    pub competence_sens: f32,
 }
 
 impl Default for NeedSensitivity {
@@ -47,6 +52,7 @@ impl Default for NeedSensitivity {
         Self {
             hunger_sens: 1.0, thirst_sens: 1.0, fatigue_sens: 1.0,
             safety_sens: 1.0, social_sens: 1.0, element_sens: 1.0, libido_sens: 1.0,
+            esteem_sens: 1.0, competence_sens: 1.0,
         }
     }
 }
@@ -100,11 +106,12 @@ mod tests {
     }
 
     #[test]
-    fn test_sensitivity_has_seven_dimensions() {
+    fn test_sensitivity_has_nine_dimensions() {
         let s = NeedSensitivity::default();
         let _ = (
             s.hunger_sens, s.thirst_sens, s.fatigue_sens, s.safety_sens,
             s.social_sens, s.element_sens, s.libido_sens,
+            s.esteem_sens, s.competence_sens,
         );
     }
 

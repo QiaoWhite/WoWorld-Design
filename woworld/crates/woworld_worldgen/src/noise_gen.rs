@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use glam::Vec3;
 use noise::permutationtable::{NoiseHasher, PermutationTable};
 use noise::{NoiseFn, Perlin};
 use serde::Deserialize;
@@ -159,6 +160,22 @@ impl WorldNoise {
             .precipitation
             .get([x * self.params.climate_scale, z * self.params.climate_scale]);
         (raw + 1.0) * 0.5
+    }
+
+    /// 有限差分计算 (x, z) 处的表面法线
+    ///
+    /// 使用 `sample_height` 的对称有限差分，eps 为步长 (m)。
+    pub fn calc_normal(&self, x: f64, z: f64, eps: f64) -> Vec3 {
+        let h_center = self.sample_height(x, z);
+        let h_right = self.sample_height(x + eps, z);
+        let h_forward = self.sample_height(x, z + eps);
+
+        let dx = (h_center - h_right) / eps;
+        let dz = (h_center - h_forward) / eps;
+
+        // 法线 = normalize(-dh/dx, 1.0, -dh/dz)
+        let n = Vec3::new(-dx as f32, 1.0, -dz as f32);
+        n.normalize()
     }
 }
 

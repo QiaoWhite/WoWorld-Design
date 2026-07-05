@@ -6,6 +6,7 @@
 //! Phase 1: 仅 BigFive 项——culture/beauty_standard/父母品味均用中性占位。
 
 use crate::components::bigfive::BigFive;
+use crate::prng::pseudo_random_f32_range;
 
 /// 6 个审美信号维度常量
 pub const DIM_FLUENCY: usize = 0;
@@ -123,21 +124,6 @@ impl AestheticTaste {
             personal_seed: seed as u32,
         }
     }
-}
-
-/// 确定性 [-range, range] 伪随机，从 seed + salt 派生
-fn pseudo_random_f32_range(seed: u64, salt: u64, min: f32, max: f32) -> f32 {
-    let t = pseudo_random_f32(seed.wrapping_add(salt));
-    min + t * (max - min)
-}
-
-/// 确定性伪随机 f32 ∈ [0, 1)
-fn pseudo_random_f32(seed: u64) -> f32 {
-    let mut x = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15);
-    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    x ^= x >> 31;
-    (x >> 40) as f32 / (1u64 << 24) as f32
 }
 
 #[cfg(test)]

@@ -14,6 +14,7 @@ use crate::components::goal::Goal;
 use crate::components::movement::{Movement, Wander};
 use crate::components::needs::Needs;
 use crate::components::transform::Position;
+use crate::prng::pseudo_random_f32;
 
 /// 漫游方向变更间隔 (s)
 const WANDER_CHANGE_INTERVAL: f32 = 3.0;
@@ -109,15 +110,6 @@ pub fn movement_system(world: &mut hecs::World, cmd: &mut CommandBuffer, dt: f32
 fn wander_direction(seed: u64) -> Vec3 {
     let angle = pseudo_random_f32(seed) * std::f32::consts::TAU;
     Vec3::new(angle.cos(), 0.0, angle.sin())
-}
-
-/// 确定性伪随机 f32 ∈ [0, 1)，无 `rand` 依赖
-fn pseudo_random_f32(seed: u64) -> f32 {
-    let mut x = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15);
-    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    x ^= x >> 31;
-    (x >> 40) as f32 / (1u64 << 24) as f32
 }
 
 #[cfg(test)]

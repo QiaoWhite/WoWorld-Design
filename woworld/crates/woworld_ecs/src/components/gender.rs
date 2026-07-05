@@ -4,6 +4,8 @@
 //!
 //! Phase 1: 仅生物性别标记。性别认同由文化规范 (NormScope) 处理，非本 Component。
 
+use crate::prng::pseudo_random_f32;
+
 /// 生物性别——5 变体，覆盖真实生物多样性
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BiologicalSex {
@@ -61,15 +63,6 @@ impl BiologicalSex {
     pub fn is_female(&self) -> bool {
         matches!(self, BiologicalSex::Female)
     }
-}
-
-/// 确定性伪随机 f32 ∈ [0, 1)
-fn pseudo_random_f32(seed: u64) -> f32 {
-    let mut x = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15);
-    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    x ^= x >> 31;
-    (x >> 40) as f32 / (1u64 << 24) as f32
 }
 
 #[cfg(test)]

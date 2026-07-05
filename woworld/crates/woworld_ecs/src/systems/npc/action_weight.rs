@@ -124,9 +124,6 @@ fn personality_modifier(category: ActionCategory, bf: &BigFive) -> f32 {
         ActionCategory::Rest => {
             modifier -= bf.extraversion * 0.1;
         }
-        ActionCategory::Wander => {
-            modifier += bf.openness * 0.2;
-        }
         _ => {}
     }
 

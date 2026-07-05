@@ -66,11 +66,11 @@ mod tests {
     #[test]
     fn test_close_npcs_recover_social() {
         let mut world = hecs::World::new();
-        let sp1 = SocialPresence::from_bigfive(&BigFive {
+        let sp1 = SocialPresence::derive_from_bigfive(&BigFive {
             extraversion: 0.5,
             ..BigFive::default()
         });
-        let sp2 = SocialPresence::from_bigfive(&BigFive {
+        let sp2 = SocialPresence::derive_from_bigfive(&BigFive {
             extraversion: 0.5,
             ..BigFive::default()
         });

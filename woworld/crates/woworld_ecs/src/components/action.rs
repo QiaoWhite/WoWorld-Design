@@ -17,7 +17,6 @@ pub enum ActionCategory {
     Fight,
     Flee,
     Work,
-    Wander,
 }
 
 /// 行为意图——action_weight_system 的产出

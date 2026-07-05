@@ -31,7 +31,7 @@ impl SocialPresence {
     ///
     /// - radius: 2.0 + E × 5.0 → [2m, 7m]
     /// - recovery_rate: 0.002 + E × 0.008 → [0.002/s, 0.01/s]
-    pub fn from_bigfive(b: &BigFive) -> Self {
+    pub fn derive_from_bigfive(b: &BigFive) -> Self {
         Self {
             radius: 2.0 + b.extraversion * 5.0,
             recovery_rate: 0.002 + b.extraversion * 0.008,
@@ -46,7 +46,7 @@ mod tests {
     #[test]
     fn test_from_bigfive_extravert() {
         let b = BigFive { extraversion: 1.0, ..BigFive::default() };
-        let sp = SocialPresence::from_bigfive(&b);
+        let sp = SocialPresence::derive_from_bigfive(&b);
         assert!((sp.radius - 7.0).abs() < 0.01);
         assert!((sp.recovery_rate - 0.01).abs() < 0.001);
     }
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn test_from_bigfive_introvert() {
         let b = BigFive { extraversion: 0.0, ..BigFive::default() };
-        let sp = SocialPresence::from_bigfive(&b);
+        let sp = SocialPresence::derive_from_bigfive(&b);
         assert!((sp.radius - 2.0).abs() < 0.01);
         assert!((sp.recovery_rate - 0.002).abs() < 0.001);
     }

@@ -7,6 +7,7 @@
 
 use crate::components::circadian::Chronotype;
 use crate::components::needs::NeedSensitivity;
+use crate::prng::pseudo_random_f32_salted;
 
 /// 大五人格 (OCEAN)——NPC 个性化根基
 ///
@@ -89,11 +90,11 @@ impl BigFive {
     ///
     /// 相同 seed 始终产生相同人格。确保至少一个维度突出（偏离 >0.25）。
     pub fn from_seed(seed: u64) -> Self {
-        let o = pseudo_random_f32(seed, 0);
-        let c = pseudo_random_f32(seed, 1);
-        let e = pseudo_random_f32(seed, 2);
-        let a = pseudo_random_f32(seed, 3);
-        let n = pseudo_random_f32(seed, 4);
+        let o = pseudo_random_f32_salted(seed, 0);
+        let c = pseudo_random_f32_salted(seed, 1);
+        let e = pseudo_random_f32_salted(seed, 2);
+        let a = pseudo_random_f32_salted(seed, 3);
+        let n = pseudo_random_f32_salted(seed, 4);
 
         let mut bf = Self {
             openness: o,
@@ -131,20 +132,6 @@ impl BigFive {
 
         bf
     }
-}
-
-/// 确定性伪随机 f32 ∈ [0, 1)，无 `rand` 依赖
-///
-/// 使用 splitmix64 变体——seed × dimension_index → u64 → 归一化
-fn pseudo_random_f32(seed: u64, salt: u64) -> f32 {
-    let mut x = seed
-        .wrapping_add(salt.wrapping_mul(0x9E37_79B9_7F4A_7C15))
-        .wrapping_mul(0x9E37_79B9_7F4A_7C15);
-    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    x ^= x >> 31;
-    // 取高 24 位作为尾数 → f32 ∈ [0, 1)
-    (x >> 40) as f32 / (1u64 << 24) as f32
 }
 
 #[cfg(test)]

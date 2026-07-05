@@ -1264,35 +1264,36 @@ impl WorldDriver {
         let age = Age::new(max_lifespan, age_years);
         let life_stage = LifeStage::from_age_ratio(age.age_ratio());
 
-        // 7. 全 Component bundle spawn（嵌套元组突破 hecs 16 上限）
-        self.ecs.spawn((
+        // 7. 分步插入 Component（hecs 平面元组 ≤16 上限）
+        let entity = self.ecs.spawn((
+            Position(position),
+            EntityKind::Creature,
+            LodLevel::default(),
+            bf,
+            need_sens,
+            chronotype,
+            social_presence,
+            cognitive_style,
+            aesthetic,
+            biases,
+            sex,
+            age,
+            life_stage,
+        ));
+        // 第二批：Vitals + Movement + Needs + Emotion + Goal + GrowthNeeds
+        self.ecs.insert(
+            entity,
             (
-                Position(position),
-                EntityKind::Creature,
-                LodLevel::default(),
-                bf,
-                need_sens,
-                chronotype,
-                social_presence,
-                cognitive_style,
-            ),
-            (
-                aesthetic,
-                biases,
-                sex,
-                age,
-                life_stage,
                 Vitals::default(),
                 RegenState::default(),
                 Movement::default(),
-            ),
-            (
                 Needs::default(),
                 emotion,
                 Goal::default(),
                 GrowthNeeds::default(),
             ),
-        ))
+        ).expect("NPC entity should exist after spawn");
+        entity
     }
 
     /// Initialize 5×5 VoxelChunk grid + submit first batch of rayon extraction jobs.

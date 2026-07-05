@@ -48,6 +48,15 @@ impl EntityRenderer {
             }
         }
 
+        // 诊断：首次发现实体时打印
+        let new_entities: Vec<_> = alive.keys()
+            .filter(|e| !self.nodes.contains_key(e))
+            .collect();
+        if !new_entities.is_empty() {
+            godot_print!("EntityRenderer: creating {} new NPC node(s) (total alive: {})",
+                new_entities.len(), alive.len());
+        }
+
         // 移除已 despawn 的节点
         self.nodes.retain(|entity, node| {
             if alive.contains_key(entity) {
@@ -96,6 +105,8 @@ impl EntityRenderer {
 
         let mut mat = StandardMaterial3D::new_gd();
         mat.set_albedo(color);
+        // unshaded: 不依赖场景光照，保证在任何光照条件下可见
+        mat.set_shading_mode(godot::classes::base_material_3d::ShadingMode::UNSHADED);
         mesh_instance.set_surface_override_material(0, &mat);
 
         root.add_child(&mesh_instance);

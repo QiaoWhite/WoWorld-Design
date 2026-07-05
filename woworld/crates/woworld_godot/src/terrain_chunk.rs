@@ -169,6 +169,9 @@ pub struct WorldDriver {
     /// Phase 2 LODCoordinator: 每实体迟滞状态（跨帧持久）
     lod_hyst: HashMap<EntityId, HysteresisState>,
 
+    /// ECS → Godot 视觉桥接（NPC 胶囊体等）
+    entity_renderer: Option<crate::entity_renderer::EntityRenderer>,
+
     #[base]
     base: Base<Node3D>,
 }
@@ -216,6 +219,7 @@ impl INode3D for WorldDriver {
             frame_count: 0,
             lod_prev: HashMap::new(),
             lod_hyst: HashMap::new(),
+            entity_renderer: None,
             base,
         }
     }
@@ -512,6 +516,25 @@ impl INode3D for WorldDriver {
         ));
         // Phase 3: entity_id_from_hecs(_player_entity) → EntityId 存入 PlayerState Resource
 
+        // Spawn NPC 种群（20 个，半径 30m 环形分布）
+        const NPC_COUNT: usize = 20;
+        for i in 0..NPC_COUNT {
+            let npc_seed = 1000 + i as u64;
+            let angle = (i as f32 / NPC_COUNT as f32) * std::f32::consts::TAU;
+            let dist = (i as f32 + 1.0) / NPC_COUNT as f32 * 30.0;
+            let pos = glam::Vec3::new(angle.cos() * dist, 0.0, angle.sin() * dist);
+            self.spawn_npc(npc_seed, pos);
+        }
+        godot_print!("WorldDriver: {} NPCs spawned within 30m radius", NPC_COUNT);
+
+        // 初始化 ECS → Godot 视觉桥接
+        if let Some(ref mut terrain_parent) = self.terrain_parent {
+            self.entity_renderer = Some(
+                crate::entity_renderer::EntityRenderer::new(terrain_parent)
+            );
+            godot_print!("WorldDriver: EntityRenderer initialized");
+        }
+
         self.base_mut().set_process(true);
         godot_print!("WorldDriver: 7 GPU-driven clipmap layers + 5×5 VoxelChunk grid + ECS ready");
     }
@@ -581,7 +604,7 @@ impl INode3D for WorldDriver {
             let atm = self.atmosphere.resolve_with_weather(
                 wt, player_pos, ws, wf, we, wsa, ss, sw,
             );
-            self.update_sun_and_sky(&atm);
+            self.update_sun_and_sky(&atm, delta);
         }
 
         // ── Phase 2 LODCoordinator: 完整 8 步算法 ──
@@ -1005,6 +1028,11 @@ impl INode3D for WorldDriver {
                 }
             }
         }
+
+        // ── ECS → Godot 视觉同步（每帧，ECS tick 之后）──
+        if let Some(ref mut renderer) = self.entity_renderer {
+            renderer.sync(&self.ecs);
+        }
     }
 }
 
@@ -1067,7 +1095,7 @@ impl WorldDriver {
     }
 
     /// 太阳位置 + 天空材质 + 环境光
-    fn update_sun_and_sky(&mut self, atm: &woworld_atmosphere::ResolvedAtmosphere) {
+    fn update_sun_and_sky(&mut self, atm: &woworld_atmosphere::ResolvedAtmosphere, delta: f64) {
         let wt = &self.clock.current;
 
         if let Some(ref mut sun) = self.sun {
@@ -1120,32 +1148,59 @@ impl WorldDriver {
             }
         }
 
-        // ── ECS Phase 1: 生命 System ──────────
+        // ── ECS tick — 全 15 System ──────────
         {
             use hecs::CommandBuffer;
             use woworld_ecs::systems::life::{
                 cleanup, corpse_decay, death_watch, item_spawn, loot_roll, regen,
             };
+            use woworld_ecs::systems::npc::{
+                action_weight::action_weight_system,
+                age::age_system,
+                bigfive_derive::bigfive_derive_system,
+                emotion::{emotion_drift_system, physiological_pull_system},
+                movement::movement_system,
+                social::social_system,
+            };
 
             self.frame_count += 1;
+            let day_progress = Some(self.clock.day_progress());
 
-            // Regen 直接写入 Vitals（需要 &mut World）——先于 CommandBuffer 执行
-            // NPC 需求衰减（含跨需求耦合 + 昼夜节律）
-            let day_progress = self.clock.day_progress();
-            woworld_ecs::systems::npc::needs::needs_decay_system(&mut self.ecs, Some(day_progress));
-
+            // ── Block A1: &mut World systems (no CommandBuffer) ──
+            woworld_ecs::systems::npc::needs::needs_decay_system(&mut self.ecs, day_progress);
             regen::regen_system(&mut self.ecs);
+            emotion_drift_system(&mut self.ecs, delta as f32);
+            physiological_pull_system(&mut self.ecs);
+            social_system(&mut self.ecs, delta as f32);
 
-            let mut cmd = CommandBuffer::new();
-            woworld_ecs::systems::npc::needs::need_evaluation_system(&self.ecs, &mut cmd);
-            woworld_ecs::systems::npc::goal::goal_resolution_system(&self.ecs, &mut cmd);
-            death_watch::death_watch_system(&self.ecs, &mut cmd, self.frame_count);
-            loot_roll::loot_roll_system(&self.ecs, &mut cmd, &self.loot_tables);
-            item_spawn::item_spawn_system(&self.ecs, &mut cmd);
-            corpse_decay::corpse_decay_system(&self.ecs, &mut cmd, self.frame_count);
-            cleanup::cleanup_system(&self.ecs, &mut cmd);
+            // ── Block A2: movement_system (&mut World + active cmd) ──
+            {
+                let mut move_cmd = CommandBuffer::new();
+                movement_system(&mut self.ecs, &mut move_cmd, delta as f32, self.frame_count);
+                move_cmd.run_on(&mut self.ecs);
+            }
 
-            cmd.run_on(&mut self.ecs);
+            // ── Block A3: age_system (&mut World + cmd) ──
+            {
+                let mut age_cmd = CommandBuffer::new();
+                age_system(&mut self.ecs, &mut age_cmd, delta as f32 / self.clock.seconds_per_day as f32);
+                age_cmd.run_on(&mut self.ecs);
+            }
+
+            // ── Block A4: &World systems via CommandBuffer batch ──
+            {
+                let mut cmd = CommandBuffer::new();
+                bigfive_derive_system(&self.ecs, &mut cmd);
+                woworld_ecs::systems::npc::needs::need_evaluation_system(&self.ecs, &mut cmd);
+                woworld_ecs::systems::npc::goal::goal_resolution_system(&self.ecs, &mut cmd);
+                action_weight_system(&self.ecs, &mut cmd);
+                death_watch::death_watch_system(&self.ecs, &mut cmd, self.frame_count);
+                loot_roll::loot_roll_system(&self.ecs, &mut cmd, &self.loot_tables);
+                item_spawn::item_spawn_system(&self.ecs, &mut cmd);
+                corpse_decay::corpse_decay_system(&self.ecs, &mut cmd, self.frame_count);
+                cleanup::cleanup_system(&self.ecs, &mut cmd);
+                cmd.run_on(&mut self.ecs);
+            }
         }
     }
 }
@@ -1159,6 +1214,81 @@ impl WorldDriver {
     fn query_height(&self, x: f64, z: f64) -> f32 {
         let pos = WorldPos { x, y: 0.0, z };
         self.terrain.height_at(pos)
+    }
+
+    /// 创建完整 NPC Entity（全 Component bundle），返回 hecs Entity
+    fn spawn_npc(&mut self, seed: u64, position: glam::Vec3) -> hecs::Entity {
+        use woworld_ecs::components::aesthetic::AestheticTaste;
+        use woworld_ecs::components::biases::CognitiveBiases;
+        use woworld_ecs::components::bigfive::BigFive;
+        use woworld_ecs::components::cognitive::CognitiveStyle;
+        use woworld_ecs::components::emotion::Emotion;
+        use woworld_ecs::components::gender::BiologicalSex;
+        use woworld_ecs::components::goal::Goal;
+        use woworld_ecs::components::growth::GrowthNeeds;
+        use woworld_ecs::components::lifecycle::{Age, LifeStage};
+        use woworld_ecs::components::movement::Movement;
+        use woworld_ecs::components::needs::Needs;
+        use woworld_ecs::components::social::SocialPresence;
+        use woworld_ecs::components::transform::Position;
+        use woworld_ecs::components::vitals::{RegenState, Vitals};
+        use woworld_ecs::prelude::{EntityKind, LodLevel};
+        use woworld_ecs::prng::pseudo_random_f32_range;
+
+        // 1. 人格根
+        let bf = BigFive::from_seed(seed);
+
+        // 2. 从 BigFive 派生
+        let need_sens = bf.derive_sensitivity();
+        let chronotype = bf.derive_chronotype();
+        let social_presence = SocialPresence::derive_from_bigfive(&bf);
+        let cognitive_style = CognitiveStyle::derive_from_bigfive(&bf);
+
+        // 3. 情感（drift system 接管后向 baseline 收敛）
+        let emotion = Emotion::default();
+
+        // 4. 审美 + 偏误
+        let aesthetic = AestheticTaste::derive_from_bigfive(&bf, seed);
+        let biases = CognitiveBiases::derive(&cognitive_style, &bf, &emotion);
+
+        // 5. 性别
+        let sex = BiologicalSex::from_seed(seed);
+
+        // 6. 年龄 18-65，从 seed 确定
+        let age_years = 18.0 + pseudo_random_f32_range(seed, 100, 0.0, 47.0);
+        let max_lifespan = 70.0 + pseudo_random_f32_range(seed, 101, -10.0, 20.0);
+        let age = Age::new(max_lifespan, age_years);
+        let life_stage = LifeStage::from_age_ratio(age.age_ratio());
+
+        // 7. 全 Component bundle spawn（嵌套元组突破 hecs 16 上限）
+        self.ecs.spawn((
+            (
+                Position(position),
+                EntityKind::Creature,
+                LodLevel::default(),
+                bf,
+                need_sens,
+                chronotype,
+                social_presence,
+                cognitive_style,
+            ),
+            (
+                aesthetic,
+                biases,
+                sex,
+                age,
+                life_stage,
+                Vitals::default(),
+                RegenState::default(),
+                Movement::default(),
+            ),
+            (
+                Needs::default(),
+                emotion,
+                Goal::default(),
+                GrowthNeeds::default(),
+            ),
+        ))
     }
 
     /// Initialize 5×5 VoxelChunk grid + submit first batch of rayon extraction jobs.

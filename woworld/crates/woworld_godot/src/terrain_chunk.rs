@@ -1468,21 +1468,20 @@ impl WorldDriver {
 
         am.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
 
-        // Diagnostic: NaN, Inf, index OOB, sample normal
-        let nv = mesh.vertices.len() as u32;
-        let nan_v  = mesh.vertices.iter().filter(|v| v.x.is_nan() || v.y.is_nan() || v.z.is_nan()).count();
-        let inf_v  = mesh.vertices.iter().filter(|v| v.x.is_infinite() || v.y.is_infinite() || v.z.is_infinite()).count();
-        let nan_n  = mesh.normals.iter().filter(|n| n.x.is_nan() || n.y.is_nan() || n.z.is_nan()).count();
-        let oob    = mesh.indices.iter().filter(|&&i| i >= nv).count();
-        let mid    = mesh.vertices.len() / 2;
-        let sn     = if mid < mesh.normals.len() { (mesh.normals[mid].x, mesh.normals[mid].y, mesh.normals[mid].z) } else { (0.0f32, 0.0, 0.0) };
-
-        godot_print!(
-            "Voxel @({:.0},{:.0},{:.0}) {}v {}t NaN(v={} i={} n={}) OOB={}  n[{}]=({:.3},{:.3},{:.3})",
-            ox, oy, oz, mesh.vertices.len(), mesh.indices.len()/3,
-            nan_v, inf_v, nan_n, oob, mid,
-            sn.0, sn.1, sn.2,
-        );
+        // Diagnostic: NaN, Inf, index OOB (disabled — 解除注释以调试 Voxel mesh)
+        // let nv = mesh.vertices.len() as u32;
+        // let nan_v  = mesh.vertices.iter().filter(|v| v.x.is_nan() || v.y.is_nan() || v.z.is_nan()).count();
+        // let inf_v  = mesh.vertices.iter().filter(|v| v.x.is_infinite() || v.y.is_infinite() || v.z.is_infinite()).count();
+        // let nan_n  = mesh.normals.iter().filter(|n| n.x.is_nan() || n.y.is_nan() || n.z.is_nan()).count();
+        // let oob    = mesh.indices.iter().filter(|&&i| i >= nv).count();
+        // let mid    = mesh.vertices.len() / 2;
+        // let sn     = if mid < mesh.normals.len() { (mesh.normals[mid].x, mesh.normals[mid].y, mesh.normals[mid].z) } else { (0.0f32, 0.0, 0.0) };
+        // godot_print!(
+        //     "Voxel @({:.0},{:.0},{:.0}) {}v {}t NaN(v={} i={} n={}) OOB={}  n[{}]=({:.3},{:.3},{:.3})",
+        //     ox, oy, oz, mesh.vertices.len(), mesh.indices.len()/3,
+        //     nan_v, inf_v, nan_n, oob, mid,
+        //     sn.0, sn.1, sn.2,
+        // );
 
         vc.bind_mut().set_terrain_mesh(Some(am));
     }

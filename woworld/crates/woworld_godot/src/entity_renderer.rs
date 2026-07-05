@@ -95,12 +95,20 @@ impl EntityRenderer {
         // BoxMesh 原点是几何中心 → 向上偏移 1m 让底部贴 root
         mesh_instance.set_position(Vector3::new(0.0, 1.0, 0.0));
 
-        // 程序化颜色
-        let bits = entity.to_bits().get();
-        let r = ((bits >> 16) & 0xFF) as f32 / 255.0;
-        let g = ((bits >> 8) & 0xFF) as f32 / 255.0;
-        let b = (bits & 0xFF) as f32 / 255.0;
-        let color = Color::from_rgb(0.3 + r * 0.7, 0.3 + g * 0.7, 0.3 + b * 0.7);
+        // 程序化颜色 — splitmix hash 每个通道，保证多样性
+        let id = entity.to_bits().get();
+        let hash = |salt: u64| -> f32 {
+            let mut x = id.wrapping_add(salt.wrapping_mul(0x9E37_79B9_7F4A_7C15));
+            x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            x ^= x >> 31;
+            (x >> 40) as f32 / (1u64 << 24) as f32
+        };
+        let color = Color::from_rgb(
+            0.2 + hash(1) * 0.8,
+            0.2 + hash(2) * 0.8,
+            0.2 + hash(3) * 0.8,
+        );
 
         let mut mat = StandardMaterial3D::new_gd();
         mat.set_albedo(color);

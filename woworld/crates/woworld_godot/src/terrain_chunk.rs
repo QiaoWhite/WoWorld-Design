@@ -158,6 +158,9 @@ pub struct WorldDriver {
     ecs: EcsWorld,
     /// 掉落表注册表（EntityKind → LootTable）
     loot_tables: woworld_ecs::systems::life::loot_roll::LootTableRegistry,
+    /// 空间索引——EntityIndex trait 实现 (Phase 1 就位，Phase 3 System 消费)
+    #[allow(dead_code)]
+    spatial_index: woworld_ecs::resources::spatial_grid::SpatialGrid,
     /// 帧计数器（ECS System 用——单调递增 tick）
     frame_count: u64,
 
@@ -208,6 +211,7 @@ impl INode3D for WorldDriver {
             voxel_material: None,
             vegetation_provider: None,
             ecs: EcsWorld::new(),
+            spatial_index: woworld_ecs::resources::spatial_grid::SpatialGrid::new(),
             loot_tables: woworld_ecs::systems::life::loot_roll::LootTableRegistry::default(),
             frame_count: 0,
             lod_prev: HashMap::new(),

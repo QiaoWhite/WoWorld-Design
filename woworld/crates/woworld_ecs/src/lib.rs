@@ -7,6 +7,7 @@
 
 pub mod components;
 pub mod entity_id;
+pub mod resources;
 pub mod systems;
 
 /// 常用 Component 和 System 统一导入

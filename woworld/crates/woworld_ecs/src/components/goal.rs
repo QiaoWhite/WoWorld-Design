@@ -5,17 +5,17 @@
 
 use glam::Vec3;
 
-/// 目标类型——"NPC 想做什么"
+/// 目标类型——"NPC 想做什么"（对应 7 维 DesireKind）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GoalType {
-    /// 空转——无活跃 Goal
     Idle,
-    /// 寻找食物来源
     FindFood,
-    /// 寻找水源
     FindWater,
-    /// 寻找休息地点
     FindRest,
+    FindSafePlace,
+    FindSocialContact,
+    BalanceElements,
+    ExpressLibido,
 }
 
 /// 当前活跃目标

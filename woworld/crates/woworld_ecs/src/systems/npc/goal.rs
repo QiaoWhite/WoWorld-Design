@@ -14,6 +14,10 @@ fn goal_for_desire(kind: DesireKind) -> GoalType {
         DesireKind::Eat => GoalType::FindFood,
         DesireKind::Drink => GoalType::FindWater,
         DesireKind::Rest => GoalType::FindRest,
+        DesireKind::SeekSafety => GoalType::FindSafePlace,
+        DesireKind::Socialize => GoalType::FindSocialContact,
+        DesireKind::BalanceElements => GoalType::BalanceElements,
+        DesireKind::ExpressLibido => GoalType::ExpressLibido,
     }
 }
 

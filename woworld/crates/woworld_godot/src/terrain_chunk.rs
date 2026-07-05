@@ -1130,8 +1130,8 @@ impl WorldDriver {
             self.frame_count += 1;
 
             // Regen 直接写入 Vitals（需要 &mut World）——先于 CommandBuffer 执行
-            // NPC 需求衰减
-            woworld_ecs::systems::npc::needs::hunger_decay_system(&mut self.ecs);
+            // NPC 需求衰减（含跨需求耦合）
+            woworld_ecs::systems::npc::needs::needs_decay_system(&mut self.ecs);
 
             regen::regen_system(&mut self.ecs);
 

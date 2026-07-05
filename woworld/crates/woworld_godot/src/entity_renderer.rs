@@ -74,11 +74,10 @@ impl EntityRenderer {
 
     /// 为一个 NPC 创建 Node3D + CapsuleMesh 子节点
     fn create_npc_node(entity: hecs::Entity, pos: Vec3, parent: &mut Gd<Node3D>) -> Gd<Node3D> {
-        // Root Node3D 定位
+        // Root Node3D
         let mut root = Node3D::new_alloc();
         let name_str = format!("NPC_{}", entity.to_bits().get());
         root.set_name(&name_str);
-        root.set_global_position(Vector3::new(pos.x, pos.y, pos.z));
 
         // CapsuleMesh 占位（0.4m 半径 × 1.8m 高，近似人体）
         let mut capsule = godot::classes::CapsuleMesh::new_gd();
@@ -100,7 +99,9 @@ impl EntityRenderer {
         mesh_instance.set_surface_override_material(0, &mat);
 
         root.add_child(&mesh_instance);
+        // 先入树再设 global_position——否则 get_global_transform 报 !is_inside_tree()
         parent.add_child(&root);
+        root.set_global_position(Vector3::new(pos.x, pos.y, pos.z));
 
         root
     }

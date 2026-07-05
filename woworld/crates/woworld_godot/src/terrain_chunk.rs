@@ -156,6 +156,10 @@ pub struct WorldDriver {
 
     /// ECS World — 所有 Entity/Component 的权威存储
     ecs: EcsWorld,
+    /// 掉落表注册表（EntityKind → LootTable）
+    loot_tables: woworld_ecs::systems::life::loot_roll::LootTableRegistry,
+    /// 帧计数器（ECS System 用——单调递增 tick）
+    frame_count: u64,
 
     /// Phase 2 LODCoordinator: 上一帧 LOD 处方（迟滞比较）
     lod_prev: HashMap<EntityId, LodPrescription>,
@@ -204,6 +208,8 @@ impl INode3D for WorldDriver {
             voxel_material: None,
             vegetation_provider: None,
             ecs: EcsWorld::new(),
+            loot_tables: woworld_ecs::systems::life::loot_roll::LootTableRegistry::default(),
+            frame_count: 0,
             lod_prev: HashMap::new(),
             lod_hyst: HashMap::new(),
             base,
@@ -1111,6 +1117,21 @@ impl WorldDriver {
                     atm.ambient_color[2],
                 ));
             }
+        }
+
+        // ── ECS Phase 1: 生命 System ──────────
+        {
+            use hecs::CommandBuffer;
+            use woworld_ecs::systems::life::{death_watch, item_spawn, loot_roll};
+
+            self.frame_count += 1;
+            let mut cmd = CommandBuffer::new();
+
+            death_watch::death_watch_system(&self.ecs, &mut cmd, self.frame_count);
+            loot_roll::loot_roll_system(&self.ecs, &mut cmd, &self.loot_tables);
+            item_spawn::item_spawn_system(&self.ecs, &mut cmd);
+
+            cmd.run_on(&mut self.ecs);
         }
     }
 }

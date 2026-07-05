@@ -14,5 +14,8 @@ pub mod prelude {
     pub use crate::components::entity_kind::EntityKind;
     pub use crate::components::lod::LodLevel;
     pub use crate::components::transform::{Position, Rotation, Velocity};
+    pub use crate::components::vitals::{
+        Corpse, DeathCategory, DeathCause, LootResult, PendingLoot, Vitals,
+    };
     pub use crate::entity_id::{entity_id_from_hecs, entity_id_to_hecs};
 }

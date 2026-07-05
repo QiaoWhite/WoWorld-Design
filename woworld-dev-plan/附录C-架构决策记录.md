@@ -6,7 +6,7 @@
 > 格式：日期 + 冲刺 + 决策 + 原因 + 备选方案 + 波及。
 >
 > **维护者**: Claude Code（宪法 §4 提交前置检查强制登记）
-> **最后更新**: 2026-07-04
+> **最后更新**: 2026-07-05
 
 ---
 
@@ -19,6 +19,7 @@
 | ADR-003 | 2026-06-25 | Sprint-006 规划 | 5 红色偏离分三批修复（P0: trait+seed → P1: chunk+transvoxel → P2: 多层密度） |
 | ADR-004 | 2026-06-24 | CHG-064 偏离 | 大气合成从 GDScript 迁回 Rust——sun_elevation 物理驱动 |
 | ADR-005 | 2026-07-04 | 六阶段流程体系 | 六阶段开发流程体系替代分散治理文件 |
+| ADR-006 | 2026-07-05 | ECS 架构规划 | hecs ECS 架构采纳——Archetype SoA 存储，Component 拆装通信 |
 
 ---
 
@@ -90,3 +91,35 @@
 - 新增: 每阶段独立文件夹（01-核心基础/ ~ 06-持续运营/），含 README + 里程碑 + handoff + devlogs
 
 **关键设计决策**（9 场景 SOP / 三重重构节奏 / 研究先行协议 / 偏差升级协议 / 三件套文档体系）详见 `00-流程总览.md` 和 `CONSTITUTION.md`（v2.0）。
+
+---
+
+## ADR-006: hecs ECS 架构采纳
+
+**日期**: 2026-07-05
+**决策**: 游戏逻辑层采纳 ECS（Entity Component System）架构，使用 `hecs` crate 作为 Archetype SoA 存储后端。System 之间通过 Component 拆装通信，不使用 before/after 顺序依赖。
+
+**原因**:
+1. 100+ NPC 全模拟需要 SoA 缓存友好内存布局——Archetype 模式天然支持
+2. 20+ 系统需要无冲突并行——Component 级别读写声明可实现编译期并行安全验证
+3. 新创意接入 = 新 Component + 新 System，不改已有代码——符合涌现优先哲学
+4. hecs 选择理由：轻量（仅 ahash + hashbrown 两个传递依赖），无内置调度器（不需要 before/after），变更检测和 CommandBuffer 内置
+5. 现在改架构 = 改规划。以后改 = 重写代码
+
+**备选方案**:
+- bevy_ecs：功能完整但捆绑调度器（强制 before/after 思维模式），依赖树 ~15+ crate——过重
+- 自建 ECS：完全控制但 ~2000+ 行维护负担，且 Archetype 迁移、变更检测、并行迭代均需从零实现
+- 不采用 ECS（维持当前 SoA 面向对象架构）：短期最快，但 20+ 系统交互复杂度会在 Phase 3 失控
+
+**波及**:
+- `woworld/` workspace：新建 `woworld_ecs` crate（`woworld_core` + `hecs 0.10`）
+- `woworld_ecs/src/components/`：定义 ECS Component 类型（~80 Component 规划中，Phase 0 首批 5 个）
+- `woworld_godot/src/terrain_chunk.rs`：`WorldDriver` 新增 `ecs: hecs::World` 字段
+- 现有 107 个测试：每步迁移后必须全绿
+- 不移入 ECS 的模块（5 个）：woworld_worldgen、woworld_atmosphere、Godot UI、Godot 音频渲染、Godot 动画渲染
+- 核心类型保留（EntityId、WorldPos、SurfaceMaterial 等）：作为基础类型用于 Component 字段，不成为 ECS Component
+- 调度模型：Phase 0（输入/LOD·唯一合理例外）+ Phase 1（游戏逻辑·无顺序·rayon 并行）+ Phase 2（Godot 同步）
+- 架构约束：Component = 纯数据零方法，大堆数据不进 Component 内联，实体删除走标记+统一清理
+- 设计文档：ECS 架构设计见 `开发文档/`（42 篇，与 `WoWorld-Design/` 并行）
+
+**关联文档**: [[../开发文档/00-ECS哲学与架构总纲/006-ECS铁律与陷阱]] · [[../开发文档/06-迁移映射/003-实现路线图]]

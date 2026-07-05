@@ -2,10 +2,9 @@
 
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-07-04
+> **最后更新**: 2026-07-05
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
-> **关联文件**: `CONSTITUTION.md` · `DEPENDENCY_GRAPH.md` · `../CLAUDE-INTERFACES.md`
-> **审计基准**: `audit-reports/20250625-code-vs-design/README.md`
+> **关联文件**: `CONSTITUTION.md` · `附录D-模块依赖图.md` · `../CLAUDE-INTERFACES.md`
 
 > **活文档**: 本文件每个冲刺结束时更新。是开发流程体系的「当前位置」权威数据源。
 
@@ -16,12 +15,13 @@
 | 指标 | 值 |
 |------|-----|
 | 设计模块总数 | 27 个独立系统 + 1 个子模块（家具与放置物品） |
-| 有代码的模块 | **5 / 27**（世界生成、大气氛围、时间、空间索引、**植被**） |
+| 有代码的模块 | **5 / 27**（世界生成、大气氛围、时间、空间索引(在woworld_core内)、植被(在woworld_core内)） |
 | 零代码的模块 | **22 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 6 crates, **139 tests 全绿**, cargo clippy 零警告 |
-| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 6 级 CHG-049 对齐（0.5m-16m voxel, 4km 视野）+ Signed Heightfield (scene_lod 5) + 海洋 + 大气 + 昼夜 |
-| 当前冲刺 | Sprint-015 完成（Signed Heightfield — scene_lod 5 远距离渲染）→ 下一步待定 |
+| Rust workspace | 4 crates（`woworld_ecs` 规划中）, **107 tests 全绿** (core: 41 + worldgen: 49 + atmosphere: 17 + godot: 0), cargo clippy 零警告 |
+| ECS 架构 | **Phase 0 待启动** — hecs 依赖未添加，零 ECS 代码，零 Component 定义。设计文档：`开发文档/`（42 篇，~80 Component，~120 System，~30 Resource） |
+| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 8 层 CHG-049 对齐（0.5m-64m, 15km 视野）+ Signed Heightfield (LOD 5-7) + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 |
+| 当前冲刺 | Sprint-033 完成（MC绕序+LODCoordinator+天气Phase1+PBR法线修复）→ 下一步待定 |
 | 最新 CHG | CHG-064（2026-06-24）— 轨A 昼夜循环 + 5群系系统 |
 
 ---
@@ -39,11 +39,48 @@
 
 ---
 
+## ECS 迁移状态
+
+> ECS 架构设计文档：`[[../开发文档/]]`（42 篇，~80 Component，~120 System，~30 Resource）
+> ECS 实现路线图：`[[../开发文档/06-迁移映射/003-实现路线图]]`
+
+| ECS Phase | 内容 | 状态 | 对应 Dev Phase | 关键交付 |
+|-----------|------|------|---------------|---------|
+| Phase 0 | hecs 基础设施 + 核心 Component + LodCoordinatorSystem | — 待启动 | Phase 1 (1J) | `woworld_ecs` crate, 5 Component, WorldDriver.ecs 字段 |
+| Phase 1 | 生命系统（首个完整 ECS 模块） | — 阻塞于 Phase 0 | Phase 1 (1H) | Vitals/Corpse/DeathCause Component, 5 个生命 System |
+| Phase 2 | NPC 核心（批量 System 迁移） | — 阻塞于 Phase 1 | Phase 3 | NpcCore/Needs/Goal Component, Handle+Storage 模式 |
+| Phase 3 | 社会系统（懒加载·低频） | — 阻塞于 Phase 2 | Phase 3 | 经济/权力/文化/信仰 System |
+| Phase 4 | 交互系统（战斗/魔法/物品/技能） | — 阻塞于 Phase 3 | Phase 3 | CombatState/SpellSlots/InventoryHandle |
+| Phase 5 | 大规模并行 + 性能调优 | — 阻塞于 Phase 4 | Phase 5 | rayon par_iter(), 1000 Entity benchmark |
+
+### ECS 不变部分
+
+以下模块全程不进入 ECS（保留当前架构）：
+
+| 模块 | 原因 |
+|------|------|
+| `woworld_worldgen` | 世界生成——纯计算管线，不进 Archetype |
+| `woworld_atmosphere` | 大气合成——纯计算 |
+| Godot UI | GDScript 侧渲染 |
+| Godot 音频渲染 | Godot AudioServer |
+| Godot 动画渲染 | Godot AnimationTree |
+
+### ECS 当前进度
+
+- **hecs 依赖**: 未添加
+- **Component 定义**: 0 / ~80
+- **System 实现**: 0 / ~120
+- **Resource 定义**: 0 / ~30
+- **ECS 测试**: 0
+- **107 现有测试**: ✅ 全绿（迁移过程中每步必须保持）
+
+---
+
 ## 一、代码模块（Rust Workspace）
 
 ### woworld_core — 🟢 稳定
 
-核心类型 + trait 定义。仅 glam 依赖。引擎无关。
+核心类型 + trait 定义。仅 glam 依赖。引擎无关。空间查询 trait、植被 trait、LOD 类型、天气类型均在此定义——不拆分独立 crate。**ECS Component 不在此定义**——由 `woworld_ecs` crate 承载（见 ECS Phase 0 / 1J）。
 
 | 文件 | 内容 | 状态 |
 |------|------|------|
@@ -52,18 +89,12 @@
 | `spatial.rs` | TerrainQuery(9方法), EntityIndex(6方法), SpatialEventBus(3方法), VisibilityQuery(2方法) | ✅ 完整 |
 | `material.rs` | SurfaceMaterial(21变体), Medium(4变体) | ✅ 完整 |
 | `time.rs` | WorldTime, WorldClock, TimeOfDay — 昼夜循环权威定义 | ✅ 完整 |
-| 测试 | 12 tests | ✅ 全绿 |
-
-### woworld_spatial — 🟢 稳定
-
-空间索引实现。依赖 woworld_core。
-
-| 文件 | 内容 | 状态 |
-|------|------|------|
-| `entity_index.rs` | GridEntityIndex — 稀疏网格实体索引 | ✅ 完整 |
-| `visibility.rs` | DdaVisibility — DDA 射线可见性查询 | ✅ 完整 |
-| `event_bus.rs` | RingEventBus — 环形缓冲区事件总线 | ✅ 完整 |
-| 测试 | 12 tests | ✅ 全绿 |
+| `density.rs` | DensityStack — 分层密度场 + LayerPriority 排序 | ✅ 完整 |
+| `ocean.rs` | OceanProvider trait (6方法) — 海平面/水深/水下检测 | ✅ 完整 |
+| `vegetation.rs` | VegetationProvider trait + PlantCommunitySnapshot + 植被类型枚举 | ✅ 完整 |
+| `lod.rs` | LodPrescription(7×u8) + distance_to_scene_lod/char_lod + LodCoordinator trait | ✅ Sprint-033 新增 |
+| `weather_types.rs` | WeatherState(6), Season(4) — 天气/季节枚举定义 | ✅ Sprint-033 新增 |
+| 测试 | 41 tests (time + density + lod + weather_types) | ✅ 全绿 |
 
 ### woworld_worldgen — 🟡 部分实现（零架构偏离）
 
@@ -73,14 +104,15 @@
 |------|------|------|
 | `noise_gen.rs` | 双层 Perlin 噪声 (continent+detail+mountain) + 气候场 + Worley 3D | ✅ 完整 |
 | `biome.rs` | 温度×降水 2D 噪声 → 5 群系硬盒分类 (TOML 数据驱动) | ⚠️ 硬盒分类 vs 设计规定的连续参数场 |
-| `density.rs` | DensityField trait + DensityStack + CaveDensity 装饰器 | ✅ Sprint-014 多层密度地基 |
+| `cave.rs` | CaveDensity — 3D Worley 洞穴密度层 | ✅ 完整 |
 | `terrain.rs` | HeightfieldTerrain — 完整 TerrainQuery trait 实现 | ✅ 完整 |
-| `marching_cubes.rs` | 等值面查找表 + MC 参考实现（仅供 Transvoxel 对比测试） | ⚠️ 查找表为 Transvoxel 数学地基；`extract_isosurface` 降级为 pub(crate) |
-| `transvoxel.rs` | ★ Transvoxel 完整实现（常规+过渡单元，顶点共享） | ✅ Sprint-011 完成 |
-| `transition_tables.rs` | ★ 过渡单元查找表（auto-generated, ~610 行） | ✅ Sprint-011 新增 |
-| `terrain_mesh.rs` | 纯 Rust 网格生成 — SH + 高度场 + 共享索引 | ✅ Sprint-015 SH 新增 |
-| `clipmap.rs` | ClipmapManager — 6 层 Clipmap LOD CHG-049 对齐 | ✅ Transvoxel (LOD 0-4) + SH (LOD 5) |
-| 测试 | 76 tests（Sprint-016 清理 -12 死代码测试） | ✅ 全绿 |
+| `transvoxel.rs` | ★ Transvoxel 完整实现（常规+过渡单元，顶点共享）+ winding 运行时检测 | ✅ Sprint-033 MC绕序修复 |
+| `transition_tables.rs` | ★ 过渡单元查找表（auto-generated） | ✅ 完整 |
+| `tri_table_data.rs` | Marching Cubes 三角剖分查找表 (256 条目) | ✅ 完整 |
+| `terrain_mesh.rs` | 纯 Rust 网格生成 — SH + 高度场 + 共享索引 | ✅ 完整 |
+| `clipmap.rs` | ClipmapManager — 8 层 Clipmap LOD CHG-049 对齐 | ✅ Transvoxel (LOD 0-4) + SH (LOD 5-7) |
+| `ocean.rs` | HeightfieldOcean — OceanProvider trait 实现 (Gerstner 波) | ✅ 完整 |
+| 测试 | 49 tests | ✅ 全绿 |
 
 **架构偏离：零（5/5 已修复）**：
 
@@ -98,9 +130,9 @@
 | --- | ----------------------- | --------------------------------------------------- |
 | ✅1  | 缺 scene_lod 0 (0.5m)    | Sprint-013                                          |
 | ✅2  | LOD 距离带偏移               | Sprint-013                                          |
-| 🟡3 | 远距离全 Transvoxel (应为 SH) | **Sprint-015: scene_lod 5 SH ✓ / scene_lod 6-7 仍缺** |
-| 🟡4 | 缺 scene_lod 6-7 (4km+)  | 后续——复用 SH 代码路径                                      |
-| 🟡5 | 缺 LODCoordinator        | 后续                                                  |
+| ✅3 | 远距离全 Transvoxel (应为 SH) | **Sprint-015: LOD 5-7 SH ✓** |
+| ✅4 | 缺 scene_lod 6-7 (4km+)  | **Sprint-033: LOD 6-7 距离修正 (6:4-10km, 7:10-15km) ✓** |
+| 🟡5 | LODCoordinator Phase 2+  | **Phase 1 完成 (Sprint-033)** — Steps 2-8 (约束/级联/VRAM/帧预算/滞后) 待后续 |
 | 🟡6 | 远距离人造结构不可见              | 需灯光烘焙 + 建筑群轮廓系统，等待建筑模块                              |
 
 ### woworld_atmosphere — 🟡 部分实现
@@ -110,10 +142,11 @@
 | 文件 | 内容 | 状态 |
 |------|------|------|
 | `time_curve.rs` | AtmosCurve — TOML 驱动的颜色/亮度时间曲线 | ✅ 完整 |
-| `synthesizer.rs` | AtmosphereSynthesizer → ResolvedAtmosphere (35 floats) | ✅ 完整 |
+| `synthesizer.rs` | AtmosphereSynthesizer → ResolvedAtmosphere (17 参数) + resolve_with_weather() | ✅ 完整 |
 | `resolved_atmosphere.rs` | ResolvedAtmosphere — PackedFloat32Array 输出 | ✅ 完整 |
-| `traits.rs` | BiomeAtmosQuery, WeatherAtmosQuery, SeasonAtmosQuery | ⚠️ 身份存根 (passthrough, 无实际调制) |
-| 测试 | 11 tests | ✅ 全绿 |
+| `traits.rs` | BiomeAtmosQuery, WeatherAtmosQuery, SeasonAtmosQuery | ✅ Weather/Season 查询接口就位 (Sprint-033) |
+| `weather.rs` | SimpleWeatherDriver (简化 Markov 6-state) + SimpleSeasonProvider | ✅ Sprint-033 新增 — ⚠️ 架构债：待升级为连续物理参数驱动 |
+| 测试 | 17 tests | ✅ 全绿 |
 
 ### woworld_godot — 🟡 部分实现
 
@@ -146,10 +179,10 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | 模块 | Phase | 等级 | 代码 | 备注 |
 |------|-------|------|------|------|
-| 世界生成 | P1 | 🟡 部分实现 | ✅ 5 crates | 15 阶段管线仅完成 P0+P2。5 个红色偏离待修复 |
+| 世界生成 | P1 | 🟡 部分实现 | ✅ 4 crates（woworld_ecs 规划中） | 15 阶段管线仅完成 P0+P2。5 个红色偏离已修复（Sprint-006/011/012/014） |
 | 生命 | P1 | 🟡 就绪 | — | Vitals/Mana/DeathCause(30种6类) 契约完整 |
 | 历史 | P3 | 🟡 就绪 | — | AetherImprint/KnowledgeSeed 契约完整 |
-| 天气与季节系统 | P1 | 🟡 就绪 | — | WeatherSample/Markov 6-state 契约完整 |
+| 天气与季节系统 | P1 | 🟡 部分实现 | ✅ woworld_core + woworld_atmosphere | WeatherState/Season + SimpleWeatherDriver (Sprint-033) |
 
 ### NPC 核心（2 个 + 7 子模块）
 
@@ -203,28 +236,19 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 ---
 
-### woworld_vegetation — 🟡 部分实现（基础设施就位）
-
-植被覆盖层。依赖 woworld_core + woworld_worldgen。
-
-| 文件 | 内容 | 状态 |
-|------|------|------|
-| `community.rs` | Shannon 熵优势种筛选（纯函数） | ✅ 完整 — 6 测试 |
-| `species.rs` | TOML 物种表 + 高斯适应度计算 | ✅ 完整 — 4 测试 |
-| `noise.rs` | VegetationNoise（3 层 Perlin） | ✅ 完整 — 3 测试 |
-| `provider.rs` | VegetationStub 存根实现 | ⚠️ 存根 — 所有方法返回默认值 |
-| 测试 | 16 tests | ✅ 全绿 |
-
 ---
 
-## 三、当前冲刺
+## 三、近期冲刺
 
-**下一个冲刺**: 多层密度 L0-L10 — 最后一个架构偏离（🔴5），解锁洞穴/矿脉/地基/NPC 编辑/玩家 SDF。详见最新交接摘要 `handoff/handoff-20260701-019.md`。
+**下一个冲刺**: 待定——ECS Phase 0 (1J) / 天气涌现化 / LODCoordinator Phase 2 / 存档系统 LMDB 集成。详见最新交接摘要 `01-核心基础/handoff/handoff-20260705-026.md`。
 
-**本次会话冲刺历史**：
+**冲刺历史**：
 
 | Sprint | 日期 | 目标 | 状态 |
 |--------|------|------|------|
+| Sprint-033 | 2026-07-05 | ★ MC绕序修复 + LODCoordinator Phase1 + 天气Phase1 + PBR法线修复 | ✅ 完成 |
+| Sprint-032 | 2026-07-04~06 | VoxelChunk LOD 0 7轮修复（MC绕序+统一wy+biome材质） | ✅ 完成 |
+| Sprint-031 | 2026-07-04~05 | 性能优化3轮 + 海洋视觉 + VoxelChunk LOD 0 替换 | ✅ 完成 |
 | Sprint-015 | 2026-06-28 | ★ Signed Heightfield — scene_lod 5 远距离渲染 | ✅ 完成 |
 | Sprint-014 | 2026-06-28 | ★ 多层密度 L0-L10 — DensityStack + CaveDensity | ✅ 完成 |
 | Sprint-013 | 2026-06-28 | ★ LOD 重构 — CHG-049 6 级对齐 + scene_lod 0 (0.5m) | ✅ 完成 |
@@ -248,7 +272,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 🔴1 DensityField trait · 🔴2 Seed u32 · 🔴3 Chunk 128m · 🔴4 MC vs Transvoxel · 🔴5 单层密度
 
-> ✅1-4 已修复（Sprint-006, 011, 012）。仅剩 🔴5 单层密度。
+> ✅ **全部 5 个已修复**（Sprint-006, 011, 012, 014）。零架构偏离。
 
 ### 轨 C 遗留（设计债务）
 
@@ -261,9 +285,9 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 ### 治理待办
 
-- [ ] 宪法 v1.4 用户审批（自 v1.1 起待审批）
 - [x] `session-handoff.md` 根目录旧格式清理 + 交接文档集中化 → ✅ 2026-07-01 完成
 - [x] `chunk_manager.rs` 删除 → ✅ Sprint-016 退役
+- [x] 宪法 v2.0（精简版）→ ✅ 2026-07-04 生效
 
 ---
 
@@ -271,12 +295,12 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | 文件 | 内容 |
 |------|------|
-| [handoff-20260701-019.md](handoff/handoff-20260701-019.md) | ★ 最新 — Sprint-020~024（GPU-driven clipmap + Floating Origin）|
-| [handoff-20260701-018.md](handoff/handoff-20260701-018.md) | 裂缝问题诊断数据汇总 |
-| [handoff-20260630-017.md](handoff/handoff-20260630-017.md) | Sprint-019（Floating Origin 裂缝根因）|
-| [archived/handoff-20260629-016.md](handoff/archived/handoff-20260629-016.md) | Sprint-018（性能卡顿修复）|
-| [archived/handoff-20260628-015.md](handoff/archived/handoff-20260628-015.md) | Sprint-017 就绪 |
-| [archived/handoff-20260628-014.md](handoff/archived/handoff-20260628-014.md) | Sprint-016 就绪 |
+| [handoff-20260705-025.md](01-核心基础/handoff/handoff-20260705-025.md) | ★ 最新 — Sprint-033（MC绕序+LODCoordinator+天气Phase1+PBR法线）|
+| [handoff-20260704-024.md](01-核心基础/handoff/handoff-20260704-024.md) | Sprint-031 交接（性能+海洋+VoxelChunk LOD 0）|
+| [handoff-20260704-023.md](01-核心基础/handoff/handoff-20260704-023.md) | Sprint-031 Transvoxel Godot 集成 |
+| [handoff-20260704-022.md](01-核心基础/handoff/handoff-20260704-022.md) | — |
+| [handoff-20260703-021.md](01-核心基础/handoff/handoff-20260703-021.md) | — |
+| [handoff-20260702-020.md](01-核心基础/handoff/handoff-20260702-020.md) | — |
 
 ---
 

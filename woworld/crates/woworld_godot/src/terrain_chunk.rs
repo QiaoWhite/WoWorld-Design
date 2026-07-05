@@ -17,6 +17,7 @@ use godot::classes::{
 };
 use godot::prelude::*;
 use woworld_atmosphere::{AtmosphereSynthesizer, SeasonAtmosQuery, SimpleSeasonProvider, SimpleWeatherDriver, WeatherAtmosQuery};
+use woworld_core::lod::{LodCoordinator, LodCoordinatorInput, CameraState, PlayerAttention, FrameBudget, VramPressure, EntityLodInput, HysteresisState};
 use woworld_core::prelude::*;
 use woworld_core::spatial::TerrainQuery;
 use std::collections::HashMap;
@@ -152,9 +153,18 @@ pub struct WorldDriver {
     /// Phase 1 LOD: 植被提供者，每帧接收 scene_lod 更新
     vegetation_provider: Option<Arc<dyn VegetationProvider>>,
 
+    /// Phase 2 LODCoordinator: 上一帧 LOD 处方（迟滞比较）
+    lod_prev: HashMap<EntityId, LodPrescription>,
+    /// Phase 2 LODCoordinator: 每实体迟滞状态（跨帧持久）
+    lod_hyst: HashMap<EntityId, HysteresisState>,
+
     #[base]
     base: Base<Node3D>,
 }
+
+/// 具体的 LODCoordinator 实现——WorldDriver 消费。
+struct WorldLodCoordinator;
+impl LodCoordinator for WorldLodCoordinator {}
 
 #[godot_api]
 impl INode3D for WorldDriver {
@@ -189,6 +199,8 @@ impl INode3D for WorldDriver {
             voxel_vy: 32,
             voxel_material: None,
             vegetation_provider: None,
+            lod_prev: HashMap::new(),
+            lod_hyst: HashMap::new(),
             base,
         }
     }
@@ -553,10 +565,54 @@ impl INode3D for WorldDriver {
             self.update_sun_and_sky(&atm);
         }
 
-        // Phase 1 LOD: 水平距离 → scene_lod (CHG-049 距离带)
-        let player_dist =
-            (player_pos.x * player_pos.x + player_pos.z * player_pos.z).sqrt();
-        let scene_lod = distance_to_scene_lod(player_dist);
+        // ── Phase 2 LODCoordinator: 完整 8 步算法 ──
+        let camera_forward = if let Some(ref player) = self.player_node {
+            let basis = player.get_global_basis();
+            // Godot Basis row-major: rows[0]=(xx,xy,xz), rows[1]=(yx,yy,yz), rows[2]=(zx,zy,zz)
+            // Forward = -Z = negate third column
+            let r = &basis.rows;
+            DVec3::new(-r[0].z as f64, -r[1].z as f64, -r[2].z as f64)
+        } else {
+            DVec3::NEG_Z
+        };
+
+        let lod_input = LodCoordinatorInput {
+            camera: CameraState {
+                position: DVec3::new(player_pos.x, player_pos.y, player_pos.z),
+                forward: camera_forward,
+                fov_radians: 70.0_f32.to_radians(),
+            },
+            attention: PlayerAttention::default(),
+            frame_budget: FrameBudget {
+                remaining_ms: (16.67 - delta * 1000.0).max(0.0) as f32,
+                last_frame_ms: (delta * 1000.0) as f32,
+            },
+            vram: VramPressure::default(),
+            entities: vec![EntityLodInput {
+                id: EntityId(0),
+                position: DVec3::new(player_pos.x, player_pos.y, player_pos.z),
+                is_player: true,
+                is_in_combat: false,
+                is_landmark: false,
+                relation_importance: 1.0,
+            }],
+            broadcasts: vec![],
+            interactions: vec![],
+        };
+
+        let prescriptions = WorldLodCoordinator::compute_lod(
+            &lod_input,
+            &self.lod_prev,
+            &mut self.lod_hyst,
+        );
+
+        // 提取玩家 scene_lod 驱动植被 + clipmap
+        let scene_lod = prescriptions
+            .get(&EntityId(0))
+            .map(|p| p.scene_lod)
+            .unwrap_or(0);
+        self.lod_prev = prescriptions;
+
         if let Some(ref vp) = self.vegetation_provider {
             vp.set_scene_lod(scene_lod);
         }

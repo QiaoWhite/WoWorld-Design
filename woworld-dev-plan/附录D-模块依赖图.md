@@ -29,10 +29,38 @@ woworld_core (glam 0.28)
   ├── woworld_spatial (woworld_core, glam)
   ├── woworld_worldgen (woworld_core, glam, noise 0.9)
   ├── woworld_atmosphere (woworld_core, serde, toml)
-  └── woworld_godot (woworld_core, woworld_worldgen, godot 0.5)
+  ├── woworld_ecs (woworld_core, hecs 0.10)          ← ★ ECS Phase 0 新建
+  └── woworld_godot (woworld_core, woworld_worldgen, woworld_atmosphere, woworld_ecs, godot 0.5)
 ```
 
-woworld_core 是唯一零依赖 crate — 所有其他 crate 平等依赖它。
+woworld_core 是唯一零依赖 crate — 所有其他 crate 平等依赖它。`woworld_ecs` 为 ECS Component 定义 crate——`woworld_worldgen` 和 `woworld_atmosphere`（不进 ECS）不依赖它，避免沾染 hecs。
+
+---
+
+## ECS 架构层
+
+ECS 迁移按 6 个 Phase 推进。各 Phase 与 Dev Phase 的映射：
+
+| ECS Phase | 内容 | 状态 | 对应 Dev Phase | 关键交付 |
+|-----------|------|------|---------------|---------|
+| Phase 0 | hecs 基础设施 + 核心 Component + LodCoordinatorSystem | — 待启动 | Phase 1 (1J) | `woworld_ecs` crate, 5 Component, WorldDriver.ecs |
+| Phase 1 | 生命系统（首个完整 ECS 模块） | — 阻塞于 Phase 0 | Phase 1 (1H) | Vitals/Corpse/DeathCause, 5 个生命 System |
+| Phase 2 | NPC 核心（批量 System 迁移） | — 阻塞于 Phase 1 | Phase 3 | NpcCore/Needs/Goal, Handle+Storage 模式 |
+| Phase 3 | 社会系统（懒加载·低频） | — 阻塞于 Phase 2 | Phase 3 | 经济/权力/文化/信仰 System |
+| Phase 4 | 交互系统（战斗/魔法/物品/技能） | — 阻塞于 Phase 3 | Phase 3 | CombatState/SpellSlots/InventoryHandle |
+| Phase 5 | 大规模并行 + 性能调优 | — 阻塞于 Phase 4 | Phase 5 | rayon par_iter(), 1000 Entity benchmark |
+
+### 不进 ECS 的模块（5 个）
+
+| 模块 | 原因 |
+|------|------|
+| `woworld_worldgen` | 世界生成——纯计算管线，世界级单例 |
+| `woworld_atmosphere` | 大气合成——纯计算 |
+| Godot UI/UX | GDScript 侧渲染 |
+| Godot 音频渲染 | Godot AudioServer |
+| Godot 动画渲染 | Godot AnimationTree |
+
+> ECS 详细模块映射见 `[[../开发文档/06-迁移映射/001-原模块到ECS映射]]`
 
 ---
 
@@ -134,7 +162,7 @@ woworld_core 是唯一零依赖 crate — 所有其他 crate 平等依赖它。
 ```
 ✅ 完成: 层 0 (woworld_core + spatial) — 核心类型 + 空间索引
 ✅ 已修复: 层 1 世界生成 (5 红色偏离全部修复)
-⏳ 待启动: 层 1 存档/物品/技能/生命/天气
+⏳ 待启动: ECS Phase 0 (hecs 基础设施 + 1J) + 层 1 存档/物品/技能/生命/天气
 🔒 阻塞: 层 2-4（依赖层 1 完成）
 ```
 

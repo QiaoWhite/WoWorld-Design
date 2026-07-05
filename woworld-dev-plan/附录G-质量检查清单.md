@@ -14,6 +14,8 @@
 □ cargo test --workspace 全部绿（粘贴测试数量）
 □ cargo clippy --workspace -- -D warnings 零警告
 □ cargo fmt --check 通过
+□ bash scripts/verify-consistency.sh 通过（文档-代码一致性验证）
+□ bash scripts/check-handoff-format.sh 通过（Handoff 必填节完整性）
 ```
 
 **附加 Rust 病检查**（每 5 个冲刺或阶段结束时执行一次）:
@@ -38,6 +40,10 @@
 □ 本冲刺没有在 Godot/GDScript 侧引入游戏逻辑（宪法 §2）
 □ 本冲刺的公开类型已登记到 附录A-术语表.md
 □ 本冲刺的设计决策已记录到 附录C-架构决策记录.md（如果是架构级）
+□ ECS 铁律合规检查（对照 `开发文档/00-ECS哲学与架构总纲/006-ECS铁律与陷阱.md` 8 条逐条核验）
+□ ECS System 写冲突检查（所有 System 的 writes 集合无交集——跨 System 的同一 Component 不可同时写）
+□ hecs::World 隔离（GDScript 中无 hecs 引用、Entity 引用未泄漏到 Godot 侧）
+□ 每个 ECS System 至少有 1 个测试（铁律第 8 条——测试覆盖每个 System 的核心行为）
 ```
 
 **五层防御自检**（CONSTITUTION v1.5 保留）:
@@ -162,7 +168,7 @@
 |------|------|---------|
 | 🟢 已知模式 | hashmap、builder pattern 等常规操作 | 跳过 |
 | 🟡 新算法/新技术 | 未见过的算法、不熟悉的 crate | 搜索 2-3 个现有方案，保留 URL |
-| 🟠 性能关键路径 | 地形采样、寻路、网格生成、渲染管线 | 行业标准 + 现有 Rust 实现 |
+| 🟠 性能关键路径 | 地形采样、寻路、网格生成、渲染管线、ECS 性能瓶颈（Archetype 迁移/查询优化） | 行业标准 + 现有 Rust 实现 |
 | 🔴 架构级决策 | 自研 vs 第三方、数据流设计 | 深度调研 + ADR 记录 |
 
 **研究四步法**: 识别问题类别 → WebSearch 行业标准 → 2-3 方案决策矩阵 → 记录决策+引用 URL

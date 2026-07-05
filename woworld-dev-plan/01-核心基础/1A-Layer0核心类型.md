@@ -6,7 +6,7 @@
 
 ## 目标
 
-完成 `woworld_core` crate——所有 ID 类型、空间查询 trait、共享数据结构的唯一定义地。仅依赖 glam。
+完成 `woworld_core` crate——所有 ID 类型、空间查询 trait、共享数据结构的唯一定义地。仅依赖 glam。**ECS Component 不在此定义**——由 `woworld_ecs` crate 承载（见 [1J](1J-ECS基础设施.md)）。
 
 ## 涉及模块
 
@@ -33,7 +33,7 @@
 
 ### 🔧 技术
 - [x] `cargo build -p woworld_core` 通过
-- [x] `cargo test -p woworld_core` 14 tests 全绿
+- [x] `cargo test -p woworld_core` 41 tests 全绿
 - [x] `cargo clippy -p woworld_core -- -D warnings` 零警告
 - [x] 仅依赖 glam（零其他依赖）
 

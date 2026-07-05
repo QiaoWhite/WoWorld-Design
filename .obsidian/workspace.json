@@ -8,31 +8,17 @@
         "type": "tabs",
         "children": [
           {
-            "id": "104cfdd426ca4483",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "woworld-dev-plan/01-核心基础/1B-世界生成.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "1B-世界生成"
-            }
-          },
-          {
             "id": "fea66b1e96c4e42e",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "WoWorld-Design/Happy Game/开发阶段/世界生成/016-分步实现规划-20260701.md",
+                "file": "CLAUDE.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "016-分步实现规划-20260701"
+              "title": "CLAUDE"
             }
           },
           {
@@ -41,15 +27,16 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "WoWorld-Design/开发路线图/README.md",
+                "file": "WoWorld-Design/Change/hand/0-提示词考量角度.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "README"
+              "title": "0-提示词考量角度"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -81,7 +68,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "Sprint",
+                "query": "",
                 "matchingCase": false,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -211,44 +198,44 @@
       "bases:新建数据库": false
     }
   },
-  "active": "2b5e15278249c4d2",
+  "active": "a975d58bb0c46398",
   "lastOpenFiles": [
-    "woworld/target/debug/incremental/woworld_atmosphere-21sl1yl9a0x99/s-hk338umv7q-05hhjmm-bf82lhk9lkeo99rncw51gwtj5/work-products.bin",
-    "woworld/target/debug/incremental/woworld_atmosphere-21sl1yl9a0x99/s-hk338umv7q-05hhjmm-bf82lhk9lkeo99rncw51gwtj5/query-cache.bin",
-    "woworld/target/debug/incremental/woworld_atmosphere-21sl1yl9a0x99/s-hk338umv7q-05hhjmm-bf82lhk9lkeo99rncw51gwtj5/dep-graph.bin",
-    "woworld/target/debug/incremental/woworld_atmosphere-21sl1yl9a0x99/s-hk338umv7q-05hhjmm-bf82lhk9lkeo99rncw51gwtj5/metadata.rmeta",
-    "woworld/target/debug/incremental/woworld_atmosphere-21sl1yl9a0x99/s-hk338umv7q-05hhjmm-bf82lhk9lkeo99rncw51gwtj5",
-    "woworld/target/debug/incremental/woworld_atmosphere-1pr6c2xcr7yvi/s-hk3373ca3a-007kkbm-252n2nnwhec2xks0upspe01hh/work-products.bin",
-    "woworld/target/debug/incremental/woworld_atmosphere-1pr6c2xcr7yvi/s-hk3373ca3a-007kkbm-252n2nnwhec2xks0upspe01hh/query-cache.bin",
-    "woworld/target/debug/incremental/woworld_atmosphere-1pr6c2xcr7yvi/s-hk3373ca3a-007kkbm-252n2nnwhec2xks0upspe01hh/evcb28th95cae3p8rss6xirkv.o",
-    "woworld/target/debug/incremental/woworld_atmosphere-1pr6c2xcr7yvi/s-hk3373ca3a-007kkbm-252n2nnwhec2xks0upspe01hh/er0oxwwn5112h8mtyn3jw7yak.o",
-    "woworld/target/debug/incremental/woworld_atmosphere-1pr6c2xcr7yvi/s-hk3373ca3a-007kkbm-252n2nnwhec2xks0upspe01hh/dep-graph.bin",
-    "woworld/target/debug/incremental/woworld_atmosphere-1pr6c2xcr7yvi/s-hk3373ca3a-007kkbm-252n2nnwhec2xks0upspe01hh/dtpepuhytwzy55hv62uu2sumt.o",
-    "woworld-dev-plan/01-核心基础/handoff/handoff-20260705-025.md",
-    "woworld-dev-plan/01-核心基础/1D-大气系统.md",
-    "woworld-dev-plan/01-核心基础/1F-物品系统.md",
-    "woworld-dev-plan/01-核心基础/1G-技能系统.md",
-    "woworld-dev-plan/03-系统完形/README.md",
-    "woworld-dev-plan/01-核心基础/1B-世界生成.md",
-    "woworld-dev-plan/01-核心基础/1A-Layer0核心类型.md",
-    "WoWorld-Design/Change/hand/0-提示词考量角度.md",
-    "woworld-dev-plan/06-持续运营/README.md",
-    "woworld-dev-plan/05-打磨发布/README.md",
-    "woworld-dev-plan/04-世界填充/README.md",
-    "woworld-dev-plan/02-垂直切片/README.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260629-016.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260628-015.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260628-014.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260628-013.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260628-012.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260628-011.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260628-010.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260628-009.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260628-008.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260625-007.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260625-006.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260625-005.md",
-    "woworld-dev-plan/01-核心基础/handoff/archived/handoff-20260625-004.md",
+    "woworld/target/release/build/num-traits-0de3c4b7f55ab545/stderr",
+    "woworld/target/release/build/num-traits-0de3c4b7f55ab545/root-output",
+    "woworld/target/release/build/num-traits-0de3c4b7f55ab545/output",
+    "woworld/target/release/build/num-traits-0de3c4b7f55ab545/invoked.timestamp",
+    "woworld/target/release/build/num-traits-0de3c4b7f55ab545/out",
+    "woworld/target/release/build/num-traits-0de3c4b7f55ab545",
+    "woworld/target/release/build/godot-macros-b0765e05ab014352/root-output",
+    "woworld/target/release/build/godot-macros-b0765e05ab014352/stderr",
+    "woworld/target/release/build/godot-macros-b0765e05ab014352/invoked.timestamp",
+    "woworld/target/release/build/godot-macros-b0765e05ab014352/output",
+    "woworld/target/release/build/godot-macros-b0765e05ab014352/out",
+    "woworld-dev-plan/01-核心基础/1J-ECS基础设施.md",
+    "WoWorld-Design/开发路线图/README.md",
+    "CLAUDE.md",
+    "CLAUDE-INTERFACES.md",
+    "task_plan.md",
+    "开发文档/04-交互与表现/06-感官与知觉.md",
+    "开发文档/04-交互与表现/04-技能系统.md",
+    "开发文档/04-交互与表现/01-战斗系统.md",
+    "WoWorld-Design/Happy Game/开发阶段/经济系统/README.md",
+    "开发文档/03-社会系统/01-经济系统.md",
+    "WoWorld-Design/Happy Game/开发阶段/文化系统/README.md",
+    "开发文档/03-社会系统/03-文化系统.md",
+    "WoWorld-Design/Happy Game/开发阶段/NPC活人感模块/NPC活人感开发文档ver2.0.md",
+    "开发文档/02-NPC核心/01-NPC总纲.md",
+    "开发文档/03-社会系统/04-信仰系统.md",
+    "开发文档/03-社会系统/02-权力系统.md",
+    "WoWorld-Design/Happy Game/开发阶段/世界生成/016-分步实现规划-20260701.md",
+    "开发文档/02-NPC核心/02-基本需求.md",
+    "开发文档/01-世界框架/03-天气与季节.md",
+    "开发文档/01-世界框架/01-世界生成.md",
+    "开发文档/05-全局基础设施/03-LOD协调器.md",
+    "开发文档/05-全局基础设施/02-空间查询.md",
+    "开发文档/05-全局基础设施/01-核心类型.md",
+    "开发文档/02-NPC核心/03-进阶需求.md",
+    "开发文档/00-ECS哲学与架构总纲/006-ECS铁律与陷阱.md",
     "素材/人物参考/5dcc0f26d460066567fb39e6b4f3a68f.png",
     "woworld/target/doc/static.files/rust-logo-9a9549ea.svg",
     "woworld/target/doc/static.files/favicon-32x32-eab170b8.png",

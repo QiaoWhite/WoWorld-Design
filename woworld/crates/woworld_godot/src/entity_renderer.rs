@@ -1,11 +1,11 @@
 //! EntityRenderer — ECS Entity → Godot Node3D 视觉桥接
 //!
 //! 每帧 sync: ECS `Position` → Godot `Node3D.global_position`
-//! 最小化: 内置 CapsuleMesh 原语 + 程序化颜色，零资产管线。
+//! 最小化: 内置 BoxMesh 原语 + 程序化颜色，零资产管线。
 //!
 //! 架构: Rust ECS 权威 → Godot 纯表现
 
-use godot::classes::{MeshInstance3D, Node3D, StandardMaterial3D};
+use godot::classes::{BoxMesh, MeshInstance3D, Node3D, StandardMaterial3D};
 use godot::prelude::*;
 use glam::Vec3;
 use hecs::World as EcsWorld;
@@ -16,10 +16,12 @@ use woworld_ecs::components::transform::Position;
 
 /// 管理所有实体在 Godot 侧的可视化节点
 pub struct EntityRenderer {
-    /// hecs Entity → Godot Node3D（含 CapsuleMesh 子节点）
+    /// hecs Entity → Godot Node3D（含 BoxMesh 子节点）
     nodes: HashMap<hecs::Entity, Gd<Node3D>>,
     /// 所有实体可视化的父节点容器
     parent: Gd<Node3D>,
+    /// 首帧已报告
+    first_sync_done: bool,
 }
 
 impl EntityRenderer {
@@ -31,16 +33,12 @@ impl EntityRenderer {
         Self {
             nodes: HashMap::new(),
             parent: entities_node,
+            first_sync_done: false,
         }
     }
 
     /// 每帧调用：sync ECS 状态到 Godot 节点
-    ///
-    /// - 为无节点的 Creature entity 创建可视化节点
-    /// - 更新已有节点的 world position
-    /// - 移除已 despawn entity 的节点
     pub fn sync(&mut self, world: &EcsWorld) {
-        // 收集所有 Creature 的当前位置
         let mut alive: HashMap<hecs::Entity, Vec3> = HashMap::new();
         for (entity, (pos, kind)) in world.query::<(&Position, &EntityKind)>().iter() {
             if matches!(*kind, EntityKind::Creature) {
@@ -48,13 +46,14 @@ impl EntityRenderer {
             }
         }
 
-        // 诊断：首次发现实体时打印
-        let new_entities: Vec<_> = alive.keys()
-            .filter(|e| !self.nodes.contains_key(e))
-            .collect();
-        if !new_entities.is_empty() {
-            godot_print!("EntityRenderer: creating {} new NPC node(s) (total alive: {})",
-                new_entities.len(), alive.len());
+        // 诊断：首帧打印
+        if !self.first_sync_done {
+            godot_print!("EntityRenderer first sync: {} Creature entities in ECS", alive.len());
+            if let Some((e, pos)) = alive.iter().next() {
+                godot_print!("  example entity {:?} pos=({:.1}, {:.1}, {:.1})",
+                    e.to_bits().get(), pos.x, pos.y, pos.z);
+            }
+            self.first_sync_done = true;
         }
 
         // 移除已 despawn 的节点
@@ -70,40 +69,33 @@ impl EntityRenderer {
         // 创建/更新节点
         for (entity, pos) in &alive {
             if let Some(node) = self.nodes.get_mut(entity) {
-                // 更新位置
                 node.set_global_position(Vector3::new(pos.x, pos.y, pos.z));
             } else {
-                // 新实体 → 创建可视化
                 let mut parent = self.parent.clone();
-                let node = Self::create_npc_node(*entity, *pos, &mut parent);
+                let node = Self::create_entity_node(*entity, *pos, &mut parent);
                 self.nodes.insert(*entity, node);
             }
         }
     }
 
-    /// 为一个 NPC 创建 Node3D + CapsuleMesh 子节点
+    /// 为一个实体创建 Node3D + BoxMesh 子节点
     ///
-    /// root Node3D 放在地表（y = terrain），CapsuleMesh 子节点向上偏移
-    /// 半个高度，使胶囊体底部刚好贴地。
-    fn create_npc_node(entity: hecs::Entity, pos: Vec3, parent: &mut Gd<Node3D>) -> Gd<Node3D> {
-        const CAPSULE_HEIGHT: f32 = 1.8;
-
-        // Root Node3D 定位到地表
+    /// root 放在地表 (y=terrain)，2m 立方体放在 root 上方 1m 处。
+    fn create_entity_node(entity: hecs::Entity, pos: Vec3, parent: &mut Gd<Node3D>) -> Gd<Node3D> {
         let mut root = Node3D::new_alloc();
         let name_str = format!("NPC_{}", entity.to_bits().get());
         root.set_name(&name_str);
 
-        // CapsuleMesh 占位（0.4m 半径 × 1.8m 高，近似人体）
-        let mut capsule = godot::classes::CapsuleMesh::new_gd();
-        capsule.set_radius(0.4);
-        capsule.set_height(CAPSULE_HEIGHT);
+        // 2m BoxMesh —— 大而明显，方便诊断
+        let mut box_mesh = BoxMesh::new_gd();
+        box_mesh.set_size(Vector3::new(1.0, 2.0, 1.0)); // 1×2×1 m
 
         let mut mesh_instance = MeshInstance3D::new_alloc();
-        mesh_instance.set_mesh(&capsule);
-        // Mesh 原点在几何中心 → 向上偏移半个高度让底部贴地
-        mesh_instance.set_position(Vector3::new(0.0, CAPSULE_HEIGHT * 0.5, 0.0));
+        mesh_instance.set_mesh(&box_mesh);
+        // BoxMesh 原点是几何中心 → 向上偏移 1m 让底部贴 root
+        mesh_instance.set_position(Vector3::new(0.0, 1.0, 0.0));
 
-        // 程序化颜色——从 entity bits 确定性派生
+        // 程序化颜色
         let bits = entity.to_bits().get();
         let r = ((bits >> 16) & 0xFF) as f32 / 255.0;
         let g = ((bits >> 8) & 0xFF) as f32 / 255.0;
@@ -116,16 +108,9 @@ impl EntityRenderer {
         mesh_instance.set_surface_override_material(0, &mat);
 
         root.add_child(&mesh_instance);
-        // 先入树再设 global_position——否则 get_global_transform 报 !is_inside_tree()
         parent.add_child(&root);
         root.set_global_position(Vector3::new(pos.x, pos.y, pos.z));
 
         root
-    }
-
-    /// 活跃可视化实体数
-    #[allow(dead_code)]
-    pub fn entity_count(&self) -> usize {
-        self.nodes.len()
     }
 }

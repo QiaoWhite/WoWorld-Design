@@ -1136,6 +1136,7 @@ impl WorldDriver {
 
             let mut cmd = CommandBuffer::new();
             woworld_ecs::systems::npc::needs::need_evaluation_system(&self.ecs, &mut cmd);
+            woworld_ecs::systems::npc::goal::goal_resolution_system(&self.ecs, &mut cmd);
             death_watch::death_watch_system(&self.ecs, &mut cmd, self.frame_count);
             loot_roll::loot_roll_system(&self.ecs, &mut cmd, &self.loot_tables);
             item_spawn::item_spawn_system(&self.ecs, &mut cmd);

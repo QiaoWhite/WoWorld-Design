@@ -1,7 +1,8 @@
 //! LodCoordinatorSystem — 每帧为所有 Entity 写入 LodLevel Component
 //!
 //! 封装 `woworld_core::lod::LodCoordinator::compute_lod()` 的 8 步算法。
-//! Phase 0 中在 `WorldDriver::process()` 中手动调用。
+//! ⚠️ Phase 3 接入：当前仅测试使用——WorldDriver 暂时直调 `WorldLodCoordinator::compute_lod()`。
+//! EntityIndex 就位后切换为 ECS query 遍历 + 批量写回 LodLevel。
 //!
 //! 参见: `开发文档/05-全局基础设施/03-LOD协调器.md`
 

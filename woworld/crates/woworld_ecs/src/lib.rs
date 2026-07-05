@@ -1,7 +1,8 @@
 //! WoWorld ECS — hecs-based Component definitions and Systems
 //!
 //! 此 crate 定义所有 ECS Component（纯数据）和 System（纯函数）。
-//! Component 不包含任何方法——铁律 1。大堆数据不进 Component 内联——铁律 2。
+//! Component 不包含游戏逻辑方法——铁律 1。大堆数据不进 Component 内联——铁律 2。
+//! 纯数据转换方法（from_/to_）允许，不含副作用或状态修改。
 //!
 //! 参见: `开发文档/00-ECS哲学与架构总纲/` · `woworld-dev-plan/01-核心基础/1J-ECS基础设施.md`
 

@@ -3,17 +3,11 @@
 //! `woworld_core::EntityId` 是一个 `u64` wrapper，与 `hecs::Entity` 的 bit 表示兼容。
 //! 转换放在 `woworld_ecs` 中——`woworld_core` 不依赖 hecs。
 //!
-//! ## 安全说明
+//! hecs 0.10 中 `Entity::from_bits(u64) -> Option<Entity>` 是安全函数。
+//! `EntityId(0)` 映射到 `None`（不是有效 hecs Entity）——调用方需处理此情况。
 //!
-//! `from_hecs` 是安全的（hecs::Entity → 有效的 u64 → EntityId）。
-//! `to_hecs` 使用 `hecs::Entity::from_bits()` 标记为 `unsafe`——调用方必须确保
-//! EntityId 来自合法的 hecs Entity（即 EntityId(0) 仅用于 Player 占位，实际 Entity
-//! 由 hecs::World::spawn() 返回）。
-//!
-//! 在 WoWorld 中，EntityId 的生命周期完全由 hecs::World 管理：
-//! 1. hecs::World::spawn() → hecs::Entity → EntityId::from_hecs()
-//! 2. EntityId → hecs::Entity → hecs::World::get()/get_mut()
-//! 3. EntityId(0) 是 Player 的约定 ID——在 WorldDriver 初始化时由 spawn() 产生
+//! ⚠️ Phase 3 接入：当前仅测试使用——LODCoordinator Phase 3 和 NPC System 集成时将
+//! 由 WorldDriver 调用。
 
 use woworld_core::types::EntityId;
 

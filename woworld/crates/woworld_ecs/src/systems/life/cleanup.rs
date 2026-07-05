@@ -10,7 +10,10 @@ use hecs::CommandBuffer;
 
 use crate::components::vitals::{DecayingRemains, PendingDespawn};
 
-/// 每帧最后执行——清理完成腐败的残骸和标记删除的 Entity
+/// 每帧最后执行——清理完成腐败的残骸和标记删除的 Entity。
+///
+/// ⚠️ PendingDespawn 当前无生产者——Phase 2 手动标记删除（如 GM 命令、剧情脚本）。
+/// DecayingRemains{>=1.0} 是当前唯一的自动清理路径。
 pub fn cleanup_system(world: &hecs::World, cmd: &mut CommandBuffer) {
     // 腐败完成 → 消失
     for (entity, remains) in world.query::<&DecayingRemains>().iter() {
@@ -19,7 +22,7 @@ pub fn cleanup_system(world: &hecs::World, cmd: &mut CommandBuffer) {
         }
     }
 
-    // 标记删除
+    // 标记删除（Phase 2: GM 命令、脚本触发）
     for (entity, _) in world.query::<&PendingDespawn>().iter() {
         cmd.despawn(entity);
     }

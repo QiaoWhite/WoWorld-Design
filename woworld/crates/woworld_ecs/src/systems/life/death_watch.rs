@@ -19,7 +19,8 @@ pub fn death_watch_system(world: &hecs::World, cmd: &mut CommandBuffer, current_
             continue;
         }
 
-        // 构造死亡原因（Phase 1 默认衰老——精确死因由伤害 System 设置）
+        // 构造死亡原因（Phase 1 默认衰老——Phase 2 战斗 System 设置精确死因）
+        // ⚠️ DeathCause 当前无消费者——Sprint 042+ 感官/调查 System 接入后消费
         let death_cause = DeathCause::default();
 
         // 构造尸体

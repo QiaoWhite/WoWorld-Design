@@ -504,12 +504,13 @@ impl INode3D for WorldDriver {
 
         self.init_voxel_grid();
 
-        // ECS Phase 0: spawn Player Entity
-        self.ecs.spawn((
+        // ECS Phase 0: spawn Player Entity (保存 hecs Entity 用于互转)
+        let _player_entity = self.ecs.spawn((
             woworld_ecs::components::transform::Position::default(),
             woworld_ecs::prelude::EntityKind::Creature,
             woworld_ecs::prelude::LodLevel::default(),
         ));
+        // Phase 3: entity_id_from_hecs(_player_entity) → EntityId 存入 PlayerState Resource
 
         self.base_mut().set_process(true);
         godot_print!("WorldDriver: 7 GPU-driven clipmap layers + 5×5 VoxelChunk grid + ECS ready");

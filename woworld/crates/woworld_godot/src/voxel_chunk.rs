@@ -39,6 +39,9 @@ impl INode3D for VoxelChunk {
         let mut mi = MeshInstance3D::new_alloc();
         mi.set_name("VoxelTerrain");
         mi.set_visible(false);
+        // VoxelChunk 投射阴影以填补阴影贴图（LOD0 区域），避免贴图孔洞
+        // 导致边界 PCF 滤波伪影。shader 侧 shadows_disabled 防止自阴影 acne。
+        mi.set_cast_shadows_setting(godot::classes::geometry_instance_3d::ShadowCastingSetting::ON);
         // Apply pending material if set before ready() fired
         if let Some(ref mat) = self.pending_material {
             mi.set_material_override(mat);

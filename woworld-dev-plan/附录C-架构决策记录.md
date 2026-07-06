@@ -6,7 +6,7 @@
 > 格式：日期 + 冲刺 + 决策 + 原因 + 备选方案 + 波及。
 >
 > **维护者**: Claude Code（宪法 §4 提交前置检查强制登记）
-> **最后更新**: 2026-07-05
+> **最后更新**: 2026-07-06
 
 ---
 
@@ -20,6 +20,7 @@
 | ADR-004 | 2026-06-24 | CHG-064 偏离 | 大气合成从 GDScript 迁回 Rust——sun_elevation 物理驱动 |
 | ADR-005 | 2026-07-04 | 六阶段流程体系 | 六阶段开发流程体系替代分散治理文件 |
 | ADR-006 | 2026-07-05 | ECS 架构规划 | hecs ECS 架构采纳——Archetype SoA 存储，Component 拆装通信 |
+| ADR-007 | 2026-07-06 | CHG-065 编排层 | 地形修改编排层——内核不转 ECS，编排层入 ECS |
 
 ---
 
@@ -123,3 +124,37 @@
 - 设计文档：ECS 架构设计见 `开发文档/`（42 篇，与 `WoWorld-Design/` 并行）
 
 **关联文档**: [[../开发文档/00-ECS哲学与架构总纲/006-ECS铁律与陷阱]] · [[../开发文档/06-迁移映射/003-实现路线图]]
+
+---
+
+## ADR-007: 地形修改编排层——内核不转 ECS，编排层入 ECS
+
+**日期**: 2026-07-06
+**冲刺**: CHG-065 地形修改编排层
+**决策**: 地形数据（高度场、密度场、海洋）保持为 ECS Resource，不进入 Archetype 存储。地形修改的**生命周期管理**（请求验证、dirty 传播、重 mesh 调度、NPC 感知通知）走 ECS Component + System + Event 编排。
+
+**原因**:
+1. 业界一致：Veloren（MMO 体素 RPG·SPECS ECS）将 TerrainGrid 作为 ECS Resource，Chunk 有独立的稀疏存储结构；bevy_voxel_world 使用两层架构（procedural 函数 + persistent HashMap）
+2. 地形是"世界级单例"——不是"有生命周期和状态变化"的实体。ECS 的 Archetype 优化对地形无益
+3. 地形查询的主要开销是密度场计算（5-20 倍于 mesh 提取本身），ECS 不加速此过程
+4. 修改编排层（ModificationBatch 积累 → DirtyChunkQueue 标记 → VoxelChunk 重提取 → SpatialEventBus 通知）天然适合 ECS 事件驱动 + System 调度模式
+5. Copy-on-Write（`Arc<HashMap>` 原子交换）提供零锁读取——一次 Transvoxel 提取做 ~36K 密度采样，`RwLock` 不可接受
+
+**关键类型**（`woworld_core::edit_terrain`）：
+- `EditDensitySnapshot/Builder` — 3D 稀疏密度修改（CoW）
+- `EditHeightfieldSnapshot/Builder` — 2D 表面高度投影（CoW）
+- `ModificationBatch` — 帧内批量修改积累（Veloren BlockChange 模式）
+- `DirtyChunkQueue` — Chunk 脏标记 + 两级索引
+- `EditDensityLayer` — `DensityProvider` 桥接，插入 VoxelChunk 临时栈
+
+**2D/3D 分裂修复**：所有 9 个 `TerrainQuery` 方法（`height_at`、`normal_at`、`density_at`、`terrain_raycast`、`is_walkable`、`surface_material_at`、`medium_at`、`sample_vertex`、`sample_horizon`）均修改为优先查 EditHeightfield/EditDensity，回退噪声。
+
+**波及**:
+- 新建 `woworld_core/src/edit_terrain.rs`：~600 行 + 9 测试
+- 修改 `woworld_core/src/density.rs`：`material_at()` + `find_surface_y()`
+- 修改 `woworld_worldgen/src/terrain.rs`：EditTerrain 集成 + 所有查询方法
+- 修改 `woworld_worldgen/src/ocean.rs`：EditHeightfield 集成
+- 修改 `woworld_godot/src/terrain_chunk.rs`：VoxelChunk EditDensityLayer 集成
+- 待后续：ECS systems 实现、WorldDriver 帧同步、Clipmap 重生成、SpatialEventBus、持久化接口
+
+**关联文档**: [[../../WoWorld-Design/Change/CHG-065-地形修改编排层-20260706|CHG-065]] · [[../开发文档/01-世界框架/01-世界生成|ECS 世界生成架构]]

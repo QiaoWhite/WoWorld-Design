@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_back;
+render_mode cull_back, shadows_disabled;
 
 uniform vec3 camera_pos = vec3(0.0);
 
@@ -10,15 +10,15 @@ void vertex() {
 	world_pos_frag = world_pos;
 	vec3 rel = world_pos - camera_pos;
 	POSITION = PROJECTION_MATRIX * vec4(mat3(VIEW_MATRIX) * rel, 1.0);
-	// NORMAL computed per-fragment from screen-space derivatives
+	COLOR = COLOR;
 }
 
 void fragment() {
-	// Per-fragment world-space normal from screen-space derivatives
+	// Per-fragment geometric normal from screen-space derivatives
+	// — matches terrain shader's per-fragment approach
 	vec3 dx = dFdx(world_pos_frag);
 	vec3 dy = dFdy(world_pos_frag);
 	vec3 world_n = normalize(cross(dx, dy));
-	// Enforce upward-facing (terrain has no overhangs at this LOD)
 	if (world_n.y < 0.0) {
 		world_n = -world_n;
 	}

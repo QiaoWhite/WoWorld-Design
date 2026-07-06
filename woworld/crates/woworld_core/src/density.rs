@@ -62,6 +62,68 @@ impl DensityStack {
             .iter()
             .fold(0.0f32, |acc, l| acc + l.density_at(pos))
     }
+
+    /// 组合所有层的材质——最高 priority 有密度贡献的层获胜
+    ///
+    /// 从高 priority 向低遍历，返回第一个对 pos 有显著密度贡献的层的材质。
+    /// 若所有层均无贡献，回退到最低 priority 层（基底）。
+    /// EditDensity (priority 10) 可覆盖 TerrainBaseDensity (priority 0) 的材质。
+    pub fn material_at(&self, pos: WorldPos) -> Option<u8> {
+        // 从高 priority 向低查找"所有权"
+        for layer in self.layers.iter().rev() {
+            let d = layer.density_at(pos);
+            if d.abs() > 0.001 {
+                return Some(layer.material_at(pos));
+            }
+        }
+        // 回退：最低 priority 层（基底——即使它在表面处密度为 0）
+        self.layers.first().map(|l| l.material_at(pos))
+    }
+
+    /// 在 (x, z) 处查找密度场的零等值面高度（即实际表面）
+    ///
+    /// 从 `y_max` 向下扫描到 `y_min`，返回第一个 `density >= 0` 的高度。
+    /// 若找不到零等值面（纯空或纯实），返回 None。
+    /// 步长 `step` 控制精度 vs 性能（建议 0.5m）。
+    ///
+    /// ★ 当前未被调用——保留作为 EditHeightfield 更新的工具方法。
+    pub fn find_surface_y(
+        &self,
+        x: f64,
+        z: f64,
+        y_min: f64,
+        y_max: f64,
+        step: f64,
+    ) -> Option<f64> {
+        // 防御：y_min 必须 ≤ y_max
+        if y_min > y_max || step <= 0.0 {
+            return None;
+        }
+        let mut y = y_max;
+        // 从高空向下扫描
+        while y >= y_min {
+            let d = self.density_at(WorldPos { x, y, z });
+            if d >= 0.0 {
+                // 找到固体——向上精确定位零等值面
+                // 在 [y, y+step] 区间内二分搜索
+                let mut lo = y;
+                let mut hi = y + step;
+                for _ in 0..8 {
+                    // 8 次迭代 → 精度 step/256
+                    let mid = (lo + hi) * 0.5;
+                    let dm = self.density_at(WorldPos { x, y: mid, z });
+                    if dm >= 0.0 {
+                        lo = mid;
+                    } else {
+                        hi = mid;
+                    }
+                }
+                return Some(lo);
+            }
+            y -= step;
+        }
+        None
+    }
 }
 
 impl Default for DensityStack {

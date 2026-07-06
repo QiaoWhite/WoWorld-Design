@@ -118,6 +118,18 @@
 | 功能集 | `AffordanceSet` | 家具与放置物品（64-bit） |
 | LOD 处方 | `LodPrescription` | LOD 架构（7 维） |
 | LOD 协调器 | `LODCoordinator` | LOD 架构（8 步） |
+| 密度修改快照 | `EditDensitySnapshot` | woworld_core::edit_terrain（CoW 读者·3D 稀疏密度） |
+| 密度修改构建器 | `EditDensityBuilder` | woworld_core::edit_terrain（CoW 写者·3D 稀疏密度） |
+| 高度修改快照 | `EditHeightfieldSnapshot` | woworld_core::edit_terrain（CoW 读者·2D 表面投影） |
+| 高度修改构建器 | `EditHeightfieldBuilder` | woworld_core::edit_terrain（CoW 写者·2D 表面投影） |
+| 地形修改快照 | `EditTerrainSnapshot` | woworld_core::edit_terrain（CoW 读者·密度+高度+脏标记） |
+| 地形修改构建器 | `EditTerrainBuilder` | woworld_core::edit_terrain（CoW 写者·密度+高度+脏标记） |
+| 修改批次 | `ModificationBatch` | woworld_core::edit_terrain（帧内批量积累·Veloren模式） |
+| 脏Chunk队列 | `DirtyChunkQueue` | woworld_core::edit_terrain（Chunk重提取调度·两级索引） |
+| 编辑密度层 | `EditDensityLayer` | woworld_core::edit_terrain（DensityProvider桥接·插入DensityStack） |
+| 修改类型 | `ModificationKind` | woworld_core::edit_terrain（Dig/Fill/Smooth/Paint/Flatten） |
+| 修改请求 | `ModificationRequest` | woworld_core::edit_terrain（单次修改描述符） |
+| 地形修改编排层 | Terrain Modification Orchestration | CHG-065——内核不转ECS·编排层入ECS |
 | 开发阶段 | Phase | 开发治理——模块从设计到交付的宏观阶段划分 |
 | 子里程碑 | Milestone | 开发治理——Phase 内的可验证进度节点 |
 | 冲刺 | Sprint | 开发治理——宪法定义的基本工作单元，§8 格式提案驱动 |
@@ -126,4 +138,4 @@
 
 ---
 
-> **最后更新**: 2026-07-04 — 初始登记，从 CLAUDE-INTERFACES.md 契约段批量导入。后续冲刺按需追加。新增开发治理术语（Phase/Milestone/Sprint/Handoff/DEVLOG）。术语表文件从 GLOSSARY.md 迁移至 附录A-术语表.md。
+> **最后更新**: 2026-07-06 — CHG-065 追加 11 个地形修改编排层类型 + 1 个架构术语。

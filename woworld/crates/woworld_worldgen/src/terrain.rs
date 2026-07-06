@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use glam::Vec3;
 use woworld_core::density::{DensityProvider, DensityStack};
+use woworld_core::edit_terrain::EditTerrainSnapshot;
 use woworld_core::prelude::*;
 use woworld_core::spatial::TerrainQuery;
 
@@ -80,6 +81,11 @@ pub struct HeightfieldTerrain {
     density_stack: DensityStack,
     pub clock: Option<WorldClock>,
     pub biome_classifier: Option<BiomeClassifier>,
+    /// 地形修改快照（CoW——读者零锁开销）
+    ///
+    /// 为 None 时表示无修改，所有查询回退到噪声地形。
+    /// WorldDriver 每帧从 ECS EditTerrainResource 更新此快照。
+    edit_terrain: Option<Arc<EditTerrainSnapshot>>,
 }
 
 impl Default for HeightfieldTerrain {
@@ -94,6 +100,7 @@ impl Default for HeightfieldTerrain {
             density_stack,
             clock: None,
             biome_classifier: None,
+            edit_terrain: None,
         }
     }
 }
@@ -111,6 +118,7 @@ impl HeightfieldTerrain {
             density_stack,
             clock: None,
             biome_classifier: None,
+            edit_terrain: None,
         }
     }
 
@@ -124,6 +132,7 @@ impl HeightfieldTerrain {
             density_stack,
             clock: None,
             biome_classifier: None,
+            edit_terrain: None,
         }
     }
 
@@ -167,21 +176,10 @@ impl HeightfieldTerrain {
     /// `height_at` + `normal_at` + `surface_material_at` 各自独立调用
     /// `sample_height` — 每顶点最高 10 次噪声调用。本方法共享结果，降至约 4 次。
     pub fn sample_vertex(&self, x: f64, z: f64) -> (f32, Vec3, SurfaceMaterial) {
-        let h = self.terrain_height(x, z);
-        let normal = self.calc_normal(x, z, 0.5);
-        let steepness = (1.0 - normal.y).abs();
-
-        let mat = if let Some(ref classifier) = self.biome_classifier {
-            if let Some(biome) = classifier.classify(WorldPos { x, y: h, z }) {
-                biome.surface_material
-            } else {
-                Self::material_from_height(h, steepness)
-            }
-        } else {
-            Self::material_from_height(h, steepness)
-        };
-
-        (h as f32, normal, mat)
+        let h = self.actual_height_at(x, z);
+        let normal = self.normal_at(WorldPos { x, y: h as f64, z });
+        let mat = self.actual_material_at_with_height(x, z, h as f64);
+        (h, normal, mat)
     }
 
     /// 挂载昼夜时钟——之后 `light_level_at()` 返回实际值
@@ -191,9 +189,119 @@ impl HeightfieldTerrain {
     }
 
     /// 挂载群系分类器——之后 `surface_material_at()` 群系优先
+    ///
+    /// ★ 同时重建 DensityStack 中的 TerrainBaseDensity 以携带群系引用——
+    ///   确保 DensityStack::material_at() fallback 路径也能返回正确的 biome 材质。
     pub fn with_biomes(mut self, classifier: BiomeClassifier) -> Self {
+        // 重建 DensityStack：TerrainBaseDensity 需携带 biome 引用
+        let mut new_stack = DensityStack::new();
+        new_stack.push(Arc::new(
+            TerrainBaseDensity::new(self.noise.clone()).with_biomes(classifier.clone()),
+        ));
+        new_stack.push(crate::cave::CaveDensity::new_arc(self.seed, Default::default()));
+        self.density_stack = new_stack;
         self.biome_classifier = Some(classifier);
         self
+    }
+
+    /// 设置地形修改快照——WorldDriver 每帧调用以同步 ECS 修改到地形查询
+    pub fn set_edit_terrain(&mut self, snapshot: Option<Arc<EditTerrainSnapshot>>) {
+        self.edit_terrain = snapshot;
+    }
+
+    /// 获取当前地形修改快照引用
+    pub fn edit_terrain(&self) -> Option<&Arc<EditTerrainSnapshot>> {
+        self.edit_terrain.as_ref()
+    }
+
+    /// 构建 EditDensityLayer（用于传入 VoxelChunk rayon job 的 DensityStack）
+    ///
+    /// 返回 Clone 成本极低（内部 Arc 引用计数 +1）。
+    /// voxel_size 应与 Transvoxel 提取的体素尺寸一致（LOD 0 = 0.5m）。
+    pub fn edit_density_layer(&self, voxel_size: f64) -> Option<woworld_core::edit_terrain::EditDensityLayer> {
+        self.edit_terrain.as_ref().map(|et| {
+            woworld_core::edit_terrain::EditDensityLayer::new(et.density.clone(), voxel_size)
+        })
+    }
+
+    /// 实际表面高度——优先查 EditHeightfield，回退到噪声地形
+    ///
+    /// ★ 核心修复：原 `height_at()` 走裸噪声，修改不可见。
+    /// 此方法先查 EditHeightfield（CoW 快照，零锁），未命中回退。
+    #[inline]
+    pub fn actual_height_at(&self, x: f64, z: f64) -> f32 {
+        if let Some(ref et) = self.edit_terrain {
+            if let Some(h) = et.heightfield.height_at(x, z) {
+                return h;
+            }
+        }
+        self.terrain_height(x, z) as f32
+    }
+
+    /// 实际表面材质——优先 EditDensity → 群系分类 → DensityStack → 高度回退
+    ///
+    /// ★ 群系分类必须在 DensityStack 之前——DensityStack::material_at() 的 fallback
+    ///   使用 TerrainBaseDensity（无 biome），永远返回 Some(…)，会使群系路径成为死代码。
+    ///   修复：群系优先于 DensityStack，Clipmap 路径获得正确的 biome 颜色。
+    #[inline]
+    pub fn actual_material_at(&self, pos: WorldPos) -> SurfaceMaterial {
+        self.actual_material_at_with_height(pos.x, pos.z, self.terrain_height(pos.x, pos.z))
+    }
+
+    /// `actual_material_at` 的内部实现——接受预计算的地形高度以避免冗余噪声调用。
+    ///
+    /// `sample_vertex()` 调用此方法以复用已计算的 `actual_height_at` 结果。
+    #[inline]
+    fn actual_material_at_with_height(&self, x: f64, z: f64, h: f64) -> SurfaceMaterial {
+        // 1. 优先检查 EditDensity 材质覆盖（CoW 快照，零锁）
+        if let Some(ref et) = self.edit_terrain {
+            let voxel = glam::IVec3::new(
+                (x / 0.5).floor() as i32,
+                (h / 0.5).floor() as i32,
+                (z / 0.5).floor() as i32,
+            );
+            if let Some(mat_id) = et.density.material_at(voxel) {
+                return Self::material_id_to_surface(mat_id);
+            }
+        }
+        // 2. 水下：3 层高度法（与旧 surface_material_at 行为一致）
+        if h < -100.0 {
+            return SurfaceMaterial::Stone;   // 深海
+        } else if h < -10.0 {
+            return SurfaceMaterial::Gravel;  // 大陆架
+        } else if h < 0.0 {
+            return SurfaceMaterial::Sand;    // 浅海床
+        }
+        // 3. 陆地：群系分类优先
+        if let Some(ref classifier) = self.biome_classifier {
+            if let Some(biome) = classifier.classify(WorldPos { x, y: h, z }) {
+                return biome.surface_material;
+            }
+        }
+        // 4. 回退：DensityStack 材质组合（含 CaveDensity 等——地下/编辑区域）
+        let pos = WorldPos { x, y: h, z };
+        if let Some(mat_id) = self.density_stack.material_at(pos) {
+            return Self::material_id_to_surface(mat_id);
+        }
+        // 5. 最终回退：高度+坡度法
+        let normal = self.calc_normal(x, z, 0.5);
+        let steepness = (1.0 - normal.y).abs();
+        Self::material_from_height(h, steepness)
+    }
+
+    /// u8 材质 ID → SurfaceMaterial 枚举
+    fn material_id_to_surface(mat_id: u8) -> SurfaceMaterial {
+        use woworld_core::material::SurfaceMaterial;
+        match mat_id {
+            0 => SurfaceMaterial::Grass, 1 => SurfaceMaterial::Sand, 2 => SurfaceMaterial::Rock,
+            3 => SurfaceMaterial::Stone, 4 => SurfaceMaterial::Wood, 5 => SurfaceMaterial::Metal,
+            6 => SurfaceMaterial::Water, 7 => SurfaceMaterial::Ice, 8 => SurfaceMaterial::Mud,
+            9 => SurfaceMaterial::Snow, 10 => SurfaceMaterial::Gravel, 11 => SurfaceMaterial::Clay,
+            12 => SurfaceMaterial::Moss, 13 => SurfaceMaterial::LeafLitter, 14 => SurfaceMaterial::Cobblestone,
+            15 => SurfaceMaterial::Marble, 16 => SurfaceMaterial::Glass, 17 => SurfaceMaterial::Fabric,
+            18 => SurfaceMaterial::Thatch, 19 => SurfaceMaterial::Bone, 20 => SurfaceMaterial::Flesh,
+            _ => SurfaceMaterial::Stone,
+        }
     }
 
     /// 在 (x, z) 采样高度，有限差分计算法线
@@ -233,11 +341,18 @@ impl HeightfieldTerrain {
 
 impl TerrainQuery for HeightfieldTerrain {
     fn height_at(&self, pos: WorldPos) -> f32 {
-        self.terrain_height(pos.x, pos.z) as f32
+        self.actual_height_at(pos.x, pos.z)
     }
 
     fn normal_at(&self, pos: WorldPos) -> Vec3 {
-        self.calc_normal(pos.x, pos.z, 0.5)
+        // 用实际表面高度计算法线（含修改）
+        let eps = 0.5;
+        let h_center = self.actual_height_at(pos.x, pos.z) as f64;
+        let h_right = self.actual_height_at(pos.x + eps, pos.z) as f64;
+        let h_forward = self.actual_height_at(pos.x, pos.z + eps) as f64;
+        let dx = (h_center - h_right) / eps;
+        let dz = (h_center - h_forward) / eps;
+        glam::vec3(-dx as f32, 1.0, -dz as f32).normalize()
     }
 
     fn terrain_raycast(
@@ -270,49 +385,40 @@ impl TerrainQuery for HeightfieldTerrain {
     }
 
     fn density_at(&self, pos: WorldPos) -> f32 {
-        self.density_stack.density_at(pos)
+        let base = self.density_stack.density_at(pos);
+        // 叠加 EditDensity 的密度增量（CoW 快照，零锁）
+        if let Some(ref et) = self.edit_terrain {
+            let voxel_size = 0.5; // LOD 0 体素尺寸
+            let voxel = glam::IVec3::new(
+                (pos.x / voxel_size).floor() as i32,
+                (pos.y / voxel_size).floor() as i32,
+                (pos.z / voxel_size).floor() as i32,
+            );
+            if let Some(delta) = et.density.density_delta_at(voxel) {
+                return base + delta;
+            }
+        }
+        base
     }
 
     fn is_walkable(&self, pos: WorldPos) -> bool {
-        let h = self.terrain_height(pos.x, pos.z);
+        let h = self.actual_height_at(pos.x, pos.z) as f64;
         let on_surface = (pos.y - h).abs() < 1.0;
         if !on_surface {
             return false;
         }
-        // 检查坡度
-        let normal = self.calc_normal(pos.x, pos.z, 0.5);
-        let steepness = (1.0 - normal.y).abs(); // dot(normal, up) 的补
+        // 检查坡度——用实际表面法线
+        let normal = self.normal_at(pos);
+        let steepness = (1.0 - normal.y).abs();
         steepness < 0.7 // cos(45°) ≈ 0.707
     }
 
     fn surface_material_at(&self, pos: WorldPos) -> SurfaceMaterial {
-        let h = self.terrain_height(pos.x, pos.z);
-        let normal = self.calc_normal(pos.x, pos.z, 0.5);
-        let steepness = (1.0 - normal.y).abs();
-
-        // 水下材质：基于深度分层（避免 biome 颜色 Grass/Snow 透出水面）
-        if h < -100.0 {
-            return SurfaceMaterial::Stone;  // 深海岩层
-        } else if h < -10.0 {
-            return SurfaceMaterial::Gravel; // 大陆架
-        } else if h < 0.0 {
-            return SurfaceMaterial::Sand;   // 浅滩
-        }
-
-        // 1. 尝试群系分类
-        if let Some(ref classifier) = self.biome_classifier {
-            if let Some(biome) = classifier.classify(pos) {
-                // TODO: 子材质粗粒度混合（区块级而非顶点级）——后续迭代
-                return biome.surface_material;
-            }
-        }
-
-        // 2. 回退：高度/坡度法（兼容无群系场景）
-        Self::material_from_height(h, steepness)
+        self.actual_material_at(pos)
     }
 
     fn medium_at(&self, pos: WorldPos) -> Medium {
-        let h = self.terrain_height(pos.x, pos.z);
+        let h = self.actual_height_at(pos.x, pos.z) as f64;
         if h < 0.0 && pos.y < 0.0 && pos.y > h {
             Medium::Water
         } else {

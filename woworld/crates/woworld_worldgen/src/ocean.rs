@@ -8,6 +8,7 @@
 
 use std::sync::Arc;
 
+use woworld_core::edit_terrain::EditHeightfieldSnapshot;
 use woworld_core::ocean::OceanProvider;
 use woworld_core::prelude::WorldPos;
 
@@ -61,6 +62,11 @@ pub fn default_waves() -> [GerstnerWave; 6] {
 pub struct HeightfieldOcean {
     noise: Arc<WorldNoise>,
     waves: [GerstnerWave; 6],
+    /// 地形修改的高度投影（CoW 快照——零锁读取）
+    ///
+    /// WorldDriver 每帧从 ECS EditTerrainResource 同步此快照。
+    /// None = 无修改，回退到纯噪声。
+    edit_heightfield: Option<Arc<EditHeightfieldSnapshot>>,
 }
 
 impl HeightfieldOcean {
@@ -69,16 +75,31 @@ impl HeightfieldOcean {
         Self {
             noise,
             waves: default_waves(),
+            edit_heightfield: None,
         }
     }
 
     /// 从共享噪声 + 自定义波参数创建
     pub fn with_waves(noise: Arc<WorldNoise>, waves: [GerstnerWave; 6]) -> Self {
-        Self { noise, waves }
+        Self {
+            noise,
+            waves,
+            edit_heightfield: None,
+        }
     }
 
-    /// 底层地形高度（内部——共享 `HeightfieldTerrain` 的同一噪声）
+    /// 设置地形修改快照——WorldDriver 每帧调用
+    pub fn set_edit_heightfield(&mut self, snapshot: Option<Arc<EditHeightfieldSnapshot>>) {
+        self.edit_heightfield = snapshot;
+    }
+
+    /// 实际地形高度——优先查 EditHeightfield，回退到噪声
     fn terrain_height(&self, x: f64, z: f64) -> f64 {
+        if let Some(ref eh) = self.edit_heightfield {
+            if let Some(h) = eh.height_at(x, z) {
+                return h as f64;
+            }
+        }
         self.noise.sample_height(x, z)
     }
 
@@ -111,7 +132,11 @@ impl HeightfieldOcean {
 
 impl Default for HeightfieldOcean {
     fn default() -> Self {
-        Self::new(Arc::new(WorldNoise::new(42)))
+        Self {
+            noise: Arc::new(WorldNoise::new(42)),
+            waves: default_waves(),
+            edit_heightfield: None,
+        }
     }
 }
 

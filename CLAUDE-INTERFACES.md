@@ -377,6 +377,7 @@
 | EntityIndex | **woworld_spatial** | 所有模块 | register/unregister/update_transform/entities_in_aabb/entity_aabb/acoustic_tag_at/close_relations/position_of。稀疏哈希网格 O(1)。layer_mask 过滤 |
 | SpatialEventBus | **woworld_spatial** | 所有模块 | recent_events_in/push_event/scent_sources_in。Chunk ring buffer(64 entry,LRU)。事件自动过期 max(intensity×10s, 5s) |
 | VisibilityQuery | **woworld_spatial** (Arc<TerrainQuery> + &EntityIndex) | 感官/战斗/大日志 | line_of_sight/line_of_sight_hit。DDA 同时检查密度场+实体AABB。命中返回 TerrainHit/EntityHit/WaterSurface |
+| ReputationQuery | **woworld_spatial** (Arc<MemoryStore> + &SocialGraph) | 战斗/权力/文化/玩家UI | reputation_toward / local_consensus。标量 f32 ∈ [-1,1]。从分散式 NPC 记忆涌现，不建集中式声望数据库。实现侧聚合 MemoryStore + SocialGraph，trait 不预设存储方案 |
 
 ### 动画数据契约
 

@@ -106,3 +106,31 @@ pub trait VisibilityQuery: Send + Sync {
         to: WorldPos,
     ) -> Option<(WorldPos, SurfaceMaterial)>;
 }
+
+// ── ReputationQuery ────────────────────────────────
+
+/// 名声查询——从分散式 NPC 记忆中涌现。
+///
+/// 不建集中式声望数据库。每个 observer 有独立视角——
+/// 查询结果从 observer 的直接记忆 + 间接社交信息中聚合得出。
+/// 实现侧通过 MemoryStore + SocialGraph 完成聚合，trait 不预设存储方案。
+///
+/// # 涌现原则
+/// - 无"全局名声值"——每个 observer 有自己的评价
+/// - 共识从知情 NPC 的独立评价加权平均涌现
+/// - 时间衰减、信息失真、传播延迟均为实现细节
+///
+/// 消费方: 战斗系统(名声传播)/权力系统(合法性)/玩家 UI(NPC 态度指示)/文化系统(仪式资格)
+pub trait ReputationQuery: Send + Sync {
+    /// observer 个人对 target 的评价
+    ///
+    /// 返回值: -1.0(极度负面) ~ +1.0(极度正面), 0.0 = 中性/无印象。
+    /// 基于 observer 的直接记忆 + 间接社交信息。
+    fn reputation_toward(&self, observer: EntityId, target: EntityId) -> f32;
+
+    /// target 在指定区域内的共识评价
+    ///
+    /// 聚合区域内所有知情 NPC 的独立评价的加权平均。
+    /// "知情 NPC" = 该 NPC 的 MemoryStore 中存在与 target 相关的记忆条目。
+    fn local_consensus(&self, target: EntityId, center: WorldPos, radius: f32) -> f32;
+}

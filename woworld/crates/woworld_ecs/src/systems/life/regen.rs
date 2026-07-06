@@ -12,7 +12,7 @@ use crate::components::vitals::{RegenState, Vitals};
 pub fn regen_system(world: &mut hecs::World) {
     for (_entity, (vitals, regen)) in world.query_mut::<(&mut Vitals, &RegenState)>() {
         vitals.hp = (vitals.hp + regen.hp_regen_rate).min(vitals.max_hp);
-        vitals.stamina = (vitals.stamina + regen.stamina_regen_rate).min(100.0);
+        vitals.stamina = (vitals.stamina + regen.stamina_regen_rate).min(vitals.max_stamina);
     }
 }
 

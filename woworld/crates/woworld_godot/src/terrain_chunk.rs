@@ -1381,6 +1381,8 @@ impl WorldDriver {
         let material_colors = self.material_colors.clone();
         let voxel_size = 0.5f64;
         let vx = 32u32; let vz = 32u32;
+        // ★ 捕获 EditDensity 层（若存在）——CoW 快照，Clone 成本极低
+        let edit_layer = self.terrain.edit_density_layer(voxel_size);
 
         rayon::spawn(move || {
             // Construct surface-only density stack (no CaveDensity).
@@ -1393,6 +1395,10 @@ impl WorldDriver {
             let surface_layer: Arc<dyn DensityProvider> = Arc::new(mk_base());
             let mut stack = DensityStack::new();
             stack.push(surface_layer);
+            // ★ 插入 EditDensity 层（priority 10，覆盖基底）
+            if let Some(ref edit) = edit_layer {
+                stack.push(Arc::new(edit.clone()));
+            }
             let base_layer = mk_base();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 transvoxel_extract(
@@ -1476,11 +1482,13 @@ impl WorldDriver {
         // let oob    = mesh.indices.iter().filter(|&&i| i >= nv).count();
         // let mid    = mesh.vertices.len() / 2;
         // let sn     = if mid < mesh.normals.len() { (mesh.normals[mid].x, mesh.normals[mid].y, mesh.normals[mid].z) } else { (0.0f32, 0.0, 0.0) };
+        // let sc     = if mid < mesh.colors.len() { (mesh.colors[mid].x, mesh.colors[mid].y, mesh.colors[mid].z) } else { (0.0f32, 0.0, 0.0) };
         // godot_print!(
-        //     "Voxel @({:.0},{:.0},{:.0}) {}v {}t NaN(v={} i={} n={}) OOB={}  n[{}]=({:.3},{:.3},{:.3})",
+        //     "Voxel @({:.0},{:.0},{:.0}) {}v {}t NaN(v={} i={} n={}) OOB={}  n[{}]=({:.3},{:.3},{:.3}) c[{}]=({:.3},{:.3},{:.3})",
         //     ox, oy, oz, mesh.vertices.len(), mesh.indices.len()/3,
         //     nan_v, inf_v, nan_n, oob, mid,
         //     sn.0, sn.1, sn.2,
+        //     mid, sc.0, sc.1, sc.2,
         // );
 
         vc.bind_mut().set_terrain_mesh(Some(am));

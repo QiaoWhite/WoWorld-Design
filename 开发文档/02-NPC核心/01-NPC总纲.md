@@ -22,7 +22,7 @@ NPC 不是一个 struct。NPC 不是一个 class。**NPC 是一组 Component 的
   身体层:  Vitals, BodyPlan, Physiology
   需求层:  Needs, NeedSensitivity
   认知层:  CognitiveStyle, MentalModelHandle, MemoryHandle
-  情感层:  EmotionalState, BigFive
+  情感层:  Emotion, BigFive
   社会层:  SocialIdentity, RelationHandle
   行动层:  Goal, Desire, ActionQueue
   空间层:  Position, LodLevel
@@ -49,16 +49,18 @@ struct NpcCore {
 impl Component for NpcCore {}
 ```
 
-### EmotionalState
+### Emotion
+
+> 代码采用 PAD (Pleasure-Arousal-Dominance) 命名——与心理学 PAD 情绪模型对齐。
 
 ```rust
-struct EmotionalState {
-    valence: f32,        // -1(不愉快) ~ +1(愉快)
+struct Emotion {
+    pleasure: f32,       // -1(不愉快) ~ +1(愉快)
     arousal: f32,        // 0(平静) ~ 1(激动)
     dominance: f32,      // 0(被支配) ~ 1(支配)
     source_entity: Option<EntityId>,  // 情绪来源
 }
-impl Component for EmotionalState {}
+impl Component for Emotion {}
 ```
 
 ### BigFive
@@ -76,7 +78,9 @@ impl Component for BigFive {}
 
 ---
 
-## AgentSnapshot：派生 Component
+## AgentSnapshot：派生视图（延后实现）
+
+> ⚠️ **延后实现** — 保留设计意图。实现时为帧局部 `HashMap<Entity, AgentSnapshot>`，**不作为 ECS Component**。避免 archetype 写后立即读的 cache 浪费。具体 26 字段待 ActionSelection System 实现时按需敲定。
 
 `AgentSnapshot` 不是存储的——它是每决策周期从其他 Component 派生出来的 108B 临时视图。
 

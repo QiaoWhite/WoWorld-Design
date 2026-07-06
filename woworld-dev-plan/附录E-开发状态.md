@@ -2,7 +2,7 @@
 
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-07-05
+> **最后更新**: 2026-07-06
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `附录D-模块依赖图.md` · `../CLAUDE-INTERFACES.md`
 
@@ -15,14 +15,14 @@
 | 指标 | 值 |
 |------|-----|
 | 设计模块总数 | 27 个独立系统 + 1 个子模块（家具与放置物品） |
-| 有代码的模块 | **6 / 27**（世界生成、大气氛围、时间、空间索引、植被、**生命系统**） |
+| 有代码的模块 | **7 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、**地形修改编排层**） |
 | 零代码的模块 | **22 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **113 tests 全绿** (core: 41 + worldgen: 49 + atmosphere: 17 + ecs: 6 + godot: 0), cargo clippy 零警告 |
-| ECS 架构 | **Phase 0 ✅** — hecs 0.10 就位，`woworld_ecs` crate 创建，5 Component 定义，WorldDriver 集成，LodCoordinatorSystem 就位。测试 113/113 全绿。Phase 1（生命系统）待启动。 |
+| Rust workspace | 5 crates, **341 tests 全绿** (core: 50 + worldgen: 58 + atmosphere: 26 + ecs: 207 + godot: 0), cargo clippy 零警告 |
+| ECS 架构 | **Phase 0 ✅ + Phase 1 ✅ + Phase 2 (NPC) ✅** — hecs 0.10 就位，`woworld_ecs` crate：35 Components + 20 Systems + 207 tests。15/15 Systems 接入 Godot 主循环，21 NPC 可视化。 |
 | Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 8 层 CHG-049 对齐（0.5m-64m, 15km 视野）+ Signed Heightfield (LOD 5-7) + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 |
-| 当前冲刺 | Sprint-038 完成（天气系统涌现化·连续物理参数驱动·145 tests）→ 下一步待定 |
-| 最新 CHG | CHG-064（2026-06-24）— 轨A 昼夜循环 + 5群系系统 |
+| 当前冲刺 | Sprint-057 完成（ECS-Godot 可视化·21 NPC 可见·PRNG 清理·341 tests）→ 下一步待定 |
+| 最新 CHG | CHG-065（2026-07-06）— 地形修改编排层 ~800行代码 + 50 tests · 内核不转ECS编排层入ECS |
 
 ---
 
@@ -48,7 +48,7 @@
 |-----------|------|------|---------------|---------|
 | Phase 0 | hecs 基础设施 + 核心 Component + LodCoordinatorSystem | ✅ Sprint-035 完成 | Phase 1 (1J) | `woworld_ecs` crate, 5 Component, WorldDriver.ecs 字段 |
 | Phase 1 | 生命系统（首个完整 ECS 模块） | 🟢 Sprint-036+037 完成 | Phase 1 (1H) | 完整生命周期：Vitals→死亡→掉落→腐败→消失+再生 |
-| Phase 2 | NPC 核心（批量 System 迁移） | — 阻塞于 Phase 1 | Phase 3 | NpcCore/Needs/Goal Component, Handle+Storage 模式 |
+| Phase 2 | NPC 核心（批量 System 迁移） | ✅ Sprint-043~057 完成 | Phase 3 (P3) | 35 Components + 20 Systems: BigFive/Emotion/Needs/Movement/Social/Goal/Cognitive/ActionWeight/Lifecycle/Gender/Aesthetic/Biases/Circadian + 207 tests |
 | Phase 3 | 社会系统（懒加载·低频） | — 阻塞于 Phase 2 | Phase 3 | 经济/权力/文化/信仰 System |
 | Phase 4 | 交互系统（战斗/魔法/物品/技能） | — 阻塞于 Phase 3 | Phase 3 | CombatState/SpellSlots/InventoryHandle |
 | Phase 5 | 大规模并行 + 性能调优 | — 阻塞于 Phase 4 | Phase 5 | rayon par_iter(), 1000 Entity benchmark |
@@ -68,11 +68,11 @@
 ### ECS 当前进度
 
 - **hecs 依赖**: ✅ hecs 0.10.5
-- **Component 定义**: 14 / ~80 (+CorpseLooted, DecayingRemains, PendingDespawn, RegenState)
-- **System 实现**: 7 / ~120 (+CorpseDecay, Cleanup, Regen)
-- **Resource 定义**: 1 / ~30 (LootTableRegistry)
-- **ECS 测试**: 29
-- **113 现有测试**: ✅ 全绿（迁移过程中每步必须保持）
+- **Component 定义**: 35 / ~80（18 模块文件——BigFive/Emotion/Needs/Movement/Lifecycle/Cognitive/Aesthetic/Social/Gender/Biases/Goals/ActionWeight/Vitals 等）
+- **System 实现**: 20 / ~120（life: 6·npc: 8·lod_coordinator: 1·另有 5 个 NPC 辅助 system）
+- **Resource 定义**: 2 / ~30 (LootTableRegistry + SpatialGrid)
+- **ECS 测试**: 207
+- **341 现有测试**: ✅ 全绿（迁移过程中每步必须保持）
 
 ---
 
@@ -89,7 +89,8 @@
 | `spatial.rs` | TerrainQuery(9方法), EntityIndex(6方法), SpatialEventBus(3方法), VisibilityQuery(2方法) | ✅ 完整 |
 | `material.rs` | SurfaceMaterial(21变体), Medium(4变体) | ✅ 完整 |
 | `time.rs` | WorldTime, WorldClock, TimeOfDay — 昼夜循环权威定义 | ✅ 完整 |
-| `density.rs` | DensityStack — 分层密度场 + LayerPriority 排序 | ✅ 完整 |
+| `density.rs` | DensityStack — 分层密度场 + LayerPriority 排序 + ★CHG-065 material_at/find_surface_y | ✅ 完整 |
+| `edit_terrain.rs` | ★CHG-065 地形修改编排层 — EditDensity/EditHeightfield CoW, ModificationBatch, DirtyChunkQueue, EditDensityLayer | ✅ 完整 |
 | `ocean.rs` | OceanProvider trait (6方法) — 海平面/水深/水下检测 | ✅ 完整 |
 | `vegetation.rs` | VegetationProvider trait + PlantCommunitySnapshot + 植被类型枚举 | ✅ 完整 |
 | `lod.rs` | LodPrescription(7×u8) + distance_to_scene_lod/char_lod + LodCoordinator trait | ✅ Sprint-033 新增 |
@@ -240,7 +241,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 ## 三、近期冲刺
 
-**下一个冲刺**: 待定——ECS Phase 0 (1J) / 天气涌现化 / LODCoordinator Phase 2 / 存档系统 LMDB 集成。详见最新交接摘要 `01-核心基础/handoff/handoff-20260705-026.md`。
+**下一个冲刺**: 待定——CHG-065 ECS Systems 实现 / Clipmap 重生成 / SpatialEventBus / 保存接口。详见最新交接摘要 `01-核心基础/handoff/handoff-20260706-031.md`。
 
 **冲刺历史**：
 
@@ -268,6 +269,8 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 ## 四、已知问题追踪
 
+> 🐛 **运行时 bug → [`bugs/INDEX.md`](bugs/INDEX.md)** 为权威源。调试前必须先查 bug 索引。本节仅保留架构偏离（已修复·历史记录）和设计债务。
+
 ### 红色架构偏离（阻塞后续）— 详见 §一 woworld_worldgen
 
 🔴1 DensityField trait · 🔴2 Seed u32 · 🔴3 Chunk 128m · 🔴4 MC vs Transvoxel · 🔴5 单层密度
@@ -288,6 +291,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 - [x] `session-handoff.md` 根目录旧格式清理 + 交接文档集中化 → ✅ 2026-07-01 完成
 - [x] `chunk_manager.rs` 删除 → ✅ Sprint-016 退役
 - [x] 宪法 v2.0（精简版）→ ✅ 2026-07-04 生效
+- [x] Bug 追踪知识库 → ✅ 2026-07-07 — 见 [`bugs/`](bugs/)
 
 ---
 
@@ -295,12 +299,12 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | 文件 | 内容 |
 |------|------|
-| [handoff-20260705-025.md](01-核心基础/handoff/handoff-20260705-025.md) | ★ 最新 — Sprint-033（MC绕序+LODCoordinator+天气Phase1+PBR法线）|
-| [handoff-20260704-024.md](01-核心基础/handoff/handoff-20260704-024.md) | Sprint-031 交接（性能+海洋+VoxelChunk LOD 0）|
-| [handoff-20260704-023.md](01-核心基础/handoff/handoff-20260704-023.md) | Sprint-031 Transvoxel Godot 集成 |
-| [handoff-20260704-022.md](01-核心基础/handoff/handoff-20260704-022.md) | — |
-| [handoff-20260703-021.md](01-核心基础/handoff/handoff-20260703-021.md) | — |
-| [handoff-20260702-020.md](01-核心基础/handoff/handoff-20260702-020.md) | — |
+| [handoff-20260706-031.md](01-核心基础/handoff/handoff-20260706-031.md) | ★ 最新 — Sprint-056/057（PRNG清理+ECS-Godot可视化·21 NPC·341 tests）|
+| [handoff-20260706-030.md](01-核心基础/handoff/handoff-20260706-030.md) | Sprint-043~055（NPC人格·BigFive·行为链·15 Sprints）|
+| [handoff-20260705-029.md](01-核心基础/handoff/handoff-20260705-029.md) | Sprint-034~042（LODCoordinator P2+ECS P0+生命+天气+NPC需求链）|
+| [handoff-20260705-028.md](01-核心基础/handoff/handoff-20260705-028.md) | Sprint-036/037（ECS Phase 1 生命系统）|
+| [handoff-20260705-027.md](01-核心基础/handoff/handoff-20260705-027.md) | Sprint-035（ECS Phase 0 基础设施）|
+| [handoff-20260705-026.md](01-核心基础/handoff/handoff-20260705-026.md) | Sprint-034（LODCoordinator Phase 2 完整8步算法）|
 
 ---
 

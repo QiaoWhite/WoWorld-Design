@@ -43,9 +43,9 @@ ECS 迁移按 6 个 Phase 推进。各 Phase 与 Dev Phase 的映射：
 
 | ECS Phase | 内容 | 状态 | 对应 Dev Phase | 关键交付 |
 |-----------|------|------|---------------|---------|
-| Phase 0 | hecs 基础设施 + 核心 Component + LodCoordinatorSystem | — 待启动 | Phase 1 (1J) | `woworld_ecs` crate, 5 Component, WorldDriver.ecs |
-| Phase 1 | 生命系统（首个完整 ECS 模块） | — 阻塞于 Phase 0 | Phase 1 (1H) | Vitals/Corpse/DeathCause, 5 个生命 System |
-| Phase 2 | NPC 核心（批量 System 迁移） | — 阻塞于 Phase 1 | Phase 3 | NpcCore/Needs/Goal, Handle+Storage 模式 |
+| Phase 0 | hecs 基础设施 + 核心 Component + LodCoordinatorSystem | ✅ 完成（Sprint-035） | Phase 1 (1J) | `woworld_ecs` crate, 35 Components, 20 Systems |
+| Phase 1 | 生命系统（首个完整 ECS 模块） | ✅ 完成（Sprint-036/037） | Phase 1 (1H) | Vitals/Corpse/DeathCause, 6 个生命 System |
+| Phase 2 | NPC 核心（批量 System 迁移） | 🟡 部分完成（Sprint-043~055） | Phase 3 | BigFive/Emotion/Needs/Goal/Movement/Social 等 14+ System |
 | Phase 3 | 社会系统（懒加载·低频） | — 阻塞于 Phase 2 | Phase 3 | 经济/权力/文化/信仰 System |
 | Phase 4 | 交互系统（战斗/魔法/物品/技能） | — 阻塞于 Phase 3 | Phase 3 | CombatState/SpellSlots/InventoryHandle |
 | Phase 5 | 大规模并行 + 性能调优 | — 阻塞于 Phase 4 | Phase 5 | rayon par_iter(), 1000 Entity benchmark |
@@ -54,7 +54,7 @@ ECS 迁移按 6 个 Phase 推进。各 Phase 与 Dev Phase 的映射：
 
 | 模块 | 原因 |
 |------|------|
-| `woworld_worldgen` | 世界生成——纯计算管线，世界级单例 |
+| `woworld_worldgen` | 世界生成——纯计算管线，世界级单例（★ CHG-065: 修改编排层经 `woworld_core::edit_terrain` 桥接 ECS） |
 | `woworld_atmosphere` | 大气合成——纯计算 |
 | Godot UI/UX | GDScript 侧渲染 |
 | Godot 音频渲染 | Godot AudioServer |
@@ -97,7 +97,7 @@ ECS 迁移按 6 个 Phase 推进。各 Phase 与 Dev Phase 的映射：
 | **存档系统** | — 未开始 | SaveableModule trait | 设计完备。LMDB 后端待 Sprint 排期 |
 | **物品系统** | — 未开始 | ItemDefId, ItemEntId | 设计完备。待世界生成地基稳固后启动 |
 | **技能系统** | — 未开始 | SkillId, SkillCategory | 设计完备 |
-| **生命系统** | — 未开始 | EntityId | 设计完备 |
+| **生命系统** | ✅ ECS Phase 1 完成（Sprint-036/037） | EntityId, Vitals, Corpse 等 6 System | 设计完备·代码就位 |
 | **天气与季节** | — 未开始 | WeatherSample | 设计完备。大气模块有存根可对接 |
 
 ---
@@ -160,10 +160,11 @@ ECS 迁移按 6 个 Phase 推进。各 Phase 与 Dev Phase 的映射：
 ## 当前实现路径
 
 ```
-✅ 完成: 层 0 (woworld_core + spatial) — 核心类型 + 空间索引
+✅ 完成: 层 0 (woworld_core + spatial) — 核心类型 + 空间索引 + ★CHG-065 地形修改编排层
 ✅ 已修复: 层 1 世界生成 (5 红色偏离全部修复)
-⏳ 待启动: ECS Phase 0 (hecs 基础设施 + 1J) + 层 1 存档/物品/技能/生命/天气
-🔒 阻塞: 层 2-4（依赖层 1 完成）
+✅ 完成: ECS Phase 0+1+2 (35 Components + 20 Systems + 207 tests) + 生命系统
+⏳ 待启动: 层 1 存档/物品/技能（Sprint-058+） + 天气涌现化
+🔒 阻塞: 层 2-4（依赖层 1 剩余模块完成）
 ```
 
 > **关联**: [CONSTITUTION.md](CONSTITUTION.md) · [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) · [audit-reports/20250625-code-vs-design/](audit-reports/20250625-code-vs-design/README.md)

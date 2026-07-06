@@ -7,16 +7,28 @@ use woworld_core::types::EntityId;
 
 // ── Vitals ────────────────────────────
 
-/// 生命体征——"这个实体还活着"
+/// 生命体征——纯生理状态，"医生能量测什么"。
+///
+/// 行为驱动力（饥饿/口渴/疲劳等）见 [`Needs`](super::needs::Needs)。
+/// hunger/thirst 曾在此重复定义，现已移除——它们归属 Needs Component。
+///
+/// # 字段来源
+/// | 字段 | 来源 |
+/// |------|------|
+/// | hp, max_hp, stamina | 原始设计文档 |
+/// | max_stamina | ★ 恢复——Sprint 中遗漏。物种/职业上限应可配置 |
+/// | spirit | ★ 恢复——DeathCategory::SpiritExhaustion 依赖此字段 |
+/// | body_temp | Sprint 中合理新增，DeathWatch 消费 |
+/// | oxygen | Sprint 中合理新增，预留给溺水/水下探索 |
 #[derive(Debug, Clone, Copy)]
 pub struct Vitals {
     pub hp: f32,
     pub max_hp: f32,
     pub stamina: f32,
-    pub hunger: f32,   // 0=饱腹, 100=饿死
-    pub thirst: f32,   // 0=不渴, 100=渴死
-    pub body_temp: f32, // 摄氏度, 37.0 正常
-    pub oxygen: f32,   // 0=窒息, 100=正常
+    pub max_stamina: f32,
+    pub spirit: f32,     // 0-1, 精神完整度。0=精神崩溃 → DeathCategory::SpiritExhaustion
+    pub body_temp: f32,  // 摄氏度, 37.0 正常
+    pub oxygen: f32,     // 0=窒息, 100=正常
 }
 
 impl Default for Vitals {
@@ -25,8 +37,8 @@ impl Default for Vitals {
             hp: 100.0,
             max_hp: 100.0,
             stamina: 100.0,
-            hunger: 0.0,
-            thirst: 0.0,
+            max_stamina: 100.0,
+            spirit: 1.0,
             body_temp: 37.0,
             oxygen: 100.0,
         }

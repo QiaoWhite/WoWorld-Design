@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_back;
+render_mode cull_back, shadows_disabled;
 
 uniform sampler2D heightmap : filter_linear, repeat_disable;
 uniform sampler2D material_map : filter_linear, repeat_disable;

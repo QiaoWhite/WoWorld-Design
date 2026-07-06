@@ -88,6 +88,121 @@ impl Default for Age {
     }
 }
 
+// ── GompertzMortality ────────────────
+
+/// Gompertz 衰老死亡模型——追踪 NPC 的衰老死亡风险。
+///
+/// 参见: `开发阶段/NPC活人感模块/07-生命周期系统/007-死亡与死后.md` §二
+///
+/// # 种族无关设计
+///
+/// 所有计算基于 `age_pct = age_days / max_lifespan_days`——不同物种
+/// 的绝对寿命差异自动归一化。长命种族（精灵 300 年）和短命种族
+/// （人类 70 年）使用相同的 Gompertz 参数，因为年龄已经相对化。
+/// 未来可通过 per-species `b`（GOMPERTZ_ALPHA）参数支持不同
+/// 衰老加速度（如精灵衰老更平缓）。
+///
+/// # 字段
+/// | 字段 | 说明 |
+/// |------|------|
+/// | base_risk | 基准风险（从 constitution + health_history 计算） |
+/// | current_risk | 最近一次月度检查的计算风险 |
+/// | last_check_age_days | 上次月度检查时的 age_days，用于判断是否到下一个检查点 |
+/// | constitution | 体质 0.0-1.0，越低风险越高（1.5 - constitution 项） |
+/// | health_history | 一生中重大伤病累积分 0.0+ |
+///
+/// # 内存
+/// 20 bytes = 5 × f32
+#[derive(Debug, Clone, Copy)]
+pub struct GompertzMortality {
+    pub base_risk: f32,
+    pub current_risk: f32,
+    pub last_check_age_days: f32,
+    /// 体质 0.0-1.0。从 BigFive + 物种基线派生（当前从 seed 随机）
+    pub constitution: f32,
+    /// 一生中重大伤病累计次数。每次重病/重伤 +1.0
+    pub health_history: f32,
+}
+
+impl Default for GompertzMortality {
+    fn default() -> Self {
+        Self {
+            base_risk: 0.0,
+            current_risk: 0.0,
+            last_check_age_days: 0.0,
+            constitution: 0.5, // 默认中等体质
+            health_history: 0.0,
+        }
+    }
+}
+
+/// Gompertz 衰老生存概率——闭式积分。
+///
+/// 参见: `开发阶段/NPC活人感模块/07-生命周期系统/007-死亡与死后.md` §二
+///
+/// # 参数
+/// - `age_pct`: 时间段**开始**时的年龄占比 (0.0-1.5)
+/// - `delta_pct`: 此时间段内 age_pct 的增量
+/// - `constitution`: 体质 (0.0-1.0)
+/// - `health_history`: 一生中重大伤病累积分 (0.0+)
+///
+/// # 返回
+/// 此时间段内存活的概率 (0.0-1.0)
+///
+/// # 公式
+/// ```text
+/// h(t) = a × exp(b × t)    — Gompertz 危险率
+/// a = GOMPERTZ_BASE_A × (1.5 - constitution) × (1.0 + health_history)
+/// b = 6.0 (GOMPERTZ_ALPHA)
+/// S(t, t+dt) = exp(-∫a×exp(b×s) ds) = exp(-(a/b) × (exp(b×(t+dt)) - exp(b×t)))
+/// ```
+///
+/// # 物种差异
+/// 所有时间以 `age_pct`（占本物种 max_lifespan 比例）计——公式与
+/// 绝对寿命无关。30 年寿命的生物在 21 岁（70%）和 300 年寿命的
+/// 生物在 210 岁（70%）面对相同的 Gompertz 曲线。
+pub fn senescence_survival(
+    age_pct: f32,
+    delta_pct: f32,
+    constitution: f32,
+    health_history: f32,
+) -> f32 {
+    // 70% 寿命前无衰老死亡风险
+    if age_pct < 0.7 {
+        return 1.0;
+    }
+
+    let t = age_pct - 0.7;
+    let dt = delta_pct.min(1.5 - t.max(0.0));
+    if dt <= 0.0 {
+        return 1.0;
+    }
+
+    let a = GOMPERTZ_BASE_A * (1.5 - constitution) * (1.0 + health_history);
+    let b = GOMPERTZ_ALPHA;
+
+    // ∫ a×exp(b×s) ds = (a/b) × (exp(b×(t+dt)) - exp(b×t))
+    let integral = (a / b) * ((b * (t + dt)).exp() - (b * t).exp());
+    (-integral).exp().clamp(0.0, 1.0)
+}
+
+/// 每月天数（Gompertz 检查间隔）
+pub const GOMPERTZ_CHECK_INTERVAL_DAYS: f32 = 30.0;
+
+/// Gompertz 基线乘数——控制整条曲线的绝对高度。
+///
+/// 体质 0.5、无病史 → a = 50.0 → 70%寿命月死亡~5-6%，100%寿命~30%。
+/// 未来可升级为 per-species 参数（精灵衰减更平缓 → 更小的值）。
+pub const GOMPERTZ_BASE_A: f32 = 50.0;
+
+/// Gompertz 衰老加速度——死亡率随年龄翻倍的速度。
+///
+/// b=6.0 为标准人类参数：t 每增加 ~0.12（约 8 人类年）死亡率翻倍。
+/// 短命种族可用更大的 b（如地精 b=10），长命种族可用更小的 b（如精灵 b=3）。
+pub const GOMPERTZ_ALPHA: f32 = 6.0;
+
+// ── elder_decay_multiplier ────────────
+
 /// 老年衰减乘数——MiddleAge 后 sigmoid 下降
 ///
 /// 公式来源: `07-生命周期系统/006-老年与衰退.md` §elder_attribute_multiplier
@@ -228,5 +343,108 @@ mod tests {
             assert!(m <= prev, "not monotonic at {pct}: {m} > {prev}");
             prev = m;
         }
+    }
+
+    // ── Gompertz senescence_survival tests ──
+
+    #[test]
+    fn test_senescence_survival_below_70_pct() {
+        // 70% 寿命前无衰老风险
+        assert!(
+            (senescence_survival(0.5, 0.01, 0.5, 0.0) - 1.0).abs() < f32::EPSILON
+        );
+        assert!(
+            (senescence_survival(0.69, 0.01, 0.5, 0.0) - 1.0).abs() < f32::EPSILON
+        );
+    }
+
+    #[test]
+    fn test_senescence_survival_at_70_pct() {
+        // 刚好 70%——风险初现，月存活率仍很高（~95%）
+        let s = senescence_survival(0.70, 0.001, 0.5, 0.0);
+        assert!(s > 0.90, "survival at 70% with small dt should be >0.90, got {s}");
+    }
+
+    #[test]
+    fn test_senescence_survival_declines_with_age() {
+        // 越老存活率越低
+        let s_young = senescence_survival(0.75, 0.01, 0.5, 0.0);
+        let s_old = senescence_survival(0.95, 0.01, 0.5, 0.0);
+        assert!(s_young > s_old, "younger should have higher survival");
+    }
+
+    #[test]
+    fn test_senescence_survival_at_max_lifespan() {
+        // max 年龄——月度存活率 ~70%（对应 ~30% 月死亡率，~98% 年死亡率）
+        let delta_monthly = 30.0 / (70.0 * 360.0); // ~0.00119
+        let s = senescence_survival(1.0, delta_monthly, 0.5, 0.0);
+        assert!(s < 0.80, "monthly survival at max lifespan should be <0.80, got {s}");
+        assert!(s > 0.50, "should not be certain death in a single month, got {s}");
+    }
+
+    #[test]
+    fn test_senescence_low_constitution_higher_risk() {
+        // 低体质 → 更高死亡率
+        let s_low_con = senescence_survival(0.85, 0.002, 0.2, 0.0);
+        let s_high_con = senescence_survival(0.85, 0.002, 0.8, 0.0);
+        assert!(s_low_con < s_high_con, "low constitution should mean lower survival");
+    }
+
+    #[test]
+    fn test_senescence_health_history_increases_risk() {
+        // 有病史 → 更高死亡率
+        let s_clean = senescence_survival(0.85, 0.002, 0.5, 0.0);
+        let s_burdened = senescence_survival(0.85, 0.002, 0.5, 2.0);
+        assert!(s_burdened < s_clean, "health history should lower survival");
+    }
+
+    #[test]
+    fn test_senescence_survival_zero_delta() {
+        // 零时间增量 → 100% 存活
+        assert!(
+            (senescence_survival(0.85, 0.0, 0.5, 0.0) - 1.0).abs() < f32::EPSILON
+        );
+    }
+
+    #[test]
+    fn test_senescence_survival_clamped() {
+        // 结果在 [0, 1] 范围内
+        for age_pct in [0.7, 0.8, 0.9, 1.0, 1.2, 1.5] {
+            let s = senescence_survival(age_pct, 0.01, 0.1, 5.0);
+            assert!(s >= 0.0 && s <= 1.0, "survival {s} out of [0,1] at age_pct={age_pct}");
+        }
+    }
+
+    #[test]
+    fn test_senescence_survival_over_long_period() {
+        // 长时间段 → 更低存活率
+        let s_short = senescence_survival(0.85, 0.001, 0.5, 0.0);
+        let s_long = senescence_survival(0.85, 0.01, 0.5, 0.0);
+        assert!(s_long < s_short, "longer period should have lower survival");
+    }
+
+    #[test]
+    fn test_gompertz_mortality_default() {
+        let gm = GompertzMortality::default();
+        assert_eq!(gm.base_risk, 0.0);
+        assert_eq!(gm.current_risk, 0.0);
+        assert_eq!(gm.last_check_age_days, 0.0);
+        assert_eq!(gm.constitution, 0.5);
+        assert_eq!(gm.health_history, 0.0);
+    }
+
+    /// 验证公式——age_pct=0.95, 月度检查, 中等体质。
+    /// GOMPERTZ_BASE_A=50, b=6.0 → ~23% 月死亡率 → ~77% 存活率
+    #[test]
+    fn test_senescence_doc_example_095() {
+        // 人类 70 年寿命, 30 天 = 30/(70*360) ≈ 0.00119 delta_pct
+        let delta_monthly = 30.0 / (70.0 * 360.0);
+        let s = senescence_survival(0.95, delta_monthly, 0.5, 0.0);
+        // 23.5% 月死亡概率 → 76.5% 存活率
+        let expected = 0.765;
+        assert!(
+            (s - expected).abs() < 0.01,
+            "expected ~{expected} survival at 0.95, got {s}"
+        );
     }
 }

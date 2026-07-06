@@ -1250,7 +1250,7 @@ impl WorldDriver {
         use woworld_ecs::components::gender::BiologicalSex;
         use woworld_ecs::components::goal::Goal;
         use woworld_ecs::components::growth::GrowthNeeds;
-        use woworld_ecs::components::lifecycle::{Age, LifeStage};
+        use woworld_ecs::components::lifecycle::{Age, GompertzMortality, LifeStage};
         use woworld_ecs::components::movement::Movement;
         use woworld_ecs::components::needs::Needs;
         use woworld_ecs::components::social::SocialPresence;
@@ -1284,6 +1284,15 @@ impl WorldDriver {
         let age = Age::new(max_lifespan, age_years);
         let life_stage = LifeStage::from_age_ratio(age.age_ratio());
 
+        // 6.5 Gompertz 衰老模型——体质从 seed 派生（0.3-0.8）
+        let constitution = 0.3 + pseudo_random_f32_range(seed, 200, 0.0, 0.5);
+        let gmort = GompertzMortality {
+            last_check_age_days: age.age_days,
+            constitution,
+            health_history: 0.0,
+            ..GompertzMortality::default()
+        };
+
         // 7. 分步插入 Component（hecs 平面元组 ≤16 上限）
         let entity = self.ecs.spawn((
             Position(position),
@@ -1300,7 +1309,7 @@ impl WorldDriver {
             age,
             life_stage,
         ));
-        // 第二批：Vitals + Movement + Needs + Emotion + Goal + GrowthNeeds
+        // 第二批：Vitals + Movement + Needs + Emotion + Goal + GrowthNeeds + Gompertz
         self.ecs.insert(
             entity,
             (
@@ -1311,6 +1320,7 @@ impl WorldDriver {
                 emotion,
                 Goal::default(),
                 GrowthNeeds::default(),
+                gmort,
             ),
         ).expect("NPC entity should exist after spawn");
         entity

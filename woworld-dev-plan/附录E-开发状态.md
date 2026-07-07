@@ -18,12 +18,12 @@
 | 有代码的模块 | **7 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、**地形修改编排层**） |
 | 零代码的模块 | **22 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **578 tests 全绿** (core: 181 + worldgen: 58 + atmosphere: 26 + ecs: 313 + godot: 0), cargo clippy 零警告 |
-| ECS 架构 | **Phase 0/1/2 ✅ + Phase 3 社会 Phase 1 ✅** — 39 Components + 25 Systems + 313 tests。四大社会系统 Phase 1 就位。 |
-| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 8 层 CHG-049 对齐（0.5m-64m, 15km 视野）+ Signed Heightfield (LOD 5-7) + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 |
-| 当前冲刺 | Sprint-058 + 社会系统 Phase 1 完成（文化/经济/信仰/权力·578 tests）→ 下一步：物品系统/可视化/社会 Phase 2 |
+| Rust workspace | 5 crates, **624 tests 全绿** (core: 195 + worldgen: 58 + atmosphere: 26 + ecs: 345 + godot: 0), cargo clippy 零警告 |
+| ECS 架构 | **Phase 0/1/2 ✅ + Phase 3 社会/物品/经济 Phase 2 ✅** — 40 Components + 27 Systems + 624 tests。社会×4 + 物品 Phase 1 + 经济 Phase 2 就位。 |
+| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 8 层 CHG-049 对齐（0.5m-64m, 15km 视野）+ Signed Heightfield (LOD 5-7) + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + **经济循环接入** |
+| 当前冲刺 | 物品 Phase 1 + 经济 Phase 2 完成（624 tests）→ 下一步：社会 Phase 3 / 物品 Phase 2 / 可视化 / 对话 |
 | 最新 CHG | CHG-065（2026-07-06）— 地形修改编排层 ~800行代码 + 50 tests · 内核不转ECS编排层入ECS |
-| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260707-social]]（2026-07-07 晚间·社会系统×4·三轮审计·578 tests） |
+| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260707-items-economy]]（2026-07-07 深夜·物品 Phase 1+经济 Phase 2·两轮审计·624 tests） |
 
 ---
 
@@ -50,7 +50,7 @@
 | Phase 0 | hecs 基础设施 + 核心 Component + LodCoordinatorSystem | ✅ Sprint-035 完成 | Phase 1 (1J) | `woworld_ecs` crate, 5 Component, WorldDriver.ecs 字段 |
 | Phase 1 | 生命系统（首个完整 ECS 模块） | 🟢 Sprint-036+037 完成 | Phase 1 (1H) | 完整生命周期：Vitals→死亡→掉落→腐败→消失+再生 |
 | Phase 2 | NPC 核心（批量 System 迁移） | ✅ Sprint-043~057 完成 | Phase 3 (P3) | 35 Components + 20 Systems: BigFive/Emotion/Needs/Movement/Social/Goal/Cognitive/ActionWeight/Lifecycle/Gender/Aesthetic/Biases/Circadian + 207 tests |
-| Phase 3 | 社会系统（懒加载·低频） | ✅ Phase 1 完成 | Phase 3 | Culture/Economy/Faith/Power 核心类型+Query trait+Registry+SeedSystem (4/4) |
+| Phase 3 | 社会系统（懒加载·低频）+ 物品 + 经济 | ✅ Phase 1/2 完成 | Phase 3 | 社会×4(Culture/Economy/Faith/Power) Phase 1 + 物品 Phase 1(ItemCategory/Registry/TOML) + 经济 Phase 2(Market/OrderBook/撮合/需求驱动订单/Pareto钱包/物品持有) |
 | Phase 4 | 交互系统（战斗/魔法/物品/技能） | — 阻塞于 Phase 3 | Phase 3 | CombatState/SpellSlots/InventoryHandle |
 | Phase 5 | 大规模并行 + 性能调优 | — 阻塞于 Phase 4 | Phase 5 | rayon par_iter(), 1000 Entity benchmark |
 
@@ -203,7 +203,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | 模块 | Phase | 等级 | 代码 | 备注 |
 |------|-------|------|------|------|
-| 经济系统 | P3 | 🟢 Phase 1 | Wallet+EconomicCognition+10行为经济学+EconomyQuery | v1.0。Phase 1 完成 (63 tests)。延后: 订单簿/交易 |
+| 经济系统 | P3 | 🟢 Phase 2 | Market/OrderBook撮合+Pareto钱包+需求驱动订单+物品持有+交易执行+EMA价格 | v1.0。Phase 2 完成（624 tests）。延后: 市场监管/货币管道/借贷 |
 | 权力系统 | P3 | 🟢 Phase 1 | PowerAtom(17)+PowerSource(8)+Legitimacy(5因子)+PowerQuery | v1.0。Phase 1 完成 (18 tests)。延后: PowerTopology |
 | 文化系统 | P3 | 🟢 Phase 1 | CultureCoreParams(10)+6推导类型+CultureQuery | v1.0。Phase 1 完成 (99 tests)。延后: 空间模型/演化 |
 | 信仰系统 | P3 | 🟢 Phase 1 | FaithTheology(10)+ReligiousMotivation(9)+FaithQuery | v1.0。Phase 1 完成 (36 tests)。延后: 传播/节日 |
@@ -214,7 +214,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 |------|-------|------|------|------|
 | 战斗 | P3 | 🟡 就绪 | — | 三层模型(本能→节奏→战略)/半自动 |
 | **魔法** | P3(冻结) | **🔴 冻结** | — | **零性能预算 — 预算建立前不可编码** |
-| 物品系统 | P1 | 🟡 就绪 | — | ItemDefId/Assembly/Enchantment/CraftingRecipe |
+| 物品系统 | P1 | 🟢 Phase 1 | ItemCategory(44)+ItemProperties(28)+ItemRegistry+TOML+ItemQuery trait | v1.0。Phase 1 完成（+33 tests）。延后: Assembly/装备/背包/附魔 |
 | 技能系统 | P1 | 🟡 就绪 | — | SkillId(5分类)/XP公式/天赋三层/教学四路径 |
 | 语言表达 | P4 | 🟡 就绪 | — | ExpressionRef/Conversation/信息传播 5 通道 |
 | 模型动作与物理 | P4 | 🟡 就绪 | — | 9 层动画栈/四 trait/5 子模块 |

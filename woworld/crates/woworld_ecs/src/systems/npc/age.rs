@@ -6,9 +6,10 @@
 use hecs::CommandBuffer;
 
 use crate::components::lifecycle::{
-    senescence_survival, Age, GompertzMortality, LifeStage, GOMPERTZ_CHECK_INTERVAL_DAYS,
+    sample_senescence_cause, senescence_survival, Age, GompertzMortality, LifeStage,
+    GOMPERTZ_CHECK_INTERVAL_DAYS,
 };
-use crate::components::vitals::Vitals;
+use crate::components::vitals::{DeathCategory, DeathCause, Vitals};
 
 /// 年龄推进——跨越阶段边界时触发 LifeStage 切换。
 /// 对 age_pct >= 0.7 的实体执行 Gompertz 月度死亡判定。
@@ -73,11 +74,24 @@ pub fn age_system(world: &mut hecs::World, _cmd: &mut CommandBuffer, dt_days: f3
         gmort.base_risk = gmort.current_risk; // Phase 2: 从 constitution 独立计算
 
         // 死亡判定：用确定性伪随机（基于 entity age 避免每帧重试同一实体）
-        // 每个检查周期只有一次判定机会
         let roll = pseudo_random_for_gompertz(age.age_days, age.max_lifespan_days);
         if roll > survival {
-            // Gompertz 衰老死亡——将 hp 归零，下一帧 DeathWatchSystem 接管
+            // Gompertz 衰老死亡——hp 归零 + 插入精确死因
             vitals.hp = 0.0;
+            // 第二个随机值用于抽样具体死因（与死亡判定独立）
+            let cause_random = pseudo_random_for_gompertz(
+                age.age_days + 1.0,
+                age.max_lifespan_days,
+            );
+            let specific = sample_senescence_cause(age.age_ratio(), cause_random);
+            _cmd.insert_one(
+                _entity,
+                DeathCause {
+                    category: DeathCategory::Senescence,
+                    specific,
+                    source_entity: None,
+                },
+            );
         }
     }
 }

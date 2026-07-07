@@ -1033,26 +1033,6 @@ impl INode3D for WorldDriver {
             }
         }
 
-        // ── 地形跟随: NPC 移动后 Y 锁定到地形高度 ──
-        // Phase 1 临时方案: 每帧硬钳制 Y → 地表。Phase 2 应为 terrain-aware movement。
-        // mesh 向上偏移在 EntityRenderer::create_npc_node 中处理。
-        {
-            use woworld_ecs::components::entity_kind::EntityKind;
-            use woworld_ecs::components::transform::Position;
-            for (_entity, (pos, kind)) in
-                self.ecs.query::<(&mut Position, &EntityKind)>().iter()
-            {
-                if matches!(*kind, EntityKind::Creature) {
-                    let terrain_y = self.terrain.height_at(WorldPos {
-                        x: pos.0.x as f64,
-                        y: 0.0,
-                        z: pos.0.z as f64,
-                    });
-                    pos.0.y = terrain_y;
-                }
-            }
-        }
-
         // ── ECS → Godot 视觉同步（每帧，ECS tick 之后）──
         if let Some(ref mut renderer) = self.entity_renderer {
             renderer.sync(&self.ecs);
@@ -1195,12 +1175,12 @@ impl WorldDriver {
             regen::regen_system(&mut self.ecs);
             emotion_drift_system(&mut self.ecs, delta as f32);
             physiological_pull_system(&mut self.ecs);
-            social_system(&mut self.ecs, delta as f32);
+            social_system(&mut self.ecs, delta as f32, self.frame_count);
 
             // ── Block A2: movement_system (&mut World + active cmd) ──
             {
                 let mut move_cmd = CommandBuffer::new();
-                movement_system(&mut self.ecs, &mut move_cmd, delta as f32, self.frame_count);
+                movement_system(&mut self.ecs, &mut move_cmd, delta as f32, self.frame_count, &self.terrain);
                 move_cmd.run_on(&mut self.ecs);
             }
 
@@ -1253,7 +1233,7 @@ impl WorldDriver {
         use woworld_ecs::components::lifecycle::{Age, GompertzMortality, LifeStage};
         use woworld_ecs::components::movement::Movement;
         use woworld_ecs::components::needs::Needs;
-        use woworld_ecs::components::social::SocialPresence;
+        use woworld_ecs::components::social::{Relationships, SocialPresence};
         use woworld_ecs::components::transform::Position;
         use woworld_ecs::components::vitals::{RegenState, Vitals};
         use woworld_ecs::prelude::{EntityKind, LodLevel};
@@ -1309,7 +1289,7 @@ impl WorldDriver {
             age,
             life_stage,
         ));
-        // 第二批：Vitals + Movement + Needs + Emotion + Goal + GrowthNeeds + Gompertz
+        // 第二批：Vitals + Movement + Needs + Emotion + Goal + GrowthNeeds + Gompertz + Relationships
         self.ecs.insert(
             entity,
             (
@@ -1321,6 +1301,7 @@ impl WorldDriver {
                 Goal::default(),
                 GrowthNeeds::default(),
                 gmort,
+                Relationships::default(),
             ),
         ).expect("NPC entity should exist after spawn");
         entity

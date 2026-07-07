@@ -19,9 +19,14 @@ pub fn death_watch_system(world: &hecs::World, cmd: &mut CommandBuffer, current_
             continue;
         }
 
-        // 构造死亡原因（Phase 1 默认衰老——Phase 2 战斗 System 设置精确死因）
-        // ⚠️ DeathCause 当前无消费者——Sprint 042+ 感官/调查 System 接入后消费
-        let death_cause = DeathCause::default();
+        // 检查是否已有精确死因（Gompertz 等 System 已设置）
+        let has_death_cause = world.get::<&DeathCause>(entity).is_ok();
+
+        // 仅当没有已有死因时才用默认值（衰老·通用）
+        if !has_death_cause {
+            let death_cause = DeathCause::default();
+            cmd.insert_one(entity, death_cause);
+        }
 
         // 构造尸体
         let corpse = Corpse {
@@ -33,7 +38,6 @@ pub fn death_watch_system(world: &hecs::World, cmd: &mut CommandBuffer, current_
         cmd.remove_one::<Vitals>(entity);
         cmd.insert_one(entity, corpse);
         cmd.insert_one(entity, PendingLoot);
-        cmd.insert_one(entity, death_cause);
 
         // 如果实体有 EntityKind，保留它——LootRoll 需要
         // （EntityKind 不受影响，因为我们只 remove Vitals）

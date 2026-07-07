@@ -201,6 +201,49 @@ pub const GOMPERTZ_BASE_A: f32 = 50.0;
 /// 短命种族可用更大的 b（如地精 b=10），长命种族可用更小的 b（如精灵 b=3）。
 pub const GOMPERTZ_ALPHA: f32 = 6.0;
 
+// ── 衰老死因抽样 ─────────────────────
+
+/// 衰老死因细分码——编码在 `DeathCause.specific` 中。
+///
+/// 参见: `开发阶段/NPC活人感模块/07-生命周期系统/007-死亡与死后.md` §二.4
+pub mod senescence_cause {
+    /// 老死/无疾而终——"安详地在睡梦中离去"
+    pub const OLD_AGE: u8 = 0;
+    /// 器官衰竭——心力衰竭/肾衰竭等具体器官渐停
+    pub const ORGAN_FAILURE: u8 = 1;
+    /// 精魄衰退——精魄自然耗散至临界以下
+    pub const SPIRIT_DECLINE: u8 = 2;
+    /// 衰老触发的疾病——年轻人能扛过去的病，老人扛不过
+    pub const DISEASE: u8 = 3;
+}
+
+/// 按年龄占比抽样衰老死因——年龄越高，"老死"比例越大。
+///
+/// 参见: `007-死亡与死后.md` §二.4 — `sample_senescence_cause()`
+///
+/// `random`: [0, 1) 的伪随机值——调用者负责提供确定性种子
+pub fn sample_senescence_cause(age_pct: f32, random: f32) -> u8 {
+    if age_pct < 0.95 {
+        // 更多人死于具体器官衰竭或疾病
+        if random < 0.5 {
+            senescence_cause::ORGAN_FAILURE
+        } else if random < 0.8 {
+            senescence_cause::DISEASE
+        } else {
+            senescence_cause::OLD_AGE
+        }
+    } else {
+        // 超高龄——"无疾而终"/"老死"比例更高
+        if random < 0.7 {
+            senescence_cause::OLD_AGE
+        } else if random < 0.9 {
+            senescence_cause::ORGAN_FAILURE
+        } else {
+            senescence_cause::SPIRIT_DECLINE
+        }
+    }
+}
+
 // ── elder_decay_multiplier ────────────
 
 /// 老年衰减乘数——MiddleAge 后 sigmoid 下降
@@ -431,6 +474,34 @@ mod tests {
         assert_eq!(gm.last_check_age_days, 0.0);
         assert_eq!(gm.constitution, 0.5);
         assert_eq!(gm.health_history, 0.0);
+    }
+
+    // ── senescence cause sampling tests ──
+
+    #[test]
+    fn test_sample_cause_old_age_dominates_after_095() {
+        // age_pct >= 0.95: OLD_AGE 70%, ORGAN_FAILURE 20%, SPIRIT_DECLINE 10%
+        let cause = sample_senescence_cause(0.97, 0.5); // random=0.5 → OLD_AGE (0.0-0.7)
+        assert_eq!(cause, senescence_cause::OLD_AGE);
+    }
+
+    #[test]
+    fn test_sample_cause_organ_failure_below_095() {
+        // age_pct < 0.95: ORGAN_FAILURE 50%, DISEASE 30%, OLD_AGE 20%
+        let cause = sample_senescence_cause(0.85, 0.3); // random=0.3 → ORGAN_FAILURE (0.0-0.5)
+        assert_eq!(cause, senescence_cause::ORGAN_FAILURE);
+    }
+
+    #[test]
+    fn test_sample_cause_disease_below_095() {
+        let cause = sample_senescence_cause(0.80, 0.6); // random=0.6 → DISEASE (0.5-0.8)
+        assert_eq!(cause, senescence_cause::DISEASE);
+    }
+
+    #[test]
+    fn test_sample_cause_spirit_decline_above_095() {
+        let cause = sample_senescence_cause(0.99, 0.95); // random=0.95 → SPIRIT_DECLINE (0.9-1.0)
+        assert_eq!(cause, senescence_cause::SPIRIT_DECLINE);
     }
 
     /// 验证公式——age_pct=0.95, 月度检查, 中等体质。

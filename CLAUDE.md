@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **设计→编码过渡中**：技术方案历经 001→015（v1.0）→016（v2.0）→018（v3.0）→**v4.0（当前权威，经技术栈全量审计升级）** 演进。开发路线图已启动——设计文档与代码脚手架并存。路线图功能由 `附录D-模块依赖图.md` + `附录E-开发状态.md` + 冲刺提案共同承担（旧四轨计划已于 2026-06-25 归档）。
 
-> ⚠️ **重要说明**：WoWorld 处于**设计+编码并行阶段**。设计文档中的伪代码和数据结构示例用于阐明设计理念，实际 Rust 实现可能根据工程发现重构。`woworld/` 已进入**轨A·MC体素+Clipmap LOD+海洋**——5 crate workspace（含 `woworld_ecs`·35 Components+20 Systems+207 tests），核心类型/trait/世界生成(MC+Clipmap+LOD)/大气氛围/海洋渲染/Godot 桥接全部就位。
+> ⚠️ **重要说明**：WoWorld 处于**设计+编码并行阶段**。设计文档中的伪代码和数据结构示例用于阐明设计理念，实际 Rust 实现可能根据工程发现重构。`woworld/` 已进入**轨A·MC体素+Clipmap LOD+海洋**——5 crate workspace（含 `woworld_ecs`·37 Components+21 Systems+247 tests），核心类型/trait/世界生成(MC+Clipmap+LOD)/大气氛围/海洋渲染/Godot 桥接全部就位。
 >
 > **仓库构成**：设计文档（`WoWorld-Design/`）+ Rust workspace（`woworld/`）+ 开发治理（`woworld-dev-plan/`）。设计文档用 **Obsidian** 编辑（`[[wikilink]]` 导航），Rust 代码用标准 Cargo 工具链。
 
@@ -52,8 +52,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **写/读 Rust 代码** | `woworld/` — workspace 结构见下方「代码架构」 |
 | **构建项目** | `cd woworld && cargo build --workspace` |
 | **启动 Godot 编辑器** | `tools/godot/Godot_v4.7-stable_win64.exe woworld/godot/project.godot` |
-| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-07.md` (上半场: 开发文档审计·12问题→11任务 + 下半场: 地形修改编排层 CHG-065·文档保鲜全量修复·341 tests) |
-| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260706-031.md` (ECS-Godot 可视化·21 NPC + CHG-065 讨论) |
+| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-07.md` (全天 9 场: 审计→CHG-065→Bug追踪→阴影→群系→Gompertz→社交→移动→审计修复·381 tests) |
+| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260707.md` (4 commits·381 tests·下一步建议) |
 | **🐛 查已知 bug/陷阱** | `woworld-dev-plan/bugs/INDEX.md` — 调试前必须先查 |
 
 ## 文档结构
@@ -86,7 +86,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 近期关键变更：**CHG-053**（Godot 4.7·12子系统）→ **CHG-054**（世界生成 v2.1）→ **CHG-055/056**（存档系统 v1.0→v2.0）→ **CHG-057**（NPC认知 v1.1·PatternExpression数学地基）→ **CHG-058**（NPC认知系统自审修正）→ **CHG-059**（NPC认知v1.1全模块传播审计）→ **CHG-060**（开发路线图优化·四轨重定义·孤儿接口修复）→ **CHG-061**（轨C孤儿接口修复·CHG-063前置）→ **CHG-062**（UI与UX系统创建）→ **CHG-063**（玩家系统新建·6篇~1,448行·28-玩家系统登记）→ **CHG-065**（地形修改编排层·~800行代码+50测试·内核不转ECS编排层入ECS）。
 
-近期冲刺：**Sprint 031**（性能优化3轮+海洋视觉+VoxelChunk LOD 0替换）→ **Sprint 032**（VoxelChunk LOD 0 7轮修复·MC绕序+统一wy+biome材质）→ **Sprint 033**（LODCoordinator Phase1+天气Phase1+PBR法线修复·84测试）→ **Sprint 035-057**（ECS Phase 0-2·生命系统·NPC人格·BigFive·行为链·ECS-Godot可视化·21 NPC可见·341 tests）。
+近期冲刺：**Sprint 031-033**（性能优化+LOD+天气+PBR法线）→ **Sprint 035-057**（ECS Phase 0-2·生命·NPC人格·BigFive·行为链·Godot可视化·21 NPC）→ **Sprint 058**（Gompertz死亡·社交深度·地形移动·审计修复·381 tests）。
 
 **`WoWorld-Design/Change/hand/`** — 用户直接设计反馈。修改涉及的设计决策时，需检查此目录是否有相关意见。
 

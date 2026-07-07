@@ -2,7 +2,7 @@
 
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-07-06
+> **最后更新**: 2026-07-07
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `附录D-模块依赖图.md` · `../CLAUDE-INTERFACES.md`
 
@@ -18,11 +18,12 @@
 | 有代码的模块 | **7 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、**地形修改编排层**） |
 | 零代码的模块 | **22 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **341 tests 全绿** (core: 50 + worldgen: 58 + atmosphere: 26 + ecs: 207 + godot: 0), cargo clippy 零警告 |
+| Rust workspace | 5 crates, **381 tests 全绿** (core: 50 + worldgen: 58 + atmosphere: 26 + ecs: 247 + godot: 0), cargo clippy 零警告 |
 | ECS 架构 | **Phase 0 ✅ + Phase 1 ✅ + Phase 2 (NPC) ✅** — hecs 0.10 就位，`woworld_ecs` crate：35 Components + 20 Systems + 207 tests。15/15 Systems 接入 Godot 主循环，21 NPC 可视化。 |
 | Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 8 层 CHG-049 对齐（0.5m-64m, 15km 视野）+ Signed Heightfield (LOD 5-7) + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 |
-| 当前冲刺 | Sprint-057 完成（ECS-Godot 可视化·21 NPC 可见·PRNG 清理·341 tests）→ 下一步待定 |
+| 当前冲刺 | Sprint-058 完成（Gompertz 死亡 + 社交深度 + 地形移动 + 审计修复·381 tests）→ 下一步待定 |
 | 最新 CHG | CHG-065（2026-07-06）— 地形修改编排层 ~800行代码 + 50 tests · 内核不转ECS编排层入ECS |
+| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260707]]（2026-07-07 全天·4 commits·381 tests） |
 
 ---
 

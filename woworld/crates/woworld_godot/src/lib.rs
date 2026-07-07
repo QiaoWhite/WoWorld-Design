@@ -5,6 +5,7 @@
 //!
 //! 参见 godot-rust 文档: https://godot-rust.github.io/book/
 
+pub mod debug_console;
 mod entity_renderer;
 mod ocean;
 mod terrain_chunk;

@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "WoWorld-Design/Change/hand/0-提示词考量角度.md",
+                "file": "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/007-调试可视化与EntityRenderer架构.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "0-提示词考量角度"
+              "title": "007-调试可视化与EntityRenderer架构"
             }
           }
         ],
@@ -109,7 +109,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "CLAUDE.md",
+                "file": "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/007-调试可视化与EntityRenderer架构.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -119,7 +119,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "CLAUDE 的反向链接列表"
+              "title": "007-调试可视化与EntityRenderer架构 的反向链接列表"
             }
           },
           {
@@ -128,12 +128,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "CLAUDE.md",
+                "file": "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/007-调试可视化与EntityRenderer架构.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "CLAUDE 的出链列表"
+              "title": "007-调试可视化与EntityRenderer架构 的出链列表"
             }
           },
           {
@@ -180,11 +180,12 @@
               "title": "CLAUDE 的大纲"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "horizontal",
-    "width": 300,
+    "width": 200,
     "collapsed": true
   },
   "left-ribbon": {
@@ -200,19 +201,28 @@
   },
   "active": "a975d58bb0c46398",
   "lastOpenFiles": [
-    "woworld-dev-plan/附录E-开发状态.md.tmp.35772.bdabc90cfad7",
-    "CLAUDE.md.tmp.35772.ded53a426fc0",
-    "CLAUDE.md.tmp.35772.530f36514eea",
-    "CLAUDE.md.tmp.35772.dd187891dda9",
-    "CLAUDE.md.tmp.35772.020b6c2ad6da",
-    "CLAUDE.md.tmp.35772.4b56d7f03567",
-    "CLAUDE.md.tmp.35772.cde43af8afa9",
+    "CLAUDE.md.tmp.35772.38af68ac2cf5",
+    "woworld-dev-plan/01-核心基础/handoff/handoff-20260708-evening.md.tmp.35772.ad7811eacaed",
+    "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-08-evening.md.tmp.35772.af728ed12493",
+    "woworld/target/debug/~woworld__0.pdb",
+    "woworld/target/debug/~woworld_godot.dll",
+    "woworld/target/debug/incremental/woworld_godot-3k22w0on7ah9y/s-hk6hifmuzc-10ekerg-9hmhieg76f61bv0ujtmz4pkpj/work-products.bin",
+    "woworld/target/debug/incremental/woworld_godot-3k22w0on7ah9y/s-hk6hifmuzc-10ekerg-9hmhieg76f61bv0ujtmz4pkpj/query-cache.bin",
+    "woworld/target/debug/incremental/woworld_godot-3k22w0on7ah9y/s-hk6hifmuzc-10ekerg-9hmhieg76f61bv0ujtmz4pkpj/f3jdzdcib0hqofp2xlm8nw0um.o",
+    "woworld/target/debug/incremental/woworld_godot-3k22w0on7ah9y/s-hk6hifmuzc-10ekerg-9hmhieg76f61bv0ujtmz4pkpj/f21a8s52ula4ofu40s87peyos.o",
+    "woworld/target/debug/incremental/woworld_godot-3k22w0on7ah9y/s-hk6hifmuzc-10ekerg-9hmhieg76f61bv0ujtmz4pkpj/f1jpk51d5ww2tawupds7o7xa4.o",
+    "woworld/target/debug/incremental/woworld_godot-3k22w0on7ah9y/s-hk6hifmuzc-10ekerg-9hmhieg76f61bv0ujtmz4pkpj/f0qqbx714noe57erxumuota51.o",
+    "woworld-dev-plan/sprint-proposals/sprint-059-debug-visualization-20260708.md",
+    "开发文档/04-交互与表现/04-技能系统.md",
+    "开发文档/04-交互与表现/06-感官与知觉.md",
+    "WoWorld-Design/Change/hand/0-提示词考量角度.md",
+    "woworld-dev-plan/01-核心基础/handoff/handoff-20260708-evening.md",
+    "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-08-evening.md",
+    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/007-调试可视化与EntityRenderer架构.md",
+    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/001-模型动作与物理系统总纲.md",
+    "CLAUDE.md",
     "woworld-dev-plan/01-核心基础/handoff/handoff-20260708.md",
-    "woworld-dev-plan/01-核心基础/handoff/handoff-20260708.md.tmp.35772.37e55db7682b",
     "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-08.md",
-    "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-08.md.tmp.35772.ee28eb253fd9",
-    "woworld/target/debug/incremental/woworld_core-3tb5tgr5i0y8l/s-hk6et86j5l-1j0qtyp-dzerq54tm6h0y0g090e0giguy/work-products.bin",
-    "woworld/target/debug/incremental/woworld_core-3tb5tgr5i0y8l/s-hk6et86j5l-1j0qtyp-dzerq54tm6h0y0g090e0giguy/query-cache.bin",
     "woworld-dev-plan/01-核心基础/handoff/handoff-20260707-items-economy.md",
     "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-07-items-economy.md",
     "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-07-social.md",
@@ -227,15 +237,6 @@
     "woworld-dev-plan/bugs/渲染/RENDER-001-pbr-normal-perspective-drift.md",
     "woworld-dev-plan/bugs/渲染/RENDER-002-voxel-dfdx-black-cubes.md",
     "woworld-dev-plan/bugs/渲染/RENDER-002-voxel-shadow-depth-discontinuity.md",
-    "CLAUDE.md",
-    "WoWorld-Design/Change/hand/0-提示词考量角度.md",
-    "woworld-dev-plan/bugs/工具链/TOOL-002-canvas-binary-corruption.md",
-    "woworld-dev-plan/bugs/Godot桥接/GD-001-floating-origin-v1-v5-failures.md",
-    "woworld-dev-plan/bugs/工具链/TOOL-001-cargo-test-not-build-dll.md",
-    "woworld-dev-plan/bugs/世界生成/WG-003-perlin-origin-always-ocean.md",
-    "woworld-dev-plan/bugs/世界生成/WG-002-transvoxel-yz-stride-swap.md",
-    "woworld-dev-plan/bugs/世界生成/WG-001-clipmap-fp32-edge-cracks.md",
-    "woworld-dev-plan/bugs/README.md",
     "素材/人物参考/5dcc0f26d460066567fb39e6b4f3a68f.png",
     "woworld/target/doc/static.files/rust-logo-9a9549ea.svg",
     "woworld/target/doc/static.files/favicon-32x32-eab170b8.png",

@@ -19,6 +19,11 @@ func _ready():
 	_mouse_captured = true
 
 func _input(event):
+	# Sprint-059: 控制台开启时跳过所有玩家输入
+	var driver = get_node_or_null("../WorldDriver")
+	if driver and driver.has_method("is_console_open") and driver.is_console_open():
+		return
+
 	if event is InputEventMouseMotion and _mouse_captured:
 		rotate_y(-event.relative.x * MOUSE_SENS)
 		var cam = $Camera3D
@@ -37,6 +42,11 @@ func _input(event):
 			_flying = not _flying
 
 func _physics_process(delta):
+	# Sprint-059: 控制台开启时跳过所有玩家移动
+	var driver = get_node_or_null("../WorldDriver")
+	if driver and driver.has_method("is_console_open") and driver.is_console_open():
+		return
+
 	if _flying:
 		_physics_fly(delta)
 	else:

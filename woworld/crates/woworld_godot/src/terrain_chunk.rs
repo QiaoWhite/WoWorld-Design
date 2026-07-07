@@ -181,6 +181,20 @@ pub struct WorldDriver {
 
     /// ECS → Godot 视觉桥接（NPC 胶囊体等）
     entity_renderer: Option<crate::entity_renderer::EntityRenderer>,
+    /// Sprint-059: 调试控制台（F3 开关）
+    debug_console: Option<crate::debug_console::DebugConsole>,
+    /// Sprint-059: 名字缓存（entity_visual_system 内部维护）
+    name_cache: std::collections::HashMap<hecs::Entity, String>,
+    /// Sprint-059: ECS Player 实体（排除用）
+    player_ecs_entity: Option<hecs::Entity>,
+
+    // Sprint-059: 边缘检测变量
+    f3_was_pressed: bool,
+    enter_was_pressed: bool,
+    up_was_pressed: bool,
+    down_was_pressed: bool,
+    #[allow(dead_code)]
+    mouse_left_was_pressed: bool,
 
     #[base]
     base: Base<Node3D>,
@@ -235,6 +249,14 @@ impl INode3D for WorldDriver {
             lod_prev: HashMap::new(),
             lod_hyst: HashMap::new(),
             entity_renderer: None,
+            debug_console: None,
+            name_cache: std::collections::HashMap::new(),
+            player_ecs_entity: None,
+            f3_was_pressed: false,
+            enter_was_pressed: false,
+            up_was_pressed: false,
+            down_was_pressed: false,
+            mouse_left_was_pressed: false,
             base,
         }
     }
@@ -525,12 +547,12 @@ impl INode3D for WorldDriver {
 
         // ECS Phase 0: spawn Player Entity (保存 hecs Entity 用于互转)
         let player_terrain_y = self.terrain.height_at(WorldPos { x: 0.0, y: 0.0, z: 0.0 });
-        let _player_entity = self.ecs.spawn((
+        let player_entity = self.ecs.spawn((
             woworld_ecs::components::transform::Position(glam::Vec3::new(0.0, player_terrain_y, 0.0)),
             woworld_ecs::prelude::EntityKind::Creature,
             woworld_ecs::prelude::LodLevel::default(),
         ));
-        // Phase 3: entity_id_from_hecs(_player_entity) → EntityId 存入 PlayerState Resource
+        self.player_ecs_entity = Some(player_entity);
 
         // Spawn NPC 种群（20 个，半径 30m 环形分布，Y 从地形查询）
         const NPC_COUNT: usize = 20;
@@ -552,6 +574,15 @@ impl INode3D for WorldDriver {
                 crate::entity_renderer::EntityRenderer::new(terrain_parent)
             );
             godot_print!("WorldDriver: EntityRenderer initialized");
+        }
+
+        // Sprint-059: 初始化调试控制台
+        let camera: Option<Gd<godot::classes::Camera3D>> =
+            self.base().try_get_node_as::<godot::classes::Camera3D>("../Player/Camera3D");
+        if let Some(ref mut terrain_parent) = self.terrain_parent {
+            self.debug_console = Some(crate::debug_console::DebugConsole::new(terrain_parent, camera));
+            godot_print!("WorldDriver: DebugConsole initialized (camera={})",
+                self.debug_console.as_ref().and_then(|c| c.camera()).is_some());
         }
 
         self.base_mut().set_process(true);
@@ -637,6 +668,21 @@ impl INode3D for WorldDriver {
             DVec3::NEG_Z
         };
 
+        // ★ Sprint-059 修复: 收集所有实体送入 LOD 计算器
+        // 之前只送入了 Player，NPC 永远 render_lod=4(不可见)
+        let mut lod_entities: Vec<EntityLodInput> = Vec::new();
+        for (entity, pos) in self.ecs.query::<&woworld_ecs::components::transform::Position>().iter() {
+            let eid = woworld_ecs::entity_id::entity_id_from_hecs(entity);
+            lod_entities.push(EntityLodInput {
+                id: eid,
+                position: DVec3::new(pos.0.x as f64, pos.0.y as f64, pos.0.z as f64),
+                is_player: self.player_ecs_entity == Some(entity),
+                is_in_combat: false,
+                is_landmark: false,
+                relation_importance: 0.0,
+            });
+        }
+
         let lod_input = LodCoordinatorInput {
             camera: CameraState {
                 position: DVec3::new(player_pos.x, player_pos.y, player_pos.z),
@@ -649,14 +695,7 @@ impl INode3D for WorldDriver {
                 last_frame_ms: (delta * 1000.0) as f32,
             },
             vram: VramPressure::default(),
-            entities: vec![EntityLodInput {
-                id: EntityId(0),
-                position: DVec3::new(player_pos.x, player_pos.y, player_pos.z),
-                is_player: true,
-                is_in_combat: false,
-                is_landmark: false,
-                relation_importance: 1.0,
-            }],
+            entities: lod_entities,
             broadcasts: vec![],
             interactions: vec![],
         };
@@ -672,6 +711,22 @@ impl INode3D for WorldDriver {
             .get(&EntityId(0))
             .map(|p| p.scene_lod)
             .unwrap_or(0);
+        // ★ Sprint-059 修复: 将 LOD 处方写回 ECS LodLevel Component
+        // 否则所有实体保持 LodLevel::default() (render_lod=4=不可见)
+        use woworld_ecs::prelude::LodLevel;
+        let mut lod_write_count = 0u32;
+        for (entity_id, presc) in prescriptions.iter() {
+            if let Some(hecs_entity) = woworld_ecs::entity_id::entity_id_to_hecs(*entity_id) {
+                if let Ok(mut lod) = self.ecs.get::<&mut LodLevel>(hecs_entity) {
+                    *lod = LodLevel::from_prescription(presc);
+                    lod_write_count += 1;
+                }
+            }
+        }
+        if lod_write_count == 0 && self.frame_count % 60 == 0 {
+            godot_print!("[LOD] WARN: 0 entities received LOD prescription! prescriptions.len()={}", prescriptions.len());
+        }
+
         self.lod_prev = prescriptions;
 
         if let Some(ref vp) = self.vegetation_provider {
@@ -1048,10 +1103,189 @@ impl INode3D for WorldDriver {
             }
         }
 
-        // ── ECS → Godot 视觉同步（每帧，ECS tick 之后）──
+        // ── Sprint-059: ECS → EntityVisual → Godot 视觉同步 ──
+        // 先获取玩家位置（避免 borrow 冲突）
+        let player_pos = self.get_player_position();
         if let Some(ref mut renderer) = self.entity_renderer {
-            renderer.sync(&self.ecs);
+            renderer.set_player_pos(glam::Vec3::new(
+                player_pos.x as f32, player_pos.y as f32, player_pos.z as f32,
+            ));
+
+            let entity_visuals = woworld_ecs::systems::entity_visual::entity_visual_system(
+                &self.ecs,
+                self.player_ecs_entity,
+                &mut self.name_cache,
+            );
+            // 每 60 帧打印一次诊断
+            if self.frame_count % 60 == 0 {
+                godot_print!("[EntityRenderer] frame={} entity_count={} renderer_exists=true",
+                    self.frame_count, entity_visuals.len());
+                for (_, v) in entity_visuals.iter().take(3) {
+                    godot_print!("  name={} pos=({:.1},{:.1},{:.1}) lod={}",
+                        v.display_name, v.position.x, v.position.y, v.position.z, v.render_lod);
+                }
+            }
+            let visuals_refs: Vec<(hecs::Entity, &woworld_core::entity_visual::EntityVisual)> =
+                entity_visuals.iter().map(|(e, v)| (*e, v)).collect();
+            renderer.sync(&visuals_refs);
+        } else {
+            if self.frame_count == 60 {
+                godot_print!("[EntityRenderer] WARN: entity_renderer is None!");
+            }
         }
+
+        // ── Sprint-059: 调试控制台 ──
+        let console_visible = self.debug_console.as_ref().map(|c| c.is_visible()).unwrap_or(false);
+
+        // F3 边缘检测
+        let input = Input::singleton();
+        let f3_pressed = input.is_key_pressed(godot::global::Key::F3);
+        if f3_pressed && !self.f3_was_pressed {
+            if let Some(ref mut console) = self.debug_console {
+                console.toggle();
+                let now_visible = console.is_visible();
+                if now_visible {
+                    Input::singleton().set_mouse_mode(godot::classes::input::MouseMode::VISIBLE);
+                } else {
+                    Input::singleton().set_mouse_mode(godot::classes::input::MouseMode::CAPTURED);
+                }
+            }
+        }
+        self.f3_was_pressed = f3_pressed;
+
+        // 提前获取 viewport 引用（避免与 console borrow 冲突）
+        let viewport = self.base().get_viewport();
+        if console_visible {
+            if let Some(ref mut console) = self.debug_console {
+                // Enter — 提交命令
+                let enter_pressed = input.is_key_pressed(godot::global::Key::ENTER);
+                if enter_pressed && !self.enter_was_pressed {
+                    let text = console.input_text();
+                    if !text.is_empty() {
+                        // 添加命令历史
+                        console.state.command_history.push(text.clone());
+                        console.state.history_cursor = console.state.command_history.len();
+                        // 压入队列
+                        console.push_command(text);
+                        console.clear_input();
+                    }
+                }
+                self.enter_was_pressed = enter_pressed;
+
+                // ↑↓ — 命令历史导航
+                let up = input.is_key_pressed(godot::global::Key::UP);
+                let down = input.is_key_pressed(godot::global::Key::DOWN);
+                if up && !self.up_was_pressed {
+                    if console.state.history_cursor > 0 {
+                        console.state.history_cursor -= 1;
+                    }
+                    console.fill_from_history(console.state.history_cursor);
+                }
+                if down && !self.down_was_pressed {
+                    if console.state.history_cursor < console.state.command_history.len() {
+                        console.state.history_cursor += 1;
+                        if console.state.history_cursor == console.state.command_history.len() {
+                            console.clear_input();
+                        } else {
+                            console.fill_from_history(console.state.history_cursor);
+                        }
+                    }
+                }
+                self.up_was_pressed = up;
+                self.down_was_pressed = down;
+
+                // ── 鼠标左键点击 → raycast 选中实体 ──
+                let mouse_left = input.is_mouse_button_pressed(godot::global::MouseButton::LEFT);
+                if mouse_left && !self.mouse_left_was_pressed {
+                    // 使用提前获取的 viewport
+                    let mouse_pos = viewport.as_ref()
+                        .map(|vp| vp.get_mouse_position())
+                        .unwrap_or(Vector2::ZERO);
+                    if let Some(ref camera) = console.camera().cloned() {
+                        let origin = camera.project_ray_origin(mouse_pos);
+                        let normal = camera.project_ray_normal(mouse_pos);
+                        let o = glam::Vec3::new(origin.x, origin.y, origin.z);
+                        let d = glam::Vec3::new(normal.x, normal.y, normal.z);
+
+                        if let Some(ref renderer) = self.entity_renderer {
+                            if let Some(hit_entity) = renderer.raycast_select(o, d) {
+                                console.state.selected_entity = Some(hit_entity);
+                                let bits = hit_entity.to_bits().get();
+                                console.append_output(&format!(
+                                    "[color=#88ff88]Selected entity: {bits}[/color]"
+                                ));
+                            }
+                        }
+                    }
+                }
+                self.mouse_left_was_pressed = mouse_left;
+
+                // ── 高亮同步 ──
+                if let Some(changed) = console.highlight_changed() {
+                    if let Some(ref mut renderer) = self.entity_renderer {
+                        // 恢复旧高亮 + 设置新高亮
+                        renderer.highlight_entity(console.state.selected_entity);
+                    }
+                }
+
+                // 消费命令队列
+                while let Some(cmd) = console.poll_command() {
+                    let output = execute_console_cmd(&cmd, console, &self.ecs);
+                    console.append_output(&output);
+                }
+
+                // 同步玩家位置到 ConsoleState（listnpc 距离用）
+                console.state.player_pos = glam::Vec3::new(
+                    player_pos.x as f32, player_pos.y as f32, player_pos.z as f32,
+                );
+
+                // 同步 nameshow/color 设置到 renderer
+                if let Some(ref mut renderer) = self.entity_renderer {
+                    renderer.set_name_visible(console.state.name_visible);
+                    renderer.set_color_enhanced(console.state.color_enhanced);
+                }
+            }
+        }
+    }
+}
+
+/// 执行控制台命令
+fn execute_console_cmd(
+    cmd_str: &str,
+    console: &mut crate::debug_console::DebugConsole,
+    world: &hecs::World,
+) -> String {
+    let parts: Vec<&str> = cmd_str.split_whitespace().collect();
+    if parts.is_empty() {
+        return String::new();
+    }
+
+    let name = parts[0].to_lowercase();
+    let args = &parts[1..];
+
+    // help 特殊处理
+    if name == "help" {
+        let mut out = "[color=#ffcc00]Available commands:[/color]\n".to_string();
+        let names = console.command_names();
+        let mut sorted = names.clone();
+        sorted.sort();
+        for n in &sorted {
+            if let Some(entry) = console.get_command(n) {
+                out.push_str(&format!("  [color=#88ff88]{n}[/color] — {}\n", entry.help));
+            }
+        }
+        return out;
+    }
+
+    // nameshow 同步到 renderer（在 call 之前——因为 renderer 可能在命令执行后更新）
+    if name == "nameshow" {
+        return (console.get_command("nameshow").unwrap().func)(args, &mut console.state, world);
+    }
+
+    if let Some(entry) = console.get_command(&name) {
+        (entry.func)(args, &mut console.state, world)
+    } else {
+        format!("[color=#ff8888]Unknown command: '{name}'. Type 'help' for list.[/color]")
     }
 }
 
@@ -1269,6 +1503,12 @@ impl WorldDriver {
         self.terrain.height_at(pos)
     }
 
+    /// Sprint-059: 调试控制台是否开启（player.gd 消费）
+    #[func]
+    fn is_console_open(&self) -> bool {
+        self.debug_console.as_ref().map(|c| c.is_visible()).unwrap_or(false)
+    }
+
     /// 创建完整 NPC Entity（全 Component bundle），返回 hecs Entity
     fn spawn_npc(&mut self, seed: u64, position: glam::Vec3) -> hecs::Entity {
         use woworld_ecs::components::aesthetic::AestheticTaste;
@@ -1284,7 +1524,7 @@ impl WorldDriver {
         use woworld_ecs::components::movement::Movement;
         use woworld_ecs::components::needs::Needs;
         use woworld_ecs::components::social::{RelationHandle, SocialPresence};
-        use woworld_ecs::components::transform::Position;
+        use woworld_ecs::components::transform::{Position, Rotation};
         use woworld_ecs::components::vitals::{RegenState, Vitals};
         use woworld_ecs::prelude::{EntityKind, LodLevel};
         use woworld_ecs::prng::pseudo_random_f32_range;
@@ -1326,6 +1566,7 @@ impl WorldDriver {
         // 7. 分步插入 Component（hecs 平面元组 ≤16 上限）
         let entity = self.ecs.spawn((
             Position(position),
+            Rotation::default(),
             EntityKind::Creature,
             LodLevel::default(),
             bf,

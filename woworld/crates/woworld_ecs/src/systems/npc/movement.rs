@@ -16,7 +16,7 @@ use woworld_core::types::WorldPos;
 use crate::components::goal::Goal;
 use crate::components::movement::{Movement, Wander};
 use crate::components::needs::Needs;
-use crate::components::transform::Position;
+use crate::components::transform::{Position, Rotation};
 use crate::prng::pseudo_random_f32;
 
 /// 漫游方向变更间隔 (s)
@@ -69,8 +69,11 @@ pub fn movement_system(
     tick: u64,
     terrain: &dyn TerrainQuery,
 ) {
-    for (entity, (pos, mov, goal, needs, wander_opt)) in
-        world.query_mut::<(&mut Position, &Movement, &Goal, &mut Needs, Option<&mut Wander>)>()
+    for (entity, (pos, mov, goal, needs, wander_opt, mut rot_opt)) in
+        world.query_mut::<(
+            &mut Position, &Movement, &Goal, &mut Needs,
+            Option<&mut Wander>, Option<&mut Rotation>,
+        )>()
     {
         let current = pos.0;
 
@@ -82,6 +85,17 @@ pub fn movement_system(
             let dist = to_target_xz.length();
 
             if dist < mov.arrival_radius {
+                // ★ 写入朝向——到达后仍面向目标方向
+                if let Some(ref mut rot) = rot_opt {
+                    if dist < DIR_EPSILON {
+                        rot.0 = glam::Quat::IDENTITY;
+                    } else {
+                        rot.0 = glam::Quat::from_rotation_arc(
+                            glam::Vec3::Z,
+                            to_target_xz / dist,
+                        );
+                    }
+                }
                 satisfy_goal(goal, needs);
                 cmd.remove_one::<Goal>(entity);
                 cmd.remove_one::<Wander>(entity);
@@ -115,6 +129,11 @@ pub fn movement_system(
                 }
             }
         };
+
+        // ★ 写入 Rotation——朝向移动方向
+        if let Some(ref mut rot) = rot_opt {
+            rot.0 = glam::Quat::from_rotation_arc(glam::Vec3::Z, direction);
+        }
 
         // ── 计算新位置 + 地形感知 ──
         let new_xz = Vec3::new(

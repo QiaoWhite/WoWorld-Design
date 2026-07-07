@@ -1,5 +1,6 @@
 pub mod culture;
 pub mod economy;
+pub mod entity_visual;
 pub mod faith;
 pub mod item;
 pub mod life;

@@ -40,7 +40,7 @@ pub struct Aabb {
 /// - bit63: 0=Item(ItemEntId) / 1=NonItem
 /// - bit[62:60]: entity_kind
 /// - bit[59:0]: local_id
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EntityId(pub u64);
 
 /// 实体类别（bit[62:60] 共 8 种，当前使用 5 种）

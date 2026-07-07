@@ -161,6 +161,8 @@ pub struct WorldDriver {
     /// 空间索引——EntityIndex trait 实现 (Phase 1 就位，Phase 3 System 消费)
     #[allow(dead_code)]
     spatial_index: woworld_ecs::resources::spatial_grid::SpatialGrid,
+    /// 关系存储——全局 NPC 关系 BTreeMap (RelationHandle Component → 此 Resource)
+    relation_storage: woworld_ecs::resources::relation_storage::RelationStorage,
     /// 帧计数器（ECS System 用——单调递增 tick）
     frame_count: u64,
 
@@ -216,6 +218,7 @@ impl INode3D for WorldDriver {
             ecs: EcsWorld::new(),
             spatial_index: woworld_ecs::resources::spatial_grid::SpatialGrid::new(),
             loot_tables: woworld_ecs::systems::life::loot_roll::LootTableRegistry::default(),
+            relation_storage: woworld_ecs::resources::relation_storage::RelationStorage::default(),
             frame_count: 0,
             lod_prev: HashMap::new(),
             lod_hyst: HashMap::new(),
@@ -1175,7 +1178,7 @@ impl WorldDriver {
             regen::regen_system(&mut self.ecs);
             emotion_drift_system(&mut self.ecs, delta as f32);
             physiological_pull_system(&mut self.ecs);
-            social_system(&mut self.ecs, delta as f32, self.frame_count);
+            social_system(&mut self.ecs, delta as f32, self.frame_count, &mut self.relation_storage);
 
             // ── Block A2: movement_system (&mut World + active cmd) ──
             {
@@ -1233,7 +1236,7 @@ impl WorldDriver {
         use woworld_ecs::components::lifecycle::{Age, GompertzMortality, LifeStage};
         use woworld_ecs::components::movement::Movement;
         use woworld_ecs::components::needs::Needs;
-        use woworld_ecs::components::social::{Relationships, SocialPresence};
+        use woworld_ecs::components::social::{RelationHandle, SocialPresence};
         use woworld_ecs::components::transform::Position;
         use woworld_ecs::components::vitals::{RegenState, Vitals};
         use woworld_ecs::prelude::{EntityKind, LodLevel};
@@ -1289,7 +1292,7 @@ impl WorldDriver {
             age,
             life_stage,
         ));
-        // 第二批：Vitals + Movement + Needs + Emotion + Goal + GrowthNeeds + Gompertz + Relationships
+        // 第二批：Vitals + Movement + Needs + Emotion + Goal + GrowthNeeds + Gompertz + RelationHandle
         self.ecs.insert(
             entity,
             (
@@ -1301,7 +1304,7 @@ impl WorldDriver {
                 Goal::default(),
                 GrowthNeeds::default(),
                 gmort,
-                Relationships::default(),
+                RelationHandle,
             ),
         ).expect("NPC entity should exist after spawn");
         entity

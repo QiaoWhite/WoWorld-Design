@@ -15,3 +15,6 @@ glam = { version = "0.28", features = ["bytemuck"] }
 
 # 核心类型（EntityId, WorldPos, LodPrescription, etc.）
 woworld_core = { path = "../woworld_core" }
+
+# TOML 数据文件解析（物品定义/配方表等）
+toml = "0.8"

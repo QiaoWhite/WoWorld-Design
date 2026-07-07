@@ -52,8 +52,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **写/读 Rust 代码** | `woworld/` — workspace 结构见下方「代码架构」 |
 | **构建项目** | `cd woworld && cargo build --workspace` |
 | **启动 Godot 编辑器** | `tools/godot/Godot_v4.7-stable_win64.exe woworld/godot/project.godot` |
-| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-07.md` (全天 9 场: 审计→CHG-065→Bug追踪→阴影→群系→Gompertz→社交→移动→审计修复·381 tests) |
-| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260707.md` (4 commits·381 tests·下一步建议) |
+| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-07-social.md` (晚间: 社会系统×4+三轮审计·578 tests) |
+| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260707-social.md` (社会系统 Phase 1·578 tests·下一步建议) |
 | **🐛 查已知 bug/陷阱** | `woworld-dev-plan/bugs/INDEX.md` — 调试前必须先查 |
 
 ## 文档结构
@@ -179,16 +179,16 @@ cargo check --workspace && cargo test --workspace && cargo clippy --workspace --
 - **Godot 编辑器缓存**：修改 `.gdshader` 后有时需重启编辑器才能生效。
 - **VoxelChunk vs Clipmap 材质一致性**：两者必须用相同的材质分类路径（biome 分类器），不能一个用纯高度分类一个用群系分类——否则 LOD 边界有色差（Sprint 032-G 根因 1）。
 
-> **当前状态**（2026-07-06）：`cargo check --workspace` 通过。`cargo test` **341 个测试全部通过**, clippy 零警告。GPU-Driven Clipmap 8 层 LOD + Gerstner 海洋 + 昼夜循环 + 5 群系系统 + OceanProvider trait + Transvoxel 骨架 + **LODCoordinator Phase2（完整8步算法）** + **天气系统 Phase1** 就位。VoxelChunk LOD 0 渲染修复完成。**ECS 架构已采纳（hecs）——`woworld_ecs` crate 已就位（35 Components + 20 Systems + 207 tests）**。★ **CHG-065 地形修改编排层已就位**（`woworld_core::edit_terrain`）。最新状态见 `woworld-dev-plan/01-核心基础/devlogs/`。
+> **当前状态**（2026-07-07 晚间）：`cargo check --workspace` 通过。`cargo test` **578 个测试全部通过**, clippy 零警告。★ 四大社会系统 Phase 1 全部完成 (Culture/Economy/Faith/Power)。GPU-Driven Clipmap 8 层 LOD + Gerstner 海洋 + 昼夜循环 + 5 群系系统 + OceanProvider trait + Transvoxel 骨架 + **LODCoordinator Phase2（完整8步算法）** + **天气系统 Phase1** 就位。VoxelChunk LOD 0 渲染修复完成。**ECS 架构已采纳（hecs）——`woworld_ecs` crate 已就位（35 Components + 20 Systems + 207 tests）**。★ **CHG-065 地形修改编排层已就位**（`woworld_core::edit_terrain`）。最新状态见 `woworld-dev-plan/01-核心基础/devlogs/`。
 
 ### 测试分布
 
 | Crate | 测试数 | 说明 |
 |-------|--------|------|
-| `woworld_core` | 50 | time + density + lod + weather_types + edit_terrain |
+| `woworld_core` | 181 | culture + economy + faith + power + time + density + lod + weather_types + edit_terrain |
 | `woworld_worldgen` | 58 | biome + cave + clipmap + noise_gen + ocean + terrain + transvoxel + vegetation |
 | `woworld_atmosphere` | 26 | time_curve + synthesizer + weather |
-| `woworld_ecs` | 207 | 35 Components + 20 Systems (life/npc/lod_coordinator) |
+| `woworld_ecs` | 313 | 39 Components + 25 Systems (life/npc/lod + culture/economy/faith/power) |
 | `woworld_godot` | 0 | cdylib 不便于单元测试——已迁移至 worldgen/ecs |
 
 > 详细模块状态见 [`附录E-开发状态.md`](woworld-dev-plan/附录E-开发状态.md)。
@@ -269,7 +269,7 @@ woworld_core (glam 0.28)
 ### 架构原则
 
 - **`woworld_core` — 最少依赖**：所有 ID 类型（`ItemDefId`, `SkillId`, `EntityId`, `ProfessionTagId`）、空间查询 trait（`TerrainQuery`, `EntityIndex`, `SpatialEventBus`, `VisibilityQuery`）、植被 trait（`VegetationProvider`）、LOD 类型（`LodPrescription`, 场景8层×角色5层距离映射）、天气类型（`WeatherState`, `Season`）、共享数据结构均在此定义。仅依赖 `glam`（SIMD 向量运算）。引擎无关，不依赖 Godot。**ECS Component 不在此定义**——由 `woworld_ecs` 承载。
-- **`woworld_ecs` — ECS Component + System 定义（✅ 已就位·35 Components + 20 Systems + 207 tests）**：所有 ECS Component 和 System 在此定义。依赖 `woworld_core`（值类型 + trait）+ `hecs`（Archetype SoA 存储）。15/15 Systems 接入 Godot 主循环，21 NPC 可视化。Component 已全部迁移至此 crate。
+- **`woworld_ecs` — ECS Component + System 定义（✅ 已就位·39 Components + 25 Systems + 313 tests）**：所有 ECS Component 和 System 在此定义。依赖 `woworld_core`（值类型 + trait）+ `hecs`（Archetype SoA 存储）。15/15 Systems 接入 Godot 主循环，21 NPC 可视化。★ 四大社会系统 Phase 1 已就位 (Culture/Economy/Faith/Power)。
 - **`woworld_worldgen` — GPU-Driven Clipmap 世界生成**：双层 Perlin 噪声高度场 + 5 群系硬盒分类（温度×降水 TOML 数据驱动）+ `TerrainQuery` trait 完整实现。8 层 Clipmap LOD（L0-L4 Transvoxel 0.5-8m 体素 + L5-L7 Signed Heightfield 16-64m 间距）。GPU-Driven 架构——网格启动时生成一次，Vertex Shader 通过 heightmap 纹理采样完成 Y 轴位移，运行时零 CPU mesh 修改。DensityStack 分层密度（高度场 + 3D Worley 洞穴层）。`OceanProvider` trait 实现（Gerstner 程序化波 + 海深色变）。纯 Rust 网格生成器（`terrain_mesh.rs`，引擎无关）+ Transvoxel 过渡网格（`transvoxel.rs`）。依赖 `woworld_core` + `noise` crate。
 - **`woworld_atmosphere` — 大气与氛围系统**：合成 `ResolvedAtmosphere`（17 参数：天空色/雾/环境光/曝光/太阳色等），输出 `PackedFloat32Array` 供 Godot shader 消费。时间曲线优先——群系/天气/季节调制预留 trait stub。依赖仅 `woworld_core`（WorldTime, WorldPos）。引擎无关。
 - **`woworld_godot` — 薄桥接层**：Rust 类型 ↔ Godot GDExtension API 的转换。不包含游戏逻辑。编译为 `cdylib`，由 Godot 运行时动态加载。包含 WorldDriver GodotClass（8 层 LodLayer + Vertex Shader Camera-Relative Floating Origin）、VoxelChunk GodotClass（Transvoxel 网格 + 顶点色专用 shader）和 Ocean GodotClass（Gerstner 波海洋渲染）。

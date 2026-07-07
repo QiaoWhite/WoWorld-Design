@@ -5,8 +5,13 @@
 //!
 //! 参见: `WoWorld-Design/开发路线图/002-轨A-正式开发.md` A.2 阶段二
 
+pub mod culture;
 pub mod density;
+pub mod economy;
 pub mod edit_terrain;
+pub mod faith;
+pub mod item;
+pub mod power;
 pub mod id;
 pub mod lod;
 pub mod material;
@@ -19,6 +24,19 @@ pub mod weather_types;
 
 /// 常用类型统一导入
 pub mod prelude {
+    pub use crate::culture::CultureCoreParams;
+    pub use crate::culture::CultureId;
+    pub use crate::culture::CULTURE_ID_NONE;
+    pub use crate::economy::{
+        EconomicHealthIndex, EconomyId, EconomyQuery, Market, MarketId, Order, OrderBook,
+        OrderSide, PriceSnapshot, TradeRecord, WalletSnapshot, MARKET_ID_NONE,
+    };
+    pub use crate::faith::{FaithId, FaithTheology, ReligiousMotivation, FAITH_ID_NONE};
+    pub use crate::item::{
+        ConsumableEffect, ItemCategory, ItemDef, ItemPlacementProps, ItemProperties, ItemQuery,
+        ItemStack, ItemState, ItemTag, Quality, Rarity, ITEM_DEF_ID_NONE,
+    };
+    pub use crate::power::{PowerAtom, PowerEdge, PowerSource, LEGITIMACY_CRISIS_THRESHOLD};
     pub use crate::id::*;
     pub use crate::lod::*;
     pub use crate::material::*;

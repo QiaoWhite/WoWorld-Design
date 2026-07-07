@@ -1,0 +1,367 @@
+# WoWorld 测试物品定义 — Phase 1
+# ~20 个基础物品，匹配现有 LootTable 和测试需求
+
+[[items]]
+category = "LeatherMat"
+sub_category = 1
+def_index = 0
+name = "兽皮"
+weight_grams = 800
+bulk_factor = 1.2
+volume_liters = 2.0
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 20
+base_value_copper = 15
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "LeatherMat"
+sub_category = 2
+def_index = 0
+name = "兽骨"
+weight_grams = 500
+bulk_factor = 1.5
+volume_liters = 1.2
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 30
+base_value_copper = 5
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "Food"
+sub_category = 1
+def_index = 0
+name = "生肉"
+weight_grams = 500
+bulk_factor = 1.1
+volume_liters = 1.5
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 10
+base_value_copper = 20
+max_durability = 0.0
+durability_loss_per_use = 0.0
+is_consumable = true
+tags = ["Edible", "Stackable"]
+
+[[items]]
+category = "FiberMat"
+sub_category = 1
+def_index = 0
+name = "植物纤维"
+weight_grams = 50
+bulk_factor = 3.0
+volume_liters = 0.3
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 50
+base_value_copper = 3
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "OrganicMat"
+sub_category = 1
+def_index = 0
+name = "种子"
+weight_grams = 2
+bulk_factor = 2.0
+volume_liters = 0.01
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Standard"
+stack_size = 100
+base_value_copper = 2
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "MineralOre"
+sub_category = 1
+def_index = 0
+name = "铁矿"
+weight_grams = 2000
+bulk_factor = 0.8
+volume_liters = 1.0
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 50
+base_value_copper = 8
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "MineralOre"
+sub_category = 2
+def_index = 0
+name = "铜矿"
+weight_grams = 1800
+bulk_factor = 0.8
+volume_liters = 0.9
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 50
+base_value_copper = 10
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "MineralOre"
+sub_category = 0
+def_index = 0
+name = "煤炭"
+weight_grams = 1200
+bulk_factor = 0.7
+volume_liters = 0.8
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 50
+base_value_copper = 5
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable", "Fuel"]
+
+[[items]]
+category = "StoneMat"
+sub_category = 0
+def_index = 0
+name = "花岗岩"
+weight_grams = 3000
+bulk_factor = 0.5
+volume_liters = 1.2
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 30
+base_value_copper = 4
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "WoodMat"
+sub_category = 0
+def_index = 0
+name = "橡木"
+weight_grams = 1500
+bulk_factor = 0.9
+volume_liters = 2.0
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 20
+base_value_copper = 6
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable", "Fuel"]
+
+[[items]]
+category = "WoodMat"
+sub_category = 1
+def_index = 0
+name = "松木"
+weight_grams = 1200
+bulk_factor = 0.85
+volume_liters = 1.8
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 20
+base_value_copper = 5
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable", "Fuel"]
+
+[[items]]
+category = "LiquidMat"
+sub_category = 0
+def_index = 0
+name = "淡水"
+weight_grams = 1000
+bulk_factor = 1.0
+volume_liters = 1.0
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Standard"
+quality_range_max = "Standard"
+stack_size = 10
+base_value_copper = 1
+max_durability = 0.0
+durability_loss_per_use = 0.0
+is_consumable = true
+tags = ["Edible"]
+
+[[items]]
+category = "OrganicMat"
+sub_category = 2
+def_index = 0
+name = "药草"
+weight_grams = 10
+bulk_factor = 4.0
+volume_liters = 0.05
+base_quality = "Standard"
+rarity = "Uncommon"
+quality_range_min = "Standard"
+quality_range_max = "Refined"
+stack_size = 30
+base_value_copper = 25
+max_durability = 0.0
+durability_loss_per_use = 0.0
+is_consumable = true
+tags = ["Edible"]
+
+[[items]]
+category = "LeatherMat"
+sub_category = 3
+def_index = 0
+name = "兽牙"
+weight_grams = 30
+bulk_factor = 1.3
+volume_liters = 0.02
+base_quality = "Standard"
+rarity = "Uncommon"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 50
+base_value_copper = 12
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "SoilMat"
+sub_category = 0
+def_index = 0
+name = "黏土"
+weight_grams = 2500
+bulk_factor = 0.6
+volume_liters = 1.5
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Standard"
+stack_size = 40
+base_value_copper = 3
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "SoilMat"
+sub_category = 1
+def_index = 0
+name = "沙"
+weight_grams = 1600
+bulk_factor = 0.4
+volume_liters = 1.0
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Standard"
+stack_size = 60
+base_value_copper = 2
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "Currency"
+sub_category = 0
+def_index = 0
+name = "铜币"
+weight_grams = 3
+bulk_factor = 0.5
+volume_liters = 0.01
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Standard"
+quality_range_max = "Standard"
+stack_size = 999
+base_value_copper = 1
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "Currency"
+sub_category = 1
+def_index = 0
+name = "银币"
+weight_grams = 5
+bulk_factor = 0.5
+volume_liters = 0.01
+base_quality = "Standard"
+rarity = "Uncommon"
+quality_range_min = "Standard"
+quality_range_max = "Standard"
+stack_size = 999
+base_value_copper = 20
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "Currency"
+sub_category = 2
+def_index = 0
+name = "金币"
+weight_grams = 8
+bulk_factor = 0.5
+volume_liters = 0.02
+base_quality = "Standard"
+rarity = "Rare"
+quality_range_min = "Standard"
+quality_range_max = "Standard"
+stack_size = 999
+base_value_copper = 400
+max_durability = 0.0
+durability_loss_per_use = 0.0
+tags = ["Stackable"]
+
+[[items]]
+category = "Weapon"
+sub_category = 0
+def_index = 0
+name = "铁剑"
+weight_grams = 1500
+bulk_factor = 1.5
+volume_liters = 3.0
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Refined"
+stack_size = 1
+base_value_copper = 50
+max_durability = 200.0
+durability_loss_per_use = 0.05
+min_strength = 8.0
+is_placeable = false
+tags = ["TwoHanded"]

@@ -15,6 +15,7 @@ pub mod systems;
 /// 常用 Component 和 System 统一导入
 pub mod prelude {
     pub use crate::components::entity_kind::EntityKind;
+    pub use crate::components::item::Item;
     pub use crate::components::lod::LodLevel;
     pub use crate::components::transform::{Position, Rotation, Velocity};
     pub use crate::components::vitals::{

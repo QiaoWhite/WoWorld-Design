@@ -8,6 +8,7 @@
 use hecs::CommandBuffer;
 
 use crate::components::entity_kind::EntityKind;
+use crate::components::item::Item;
 use crate::components::transform::Position;
 use crate::components::vitals::{Corpse, CorpseLooted, LootResult};
 
@@ -19,15 +20,15 @@ pub fn item_spawn_system(world: &hecs::World, cmd: &mut CommandBuffer) {
         // 为每个掉落物 spawn 新 Entity
         for i in 0..loot.count as usize {
             if let Some(item_id) = loot.items[i] {
-                // 掉落物 Entity：DroppedItem tag + Position（尸体旁微偏移）
+                // 掉落物 Entity：DroppedItem tag + Item component + Position（尸体旁微偏移）
                 cmd.spawn((
                     EntityKind::DroppedItem,
+                    Item { item_def_id: item_id },
                     Position(glam::Vec3::new(
                         pos.0.x + random_offset(i),
                         pos.0.y,
                         pos.0.z + random_offset(i + 7),
                     )),
-                    item_id,
                 ));
             }
         }
@@ -78,6 +79,16 @@ mod tests {
         // 新 Entity 被创建（+2 dropped items）
         let entity_count_after = world.query::<&EntityKind>().iter().count();
         assert_eq!(entity_count_after, entity_count_before + 2);
+
+        // 验证新 Entity 有 Item component
+        let mut item_count = 0;
+        for (_, (kind, item)) in world.query::<(&EntityKind, &Item)>().iter() {
+            if *kind == EntityKind::DroppedItem {
+                assert_ne!(item.item_def_id, woworld_core::item::ITEM_DEF_ID_NONE);
+                item_count += 1;
+            }
+        }
+        assert_eq!(item_count, 2);
     }
 
     #[test]

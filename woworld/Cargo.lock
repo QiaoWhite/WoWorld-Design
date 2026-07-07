@@ -472,6 +472,7 @@ version = "0.1.0"
 dependencies = [
  "glam 0.28.0",
  "hecs",
+ "toml",
  "woworld_core",
 ]
 

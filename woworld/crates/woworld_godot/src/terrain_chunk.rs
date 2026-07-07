@@ -163,6 +163,12 @@ pub struct WorldDriver {
     spatial_index: woworld_ecs::resources::spatial_grid::SpatialGrid,
     /// 关系存储——全局 NPC 关系 BTreeMap (RelationHandle Component → 此 Resource)
     relation_storage: woworld_ecs::resources::relation_storage::RelationStorage,
+    /// 经济注册表——钱包/市场/订单簿/价格（Phase 2）
+    economy_registry: woworld_ecs::resources::economy_registry::EconomyRegistry,
+    /// 物品注册表——物品定义 TOML 数据（Phase 2）
+    item_registry: woworld_ecs::resources::item_registry::ItemRegistry,
+    /// 物品种子系统是否已执行（仅一次）
+    item_seeded: bool,
     /// 帧计数器（ECS System 用——单调递增 tick）
     frame_count: u64,
 
@@ -219,6 +225,9 @@ impl INode3D for WorldDriver {
             spatial_index: woworld_ecs::resources::spatial_grid::SpatialGrid::new(),
             loot_tables: woworld_ecs::systems::life::loot_roll::LootTableRegistry::default(),
             relation_storage: woworld_ecs::resources::relation_storage::RelationStorage::default(),
+            economy_registry: woworld_ecs::resources::economy_registry::EconomyRegistry::new(),
+            item_registry: woworld_ecs::resources::item_registry::ItemRegistry::new(),
+            item_seeded: false,
             frame_count: 0,
             lod_prev: HashMap::new(),
             lod_hyst: HashMap::new(),
@@ -1155,7 +1164,7 @@ impl WorldDriver {
             }
         }
 
-        // ── ECS tick — 全 15 System ──────────
+        // ── ECS tick — 全 17 System ──────────
         {
             use hecs::CommandBuffer;
             use woworld_ecs::systems::life::{
@@ -1172,6 +1181,15 @@ impl WorldDriver {
 
             self.frame_count += 1;
             let day_progress = Some(self.clock.day_progress());
+
+            // ── 物品种子（一次性）──
+            if !self.item_seeded {
+                woworld_ecs::systems::item::item_seed_system(&mut self.item_registry);
+                // 创建默认经济区和市场
+                let econ_id = self.economy_registry.create_economy();
+                self.economy_registry.create_market_with_economy(econ_id);
+                self.item_seeded = true;
+            }
 
             // ── Block A1: &mut World systems (no CommandBuffer) ──
             woworld_ecs::systems::npc::needs::needs_decay_system(&mut self.ecs, day_progress);
@@ -1201,12 +1219,33 @@ impl WorldDriver {
                 woworld_ecs::systems::npc::needs::need_evaluation_system(&self.ecs, &mut cmd);
                 woworld_ecs::systems::npc::goal::goal_resolution_system(&self.ecs, &mut cmd);
                 action_weight_system(&self.ecs, &mut cmd);
+                // Economy: cognition + wallet init
+                woworld_ecs::systems::economy::economic_cognition_update_system(
+                    &self.ecs, &mut cmd, &mut self.economy_registry,
+                );
+                woworld_ecs::systems::economy::wallet_init_system(
+                    &self.ecs, &mut cmd, &mut self.economy_registry,
+                );
                 death_watch::death_watch_system(&self.ecs, &mut cmd, self.frame_count);
                 loot_roll::loot_roll_system(&self.ecs, &mut cmd, &self.loot_tables);
                 item_spawn::item_spawn_system(&self.ecs, &mut cmd);
                 corpse_decay::corpse_decay_system(&self.ecs, &mut cmd, self.frame_count);
                 cleanup::cleanup_system(&self.ecs, &mut cmd);
                 cmd.run_on(&mut self.ecs);
+            }
+
+            // ── Block A5: Economy systems (registry-only, no CommandBuffer) ──
+            {
+                woworld_ecs::systems::economy::order_creation_system(
+                    &self.ecs,
+                    &mut self.economy_registry,
+                    &self.item_registry,
+                    self.frame_count,
+                );
+                woworld_ecs::systems::economy::market_matching_system(
+                    &mut self.economy_registry,
+                    self.frame_count,
+                );
             }
         }
     }
@@ -1229,6 +1268,7 @@ impl WorldDriver {
         use woworld_ecs::components::biases::CognitiveBiases;
         use woworld_ecs::components::bigfive::BigFive;
         use woworld_ecs::components::cognitive::CognitiveStyle;
+        use woworld_ecs::components::economy::{EconomicCognition, Wallet};
         use woworld_ecs::components::emotion::Emotion;
         use woworld_ecs::components::gender::BiologicalSex;
         use woworld_ecs::components::goal::Goal;
@@ -1305,6 +1345,8 @@ impl WorldDriver {
                 GrowthNeeds::default(),
                 gmort,
                 RelationHandle,
+                Wallet::from_seed(seed),
+                EconomicCognition::default(),
             ),
         ).expect("NPC entity should exist after spawn");
         entity

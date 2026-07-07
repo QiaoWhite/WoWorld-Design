@@ -10,9 +10,40 @@
 
 /// 物品定义标识符（全局恒定）
 ///
-/// 位布局: category(8bit) + def_id(56bit) = u64
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+/// 位布局: category(8bit) + sub_category(8bit) + def_index(48bit) = u64
+///
+/// category 0x00-0x7F: 核心游戏（128 类别）
+/// category 0x80-0xFF: Mod 命名空间（128 类别）
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ItemDefId(pub u64);
+
+impl ItemDefId {
+    /// 从分类 + 子分类 + 实例索引构建 ItemDefId。
+    ///
+    /// `def_index` 仅使用低 48-bit——高位被静默截断。
+    pub fn new(category: crate::item::ItemCategory, sub_category: u8, def_index: u64) -> Self {
+        let cat = (category as u64) << 56;
+        let sub = ((sub_category as u64) & 0xFF) << 48;
+        ItemDefId(cat | sub | (def_index & 0x0000_FFFF_FFFF_FFFF))
+    }
+
+    /// 提取类别字节并还原为 ItemCategory。
+    ///
+    /// 0x70-0xFF（保留/Mod 空间）返回 None。
+    pub fn category(&self) -> Option<crate::item::ItemCategory> {
+        crate::item::ItemCategory::from_u8((self.0 >> 56) as u8)
+    }
+
+    /// 提取子类别字节（0-255）。
+    pub fn sub_category(&self) -> u8 {
+        ((self.0 >> 48) & 0xFF) as u8
+    }
+
+    /// 提取定义索引（低 48-bit）。
+    pub fn def_index(&self) -> u64 {
+        self.0 & 0x0000_FFFF_FFFF_FFFF
+    }
+}
 
 /// 物品实体标识符（存档内唯一）
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

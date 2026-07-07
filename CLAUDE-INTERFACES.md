@@ -147,7 +147,7 @@
 |------|-----------|-------------------|---------|
 | CultureId | **文化系统** `001` | 全部模块 | CultureId=u32 扁平全局标识——替代所有幽灵类型(CultureSeed/CultureStyleId/CultureClusterId)。CultureGenealogy 独立存储谱系关系——不编码在 ID 中 |
 | CultureCoreParams | **文化系统** `002` | 全部模块 | 10 个 f32 核心参数(individualism/power_distance/uncertainty_avoidance/competition_orientation/long_term_orientation/indulgence/openness_to_outsiders/religiosity/militarism/artistry)——0-1 连续值。种子生成，代际漂移(σ=0.003/年)。不可再分原子——所有文化特征从此派生 |
-| CommunicationNorms | 文化系统 003 | 语言表达, NPC | 8字段 (interruption_tolerance/eye_contact_norm/personal_space_radius_m/directness/silence_tolerance/formality/status_deference/turn_taking_style). CHG-024 从语言表达迁移所有权至文化系统 |
+| CommunicationNorms | 文化系统 003 | 语言表达, NPC | 8字段 (interruption_tolerance/eye_contact_norm/personal_space_radius_m/directness/silence_tolerance/emotional_expressiveness/honorifics/touch_norms). CHG-024 从语言表达迁移所有权至文化系统 |
 | GestureCultureMapping | **文化系统** `003` | 语言表达 `010` | 与 CommunicationNorms 同步转移——文化系统定义手势含义，语言表达消费跨文化误解检测逻辑 |
 | BuildingStylePreferences | **文化系统** `004` | 世界生成 `005`（建筑 WFC）、家具系统 | 屋顶样式×墙体材质×装饰水平×色彩调色板×对称性×尺度×邻接修正——从核心参数×群系派生，不独立存储 |
 | CulturalBeautyStandard | **文化系统** `004` | NPC `02-性别与吸引力系统` | 审美标准从核心参数+统治阶层外观派生——所有权从 NPC 模块迁至文化系统。NPC 保留消费逻辑 |

@@ -10,9 +10,13 @@
 //! 参见: [[CLAUDE-INTERFACES.md]] CHG-022
 
 pub mod behavioral;
+pub mod bootstrap;
+pub mod listing;
 
 use crate::id::ItemDefId;
 use crate::types::EntityId;
+pub use listing::{ListingStatus, ListingType, NeedCategory, NeedReason, Urgency, urgency_to_listing_type};
+pub use bootstrap::{BootstrapParams, LiquidityInjection, initial_money_supply, inject_liquidity};
 use std::collections::BTreeMap;
 
 // ── 经济 ID 类型 ───────────────────────────────────────
@@ -77,6 +81,39 @@ pub struct Order {
     pub limit_price_copper: u64,
     pub side: OrderSide,
     pub created_tick: u64,
+    /// ★ Phase 3: 挂单类型（Normal/Urgent/Passive）
+    pub listing_type: ListingType,
+    /// ★ Phase 3: 已成交数量（partial fill 追踪）
+    pub filled_quantity: u32,
+    /// ★ Phase 3: 挂单生命周期状态
+    pub status: ListingStatus,
+}
+
+impl Order {
+    /// 创建新订单——新字段自动填充默认值。
+    ///
+    /// `listing_type` = Normal, `filled_quantity` = 0, `status` = Active。
+    pub fn new(
+        entity_id: EntityId,
+        item_id: ItemDefId,
+        quantity: u32,
+        limit_price_copper: u64,
+        side: OrderSide,
+        created_tick: u64,
+    ) -> Self {
+        Self {
+            order_id: 0,
+            entity_id,
+            item_id,
+            quantity,
+            limit_price_copper,
+            side,
+            created_tick,
+            listing_type: ListingType::Normal,
+            filled_quantity: 0,
+            status: ListingStatus::Active,
+        }
+    }
 }
 
 /// 订单方向

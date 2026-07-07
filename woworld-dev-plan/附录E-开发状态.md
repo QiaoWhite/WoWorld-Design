@@ -18,12 +18,12 @@
 | 有代码的模块 | **7 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、**地形修改编排层**） |
 | 零代码的模块 | **22 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **624 tests 全绿** (core: 195 + worldgen: 58 + atmosphere: 26 + ecs: 345 + godot: 0), cargo clippy 零警告 |
-| ECS 架构 | **Phase 0/1/2 ✅ + Phase 3 社会/物品/经济 Phase 2 ✅** — 40 Components + 27 Systems + 624 tests。社会×4 + 物品 Phase 1 + 经济 Phase 2 就位。 |
-| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 8 层 CHG-049 对齐（0.5m-64m, 15km 视野）+ Signed Heightfield (LOD 5-7) + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + **经济循环接入** |
-| 当前冲刺 | 物品 Phase 1 + 经济 Phase 2 完成（624 tests）→ 下一步：社会 Phase 3 / 物品 Phase 2 / 可视化 / 对话 |
+| Rust workspace | 5 crates, **737 tests 全绿** (core: 270 + worldgen: 58 + atmosphere: 26 + ecs: 383 + godot: 0), cargo clippy 零警告 |
+| ECS 架构 | **Phase 0/1/2/3 ✅** — 42 Components + 28 Systems + 737 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 就位。 |
+| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 8 层 CHG-049 对齐（0.5m-64m, 15km 视野）+ Signed Heightfield (LOD 5-7) + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + **经济循环接入 + 库存系统接入** |
+| 当前冲刺 | 物品 Phase 2 + 经济 Phase 3 完成（737 tests）→ 下一步：可视化 / 对话 / 玩家系统 / 物品 Phase 3 / 经济 Phase 4 |
 | 最新 CHG | CHG-065（2026-07-06）— 地形修改编排层 ~800行代码 + 50 tests · 内核不转ECS编排层入ECS |
-| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260707-items-economy]]（2026-07-07 深夜·物品 Phase 1+经济 Phase 2·两轮审计·624 tests） |
+| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260708]]（2026-07-08·物品 Phase 2+经济 Phase 3·737 tests） |
 
 ---
 

@@ -3,6 +3,9 @@
 //! Phase 1: 使用 `include_str!` 嵌入测试物品数据。
 //! Phase 2+: 从运行时资产路径加载。
 
+pub mod inventory;
+pub use inventory::inventory_init_system;
+
 use crate::resources::item_registry::ItemRegistry;
 
 /// 种子系统——将编译时嵌入的 TOML 物品定义加载到注册表。

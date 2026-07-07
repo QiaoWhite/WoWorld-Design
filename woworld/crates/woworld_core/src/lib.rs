@@ -28,14 +28,29 @@ pub mod prelude {
     pub use crate::culture::CultureId;
     pub use crate::culture::CULTURE_ID_NONE;
     pub use crate::economy::{
+        bootstrap::{initial_money_supply, inject_liquidity, BootstrapParams, LiquidityInjection},
+        listing::{
+            urgency_to_listing_type, ListingStatus, ListingType, NeedCategory, NeedReason, Urgency,
+        },
         EconomicHealthIndex, EconomyId, EconomyQuery, Market, MarketId, Order, OrderBook,
         OrderSide, PriceSnapshot, TradeRecord, WalletSnapshot, MARKET_ID_NONE,
     };
     pub use crate::faith::{FaithId, FaithTheology, ReligiousMotivation, FAITH_ID_NONE};
     pub use crate::item::{
-        ConsumableEffect, ItemCategory, ItemDef, ItemPlacementProps, ItemProperties, ItemQuery,
-        ItemStack, ItemState, ItemTag, Quality, Rarity, ITEM_DEF_ID_NONE,
+        effective_encumbrance_kg, ConsumableEffect, ItemCategory, ItemDef, ItemPlacementProps,
+        ItemProperties, ItemQuery, ItemStack, ItemState, ItemTag, Quality, Rarity,
+        ITEM_DEF_ID_NONE,
     };
+    pub use crate::item::assembly::{
+        ComponentConnection, ComponentSlot, ItemAssembly, ItemParams, JointType, ParamDef,
+        ParamSchema, SlotInstanceId,
+    };
+    pub use crate::item::equipment::{
+        AccessorySet, CharacterEquipment, ContainerSet, EquipmentVisualToggles, OutfitMode,
+        OutfitSet, SlotId,
+    };
+    pub use crate::item::inventory::{InventoryError, InventorySlot, PersonalInventory};
+    pub use crate::item::inventory_tuning;
     pub use crate::power::{PowerAtom, PowerEdge, PowerSource, LEGITIMACY_CRISIS_THRESHOLD};
     pub use crate::id::*;
     pub use crate::lod::*;

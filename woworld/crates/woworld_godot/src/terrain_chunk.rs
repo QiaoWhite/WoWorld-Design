@@ -165,6 +165,8 @@ pub struct WorldDriver {
     relation_storage: woworld_ecs::resources::relation_storage::RelationStorage,
     /// 经济注册表——钱包/市场/订单簿/价格（Phase 2）
     economy_registry: woworld_ecs::resources::economy_registry::EconomyRegistry,
+    /// 库存注册表——NPC 物品持有量与装备（★ Phase 2 新增）
+    inventory_registry: woworld_ecs::resources::inventory_registry::InventoryRegistry,
     /// 物品注册表——物品定义 TOML 数据（Phase 2）
     item_registry: woworld_ecs::resources::item_registry::ItemRegistry,
     /// 物品种子系统是否已执行（仅一次）
@@ -226,6 +228,7 @@ impl INode3D for WorldDriver {
             loot_tables: woworld_ecs::systems::life::loot_roll::LootTableRegistry::default(),
             relation_storage: woworld_ecs::resources::relation_storage::RelationStorage::default(),
             economy_registry: woworld_ecs::resources::economy_registry::EconomyRegistry::new(),
+            inventory_registry: woworld_ecs::resources::inventory_registry::InventoryRegistry::new(),
             item_registry: woworld_ecs::resources::item_registry::ItemRegistry::new(),
             item_seeded: false,
             frame_count: 0,
@@ -1225,6 +1228,10 @@ impl WorldDriver {
                 );
                 woworld_ecs::systems::economy::wallet_init_system(
                     &self.ecs, &mut cmd, &mut self.economy_registry,
+                );
+                // ★ Phase 2: 库存初始化（含 NPC 初始物品播种）
+                woworld_ecs::systems::item::inventory_init_system(
+                    &self.ecs, &mut cmd, &mut self.inventory_registry, &self.item_registry,
                 );
                 death_watch::death_watch_system(&self.ecs, &mut cmd, self.frame_count);
                 loot_roll::loot_roll_system(&self.ecs, &mut cmd, &self.loot_tables);

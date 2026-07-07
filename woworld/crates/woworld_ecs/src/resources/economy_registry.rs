@@ -9,9 +9,9 @@ use std::collections::HashMap;
 
 use woworld_core::economy::behavioral::EconBehaviorParams;
 use woworld_core::economy::{
-    EconomicHealthIndex, EconomyId, EconomyQuery, LaborMarketSnapshot, Market, MarketId, Order,
-    OrderSide, PriceSnapshot, TradeRecord, TradeRouteInfo, WalletSnapshot,
-    WealthDistribution, MARKET_ID_NONE,
+    EconomicHealthIndex, EconomyId, EconomyQuery, LaborMarketSnapshot, ListingStatus,
+    Market, MarketId, Order, OrderSide, PriceSnapshot, TradeRecord, TradeRouteInfo,
+    WalletSnapshot, WealthDistribution, MARKET_ID_NONE,
 };
 use woworld_core::id::ItemDefId;
 use woworld_core::types::EntityId;
@@ -31,7 +31,8 @@ pub struct EconomyRegistry {
 
     // ── 物品持有 (Phase 2) ────────────────────────────
     /// EntityId → (ItemDefId → quantity)
-    /// 简化的物品库存——NPC 真实的物品持有量，卖单和交易执行的基础。
+    /// ★ Phase 2 注记: InventoryRegistry 已成为库存权威源。
+    /// 此字段保留用于经济模拟（surplus/deficit 快速查询），Phase 3 迁移至 InventoryRegistry。
     item_holdings: HashMap<EntityId, HashMap<ItemDefId, u32>>,
 
     // ── 市场存储 (Phase 2) ────────────────────────────
@@ -268,8 +269,8 @@ impl EconomyRegistry {
                 let buyer_id = book.bids[0].entity_id;
                 let seller_id = book.asks[0].entity_id;
                 let price = (bid_price + ask_price) / 2;
-                let quantity = book.bids[0].quantity.min(book.asks[0].quantity);
-                let amount = price * quantity as u64;
+                let trade_qty = book.bids[0].quantity.min(book.asks[0].quantity);
+                let amount = price * trade_qty as u64;
 
                 // 用缓存验证钱包
                 let balance = wallet_cache.get(&buyer_id).copied().unwrap_or(0);
@@ -284,11 +285,38 @@ impl EconomyRegistry {
                     seller: seller_id,
                     amount,
                     price,
-                    quantity,
+                    quantity: trade_qty,
                 });
 
-                book.bids.remove(0);
-                book.asks.remove(0);
+                // ★ Phase 3: Partial fill — 降量而非全删
+                {
+                    let bid = &mut book.bids[0];
+                    bid.quantity -= trade_qty;
+                    bid.filled_quantity += trade_qty;
+                    if bid.quantity == 0 {
+                        bid.status = ListingStatus::Filled;
+                    } else {
+                        bid.status = ListingStatus::PartiallyFilled;
+                    }
+                }
+                {
+                    let ask = &mut book.asks[0];
+                    ask.quantity -= trade_qty;
+                    ask.filled_quantity += trade_qty;
+                    if ask.quantity == 0 {
+                        ask.status = ListingStatus::Filled;
+                    } else {
+                        ask.status = ListingStatus::PartiallyFilled;
+                    }
+                }
+
+                // 完全成交 → 移除
+                if book.bids[0].quantity == 0 {
+                    book.bids.remove(0);
+                }
+                if book.asks[0].quantity == 0 {
+                    book.asks.remove(0);
+                }
             }
         } // markets 借用释放
 
@@ -744,29 +772,13 @@ mod tests {
         // 买单：100 coin
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: buyer,
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 100,
-                side: OrderSide::Bid,
-                created_tick: 0,
-            },
+            Order::new(buyer, item, 1, 100, OrderSide::Bid, 0),
         );
 
         // 卖单：80 coin
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: seller,
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 80,
-                side: OrderSide::Ask,
-                created_tick: 0,
-            },
+            Order::new(seller, item, 1, 80, OrderSide::Ask, 0),
         );
 
         // 撮合
@@ -795,29 +807,13 @@ mod tests {
         // 买单：50 coin（低价）
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: make_test_entity(1),
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 50,
-                side: OrderSide::Bid,
-                created_tick: 0,
-            },
+            Order::new(make_test_entity(1), item, 1, 50, OrderSide::Bid, 0),
         );
 
         // 卖单：100 coin（高价——无交叉）
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: make_test_entity(2),
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 100,
-                side: OrderSide::Ask,
-                created_tick: 0,
-            },
+            Order::new(make_test_entity(2), item, 1, 100, OrderSide::Ask, 0),
         );
 
         let trades = reg.match_orders(market_id, item, 1);
@@ -841,53 +837,21 @@ mod tests {
         // 买单
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: buyer,
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 100,
-                side: OrderSide::Bid,
-                created_tick: 0,
-            },
+            Order::new(buyer, item, 1, 100, OrderSide::Bid, 0),
         );
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: buyer,
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 100,
-                side: OrderSide::Bid,
-                created_tick: 0,
-            },
+            Order::new(buyer, item, 1, 100, OrderSide::Bid, 0),
         );
 
         // 卖单（两笔）
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: seller_a,
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 70,
-                side: OrderSide::Ask,
-                created_tick: 0,
-            },
+            Order::new(seller_a, item, 1, 70, OrderSide::Ask, 0),
         );
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: seller_b,
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 80,
-                side: OrderSide::Ask,
-                created_tick: 0,
-            },
+            Order::new(seller_b, item, 1, 80, OrderSide::Ask, 0),
         );
 
         let trades = reg.match_orders(market_id, item, 1);
@@ -908,29 +872,13 @@ mod tests {
         // 买单：90 coin（但只有 10）
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: poor_buyer,
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 90,
-                side: OrderSide::Bid,
-                created_tick: 0,
-            },
+            Order::new(poor_buyer, item, 1, 90, OrderSide::Bid, 0),
         );
 
         // 卖单：50 coin
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: seller,
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 50,
-                side: OrderSide::Ask,
-                created_tick: 0,
-            },
+            Order::new(seller, item, 1, 50, OrderSide::Ask, 0),
         );
 
         // 成交价 = (90 + 50) / 2 = 70，但 buyer 只有 10
@@ -954,27 +902,11 @@ mod tests {
 
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: alice,
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 200,
-                side: OrderSide::Bid,
-                created_tick: 0,
-            },
+            Order::new(alice, item, 1, 200, OrderSide::Bid, 0),
         );
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0,
-                entity_id: bob,
-                item_id: item,
-                quantity: 1,
-                limit_price_copper: 150,
-                side: OrderSide::Ask,
-                created_tick: 0,
-            },
+            Order::new(bob, item, 1, 150, OrderSide::Ask, 0),
         );
 
         let trades = reg.match_orders(market_id, item, 1);
@@ -1070,33 +1002,21 @@ mod tests {
         // 物品 A：交叉订单
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0, entity_id: buyer, item_id: item_a,
-                quantity: 1, limit_price_copper: 50, side: OrderSide::Bid, created_tick: 0,
-            },
+            Order::new(buyer, item_a, 1, 50, OrderSide::Bid, 0),
         );
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0, entity_id: seller, item_id: item_a,
-                quantity: 1, limit_price_copper: 40, side: OrderSide::Ask, created_tick: 0,
-            },
+            Order::new(seller, item_a, 1, 40, OrderSide::Ask, 0),
         );
 
         // 物品 B：交叉订单
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0, entity_id: buyer, item_id: item_b,
-                quantity: 1, limit_price_copper: 30, side: OrderSide::Bid, created_tick: 0,
-            },
+            Order::new(buyer, item_b, 1, 30, OrderSide::Bid, 0),
         );
         reg.submit_order(
             market_id,
-            Order {
-                order_id: 0, entity_id: seller, item_id: item_b,
-                quantity: 1, limit_price_copper: 25, side: OrderSide::Ask, created_tick: 0,
-            },
+            Order::new(seller, item_b, 1, 25, OrderSide::Ask, 0),
         );
 
         let trades = reg.match_all_markets(1);

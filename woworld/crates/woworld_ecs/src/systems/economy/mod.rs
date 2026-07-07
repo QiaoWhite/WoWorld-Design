@@ -7,12 +7,17 @@
 //! Phase 2:
 //! - order_creation_system: NPC 基于经济认知创建买卖单
 //! - market_matching_system: 撮合所有市场订单簿
+//!
+//! Phase 3:
+//! - needs: 结构化需求评估（Physiological/Occupational/Social）
+
+pub mod needs;
 
 use std::collections::HashMap;
 
 use hecs::{CommandBuffer, World};
 use woworld_core::economy::behavioral::EconBehaviorParams;
-use woworld_core::economy::{EconomyQuery, Order, OrderSide};
+use woworld_core::economy::{EconomyQuery, ListingStatus, ListingType, Order, OrderSide};
 use woworld_core::id::ItemDefId;
 use woworld_core::item::ItemQuery;
 use woworld_core::types::EntityId;
@@ -183,6 +188,7 @@ pub fn order_creation_system(
             registry.submit_order(market_id, Order {
                 order_id: 0, entity_id, item_id, quantity: qty,
                 limit_price_copper: ask_price, side: OrderSide::Ask, created_tick: tick,
+                listing_type: ListingType::Normal, filled_quantity: 0, status: ListingStatus::Active,
             });
         } else if surplus > 0 && !wallet_poor {
             // 有 surplus + 不缺钱 → 正常卖单
@@ -192,6 +198,7 @@ pub fn order_creation_system(
             registry.submit_order(market_id, Order {
                 order_id: 0, entity_id, item_id, quantity: qty,
                 limit_price_copper: ask_price, side: OrderSide::Ask, created_tick: tick,
+                listing_type: ListingType::Normal, filled_quantity: 0, status: ListingStatus::Active,
             });
         } else if deficit > 0 {
             // 有 deficit → 买单（补货），只要付得起
@@ -203,6 +210,7 @@ pub fn order_creation_system(
                 registry.submit_order(market_id, Order {
                     order_id: 0, entity_id, item_id, quantity: qty,
                     limit_price_copper: bid_price, side: OrderSide::Bid, created_tick: tick,
+                    listing_type: ListingType::Normal, filled_quantity: 0, status: ListingStatus::Active,
                 });
             }
         } else if wallet_rich && held_qty > 0 {
@@ -212,6 +220,7 @@ pub fn order_creation_system(
                 registry.submit_order(market_id, Order {
                     order_id: 0, entity_id, item_id, quantity: 1,
                     limit_price_copper: bid_price, side: OrderSide::Bid, created_tick: tick,
+                    listing_type: ListingType::Normal, filled_quantity: 0, status: ListingStatus::Active,
                 });
             }
         }

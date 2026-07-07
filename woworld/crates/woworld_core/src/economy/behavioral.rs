@@ -245,6 +245,37 @@ pub fn consumption_propensity(
     raw.clamp(0.05, 0.95)
 }
 
+// ── 稀缺性信号 ───────────────────────────────────────────
+
+/// 计算订单簿的稀缺性加成信号（Phase 3 新增）。
+///
+/// 设计 004 §1.4 引用但未定义具体公式。
+/// Phase 3 自行设计: bid/ask 不平衡 → 价格修正信号。
+///
+/// - bid_volume > ask_volume → 正信号（买方压力，涨价）
+/// - bid_volume < ask_volume → 负信号（卖方压力，跌价）
+/// - 均衡 → 0
+///
+/// 返回值 clamped 到 [-0.15, 0.30]。
+/// `_bid_count`/`_ask_count` 保留用于 Phase 4 的 count-weighted 稀缺性信号（当前仅用 volume）。
+pub fn calculate_scarcity_bonus(
+    _bid_count: usize,
+    _ask_count: usize,
+    bid_volume: u64,
+    ask_volume: u64,
+) -> f32 {
+    let bid_total = bid_volume as f32;
+    let ask_total = ask_volume.max(1) as f32;
+    let ratio = bid_total / ask_total;
+
+    // ratio > 1 → 买方压力 → 正加成
+    // ratio < 1 → 卖方压力 → 负加成
+    let raw = (ratio - 1.0) * 0.25;
+
+    // clamp: 稀缺最多 +30%（疯抢），过剩最多 -15%（跳楼价也有底）
+    raw.clamp(-0.15, 0.30)
+}
+
 // ── 测试 ───────────────────────────────────────────────
 
 #[cfg(test)]
@@ -513,5 +544,49 @@ mod tests {
             let cp = consumption_propensity(&p, (seed % 3) as f32 * 0.4 - 0.4, (seed % 3) as f32 * 0.3 - 0.3, 0.5);
             assert!((0.05..=0.95).contains(&cp), "seed {seed}: {cp}");
         }
+    }
+
+    // ── calculate_scarcity_bonus ───────────────────────
+
+    #[test]
+    fn test_scarcity_balanced() {
+        // bid=ask → ratio=1 → bonus≈0
+        let bonus = calculate_scarcity_bonus(10, 10, 1000, 1000);
+        assert!(bonus.abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_scarcity_bid_pressure() {
+        // bid > ask → 正加成
+        let bonus = calculate_scarcity_bonus(15, 5, 1500, 500);
+        assert!(bonus > 0.0);
+    }
+
+    #[test]
+    fn test_scarcity_ask_pressure() {
+        // ask > bid → 负加成
+        let bonus = calculate_scarcity_bonus(5, 15, 500, 1500);
+        assert!(bonus < 0.0);
+    }
+
+    #[test]
+    fn test_scarcity_clamped_upper() {
+        // 极端买方压力 → 上限 0.30
+        let bonus = calculate_scarcity_bonus(100, 1, 10000, 1);
+        assert!(bonus <= 0.30);
+    }
+
+    #[test]
+    fn test_scarcity_clamped_lower() {
+        // 极端卖方压力 → 下限 -0.15
+        let bonus = calculate_scarcity_bonus(1, 100, 1, 10000);
+        assert!(bonus >= -0.15);
+    }
+
+    #[test]
+    fn test_scarcity_zero_asks() {
+        // ask_volume=0 → max(1) prevents NaN
+        let bonus = calculate_scarcity_bonus(10, 0, 1000, 0);
+        assert!(bonus.is_finite());
     }
 }

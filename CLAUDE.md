@@ -52,8 +52,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **写/读 Rust 代码** | `woworld/` — workspace 结构见下方「代码架构」 |
 | **构建项目** | `cd woworld && cargo build --workspace` |
 | **启动 Godot 编辑器** | `tools/godot/Godot_v4.7-stable_win64.exe woworld/godot/project.godot` |
-| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-07-items-economy.md` (深夜: 物品 Phase 1+经济 Phase 2·两轮审计·624 tests) |
-| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260707-items-economy.md` (物品 Phase 1+经济 Phase 2·624 tests·下一步建议) |
+| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-08.md` (全天: 物品 Phase 2+经济 Phase 3·737 tests) |
+| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260708.md` (物品 Phase 2+经济 Phase 3·737 tests·下一步建议) |
 | **🐛 查已知 bug/陷阱** | `woworld-dev-plan/bugs/INDEX.md` — 调试前必须先查 |
 
 ## 文档结构
@@ -86,7 +86,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 近期关键变更：**CHG-053**（Godot 4.7·12子系统）→ **CHG-054**（世界生成 v2.1）→ **CHG-055/056**（存档系统 v1.0→v2.0）→ **CHG-057**（NPC认知 v1.1·PatternExpression数学地基）→ **CHG-058**（NPC认知系统自审修正）→ **CHG-059**（NPC认知v1.1全模块传播审计）→ **CHG-060**（开发路线图优化·四轨重定义·孤儿接口修复）→ **CHG-061**（轨C孤儿接口修复·CHG-063前置）→ **CHG-062**（UI与UX系统创建）→ **CHG-063**（玩家系统新建·6篇~1,448行·28-玩家系统登记）→ **CHG-065**（地形修改编排层·~800行代码+50测试·内核不转ECS编排层入ECS）。
 
-近期冲刺：**Sprint 031-033**（性能优化+LOD+天气+PBR法线）→ **Sprint 035-057**（ECS Phase 0-2·生命·NPC人格·BigFive·行为链·Godot可视化·21 NPC）→ **Sprint 058**（Gompertz死亡·社交深度·地形移动·审计修复·381 tests）→ **物品 Phase 1 + 经济 Phase 2**（ItemCategory/Registry/TOML + Market/OrderBook撮合/Pareto钱包/需求驱动订单·624 tests）。
+近期冲刺：**Sprint 031-033**（性能优化+LOD+天气+PBR法线）→ **Sprint 035-057**（ECS Phase 0-2·生命·NPC人格·BigFive·行为链·Godot可视化·21 NPC）→ **Sprint 058**（Gompertz死亡·社交深度·地形移动·审计修复·381 tests）→ **物品 Phase 1 + 经济 Phase 2**（ItemCategory/Registry/TOML + Market/OrderBook撮合/Pareto钱包/需求驱动订单·624 tests）→ **物品 Phase 2**（PersonalInventory/装备/Assembly stub·705 tests）→ **经济 Phase 3**（NeedCategory/Urgency/ListingType/Partial fill/Scarcity bonus/Needs连接·737 tests）。
 
 **`WoWorld-Design/Change/hand/`** — 用户直接设计反馈。修改涉及的设计决策时，需检查此目录是否有相关意见。
 
@@ -128,7 +128,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 开发命令（woworld/ Rust workspace）
 
-项目已进入轨A·GPU-Driven Clipmap+海洋+LODCoordinator+天气+**ECS Phase 0 待启动**。Rust workspace 含 5 crate，**341 个测试全部通过**。
+项目已进入轨A·GPU-Driven Clipmap+海洋+LODCoordinator+天气+**ECS Phase 0 已启动**。Rust workspace 含 5 crate，**737 个测试全部通过**。
 
 ```bash
 cd woworld
@@ -143,7 +143,7 @@ cargo build --release --workspace
 cargo check --workspace
 
 # 运行所有测试
-cargo test --workspace           # 5 crates，全部 341 个测试
+cargo test --workspace           # 5 crates，全部 737 个测试
 
 # 运行单个 crate 的测试
 cargo test -p woworld_worldgen
@@ -179,16 +179,16 @@ cargo check --workspace && cargo test --workspace && cargo clippy --workspace --
 - **Godot 编辑器缓存**：修改 `.gdshader` 后有时需重启编辑器才能生效。
 - **VoxelChunk vs Clipmap 材质一致性**：两者必须用相同的材质分类路径（biome 分类器），不能一个用纯高度分类一个用群系分类——否则 LOD 边界有色差（Sprint 032-G 根因 1）。
 
-> **当前状态**（2026-07-07 深夜）：`cargo check --workspace` 通过。`cargo test` **624 个测试全部通过**, clippy 零警告。★ 四大社会系统 Phase 1 全部完成 (Culture/Economy/Faith/Power)。★ **物品系统 Phase 1** 完成 (ItemCategory/Quality/Rarity/ItemProperties/ItemRegistry/TOML)。★ **经济系统 Phase 2** 完成 (Market/OrderBook撮合引擎/Pareto钱包/需求驱动订单/物品持有/交易执行/游戏循环接入)。GPU-Driven Clipmap 8 层 LOD + Gerstner 海洋 + 昼夜循环 + 5 群系系统 + OceanProvider trait + Transvoxel 骨架 + **LODCoordinator Phase2（完整8步算法）** + **天气系统 Phase1** 就位。**ECS 架构——`woworld_ecs` crate 已就位（40 Components + 27 Systems + 345 tests）**。★ **CHG-065 地形修改编排层已就位**（`woworld_core::edit_terrain`）。最新状态见 `woworld-dev-plan/01-核心基础/devlogs/`。
+> **当前状态**（2026-07-08）：`cargo check --workspace` 通过。`cargo test` **737 个测试全部通过**, clippy 零警告。★ 四大社会系统 Phase 1 全部完成 (Culture/Economy/Faith/Power)。★ **物品系统 Phase 1+2** 完成 (ItemCategory/Registry/TOML + PersonalInventory/装备/Assembly stub)。★ **经济系统 Phase 2+3** 完成 (Market/OrderBook/Partial fill/Pareto钱包/需求驱动订单/NeedCategory/Urgency/ListingType/Scarcity bonus/Bootstrap/Needs连接)。GPU-Driven Clipmap 8 层 LOD + Gerstner 海洋 + 昼夜循环 + 5 群系系统 + OceanProvider trait + Transvoxel 骨架 + **LODCoordinator Phase2（完整8步算法）** + **天气系统 Phase1** 就位。**ECS 架构——`woworld_ecs` crate 已就位（42 Components + 28 Systems + 383 tests）**。★ **CHG-065 地形修改编排层已就位**（`woworld_core::edit_terrain`）。最新状态见 `woworld-dev-plan/01-核心基础/devlogs/`。
 
 ### 测试分布
 
 | Crate | 测试数 | 说明 |
 |-------|--------|------|
-| `woworld_core` | 195 | culture + economy + faith + power + item + time + density + lod + weather_types + edit_terrain |
+| `woworld_core` | 270 | culture + economy + faith + power + item + time + density + lod + weather_types + edit_terrain + inventory + equipment + assembly + listing + bootstrap |
 | `woworld_worldgen` | 58 | biome + cave + clipmap + noise_gen + ocean + terrain + transvoxel + vegetation |
 | `woworld_atmosphere` | 26 | time_curve + synthesizer + weather |
-| `woworld_ecs` | 345 | 40 Components + 27 Systems (life/npc/lod + culture/economy/faith/power + item) |
+| `woworld_ecs` | 383 | 42 Components + 28 Systems (life/npc/lod + culture/economy/faith/power + item/inventory + needs) |
 | `woworld_godot` | 0 | cdylib 不便于单元测试——已迁移至 worldgen/ecs |
 
 > 详细模块状态见 [`附录E-开发状态.md`](woworld-dev-plan/附录E-开发状态.md)。

@@ -10,6 +10,7 @@ pub mod emotion;
 pub mod faith;
 pub mod entity_kind;
 pub mod gender;
+pub mod inventory;
 pub mod item;
 pub mod goal;
 pub mod growth;

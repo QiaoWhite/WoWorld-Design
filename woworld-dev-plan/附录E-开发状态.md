@@ -2,7 +2,7 @@
 
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-07-08
+> **最后更新**: 2026-07-08（Sprint-061 对话气泡 MVP）
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `附录D-模块依赖图.md` · `../CLAUDE-INTERFACES.md`
 
@@ -18,12 +18,12 @@
 | 有代码的模块 | **8 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、地形修改编排层、**★玩家系统 Phase 1**） |
 | 零代码的模块 | **21 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **783 tests 全绿** (core: 286 + worldgen: 58 + atmosphere: 26 + ecs: 413 + godot: 0), cargo clippy 零警告 |
-| ECS 架构 | **Phase 0/1/2/3 ✅** — 44 Components + 29 Systems + 783 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + **玩家 Phase 1** 就位。 |
-| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + **★Tab夺舍NPC** |
-| 当前冲刺 | **Sprint-060 完成** — 玩家系统 Phase 1: ControlMode + 夺舍NPC（783 tests）→ 下一步：对话雏形 / 物品 Phase 3 / 经济 Phase 4 / 玩家 Phase 2 |
-| 最新 CHG | CHG-065（2026-07-06）— 地形修改编排层 ~800行代码 + 50 tests · 内核不转ECS编排层入ECS |
-| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260708-late]]（2026-07-08·Sprint-060 玩家Phase1·783 tests） |
+| Rust workspace | 5 crates, **807 tests 全绿** (core: 292 + worldgen: 58 + atmosphere: 26 + ecs: 431 + godot: 0), cargo clippy 零警告 |
+| ECS 架构 | **Phase 0/1/2/3 ✅** — 44 Components + 30 Systems + 807 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + **对话气泡 MVP** 就位。 |
+| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + **★NPC对话气泡** |
+| 当前冲刺 | **Sprint-061 完成** — 对话雏形 MVP: BubbleType + speech_bubble_system + 夺舍NPC自言自语气泡（807 tests）→ 下一步：NPC-NPC双向对话 / 物品 Phase 3 / 经济 Phase 4 / 玩家 Phase 2 |
+| 最新 CHG | CHG-066（2026-07-08）— 对话气泡术语消歧 + Bark MVP 实现 · SpeechBubble/BubbleType 与音频 Bark 分离 |
+| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260708-sprint061]]（2026-07-08·Sprint-061 对话气泡MVP·807 tests） |
 
 ---
 
@@ -216,7 +216,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 | **魔法** | P3(冻结) | **🔴 冻结** | — | **零性能预算 — 预算建立前不可编码** |
 | 物品系统 | P1 | 🟢 Phase 1 | ItemCategory(44)+ItemProperties(28)+ItemRegistry+TOML+ItemQuery trait | v1.0。Phase 1 完成（+33 tests）。延后: Assembly/装备/背包/附魔 |
 | 技能系统 | P1 | 🟡 就绪 | — | SkillId(5分类)/XP公式/天赋三层/教学四路径 |
-| 语言表达 | P4 | 🟡 就绪 | — | ExpressionRef/Conversation/信息传播 5 通道 |
+| 语言表达 | P4 | 🟡 就绪 | 对话气泡 MVP (BubbleType + speech_bubble_system, 桩化文本) | ExpressionRef/Conversation/信息传播 5 通道。★ Sprint-061 气泡渲染就位(CHG-066)，桩化文本待接入 TextGenerator |
 | 模型动作与物理 | P4 | 🟡 就绪 | — | 9 层动画栈/四 trait/5 子模块 |
 | 音频系统 | P4 | 🟡 就绪 | — | SoundFootprint/AudioQuery(30 methods) |
 | 感官与知觉系统 | P3 | 🟡 就绪 | — | PerceptBatch/4 查询 trait/PerceptualCache |
@@ -248,6 +248,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | Sprint | 日期 | 目标 | 状态 |
 |--------|------|------|------|
+| Sprint-061 | 2026-07-08 | ★ 对话雏形 MVP — BubbleType + speech_bubble_system + NPC自言自语气泡 + 术语消歧(CHG-066) | ✅ 完成 |
 | Sprint-060 | 2026-07-08 | ★ 玩家系统 Phase 1 — ControlMode + 夺舍NPC + Tab/F切换 + possess命令 | ✅ 完成 |
 | Sprint-033 | 2026-07-05 | ★ MC绕序修复 + LODCoordinator Phase1 + 天气Phase1 + PBR法线修复 | ✅ 完成 |
 | Sprint-032 | 2026-07-04~06 | VoxelChunk LOD 0 7轮修复（MC绕序+统一wy+biome材质） | ✅ 完成 |
@@ -301,7 +302,8 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | 文件 | 内容 |
 |------|------|
-| [handoff-20260708-late.md](01-核心基础/handoff/handoff-20260708-late.md) | ★ 最新 — Sprint-060（玩家Phase1·ControlMode+夺舍NPC·783 tests）|
+| [handoff-20260708-sprint061.md](01-核心基础/handoff/handoff-20260708-sprint061.md) | ★ 最新 — Sprint-061（对话气泡MVP·BubbleType+speech_bubble_system·术语消歧CHG-066·807 tests）|
+| [handoff-20260708-late.md](01-核心基础/handoff/handoff-20260708-late.md) | Sprint-060（玩家Phase1·ControlMode+夺舍NPC·783 tests）|
 | [handoff-20260706-031.md](01-核心基础/handoff/handoff-20260706-031.md) | Sprint-056/057（PRNG清理+ECS-Godot可视化·21 NPC·341 tests）|
 | [handoff-20260706-030.md](01-核心基础/handoff/handoff-20260706-030.md) | Sprint-043~055（NPC人格·BigFive·行为链·15 Sprints）|
 | [handoff-20260705-029.md](01-核心基础/handoff/handoff-20260705-029.md) | Sprint-034~042（LODCoordinator P2+ECS P0+生命+天气+NPC需求链）|

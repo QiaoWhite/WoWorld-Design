@@ -13,6 +13,7 @@ use crate::components::emotion::Emotion;
 use crate::components::entity_kind::EntityKind;
 use crate::components::lod::LodLevel;
 use crate::components::transform::{Position, Rotation};
+use crate::resources::speech_bubble_state::SpeechBubbleState;
 
 /// 名字缓存：首次遇到实体时生成并缓存，后续直接返回
 type NameCache = HashMap<hecs::Entity, String>;
@@ -23,10 +24,12 @@ type NameCache = HashMap<hecs::Entity, String>;
 /// - 从 LodLevel.render_lod 读取裁剪等级
 /// - 从 Emotion PAD 计算 color_hint
 /// - 从 NameCache 或 generate_name() 获取 display_name
+/// - 从 SpeechBubbleState 读取当前活跃气泡文字/颜色
 pub fn entity_visual_system(
     world: &hecs::World,
     player_entity: Option<hecs::Entity>,
     name_cache: &mut NameCache,
+    bubble_state: &SpeechBubbleState,
 ) -> Vec<(hecs::Entity, EntityVisual)> {
     let mut visuals = Vec::new();
 
@@ -54,6 +57,11 @@ pub fn entity_visual_system(
             })
             .clone();
 
+        let (bubble_text, bubble_color) = match bubble_state.active_for(entity) {
+            Some(active) => (Some(active.text.clone()), Some(active.bubble_type.color())),
+            None => (None, None),
+        };
+
         visuals.push((
             entity,
             EntityVisual {
@@ -63,6 +71,8 @@ pub fn entity_visual_system(
                 color_hint,
                 kind: kind.to_core(),
                 render_lod: lod.render_lod,
+                bubble_text,
+                bubble_color,
             },
         ));
     }
@@ -410,7 +420,7 @@ mod tests {
     fn test_visual_system_collects_all() {
         let world = test_world();
         let mut cache = NameCache::new();
-        let visuals = entity_visual_system(&world, None, &mut cache);
+        let visuals = entity_visual_system(&world, None, &mut cache, &SpeechBubbleState::default());
         assert_eq!(visuals.len(), 2);
     }
 
@@ -419,7 +429,12 @@ mod tests {
         let world = test_world();
         let player = world.query::<&Position>().iter().next().unwrap().0;
         let mut cache = NameCache::new();
-        let visuals = entity_visual_system(&world, Some(player), &mut cache);
+        let visuals = entity_visual_system(
+            &world,
+            Some(player),
+            &mut cache,
+            &SpeechBubbleState::default(),
+        );
         assert_eq!(visuals.len(), 1);
     }
 
@@ -427,7 +442,7 @@ mod tests {
     fn test_visual_lod_preserved() {
         let world = test_world();
         let mut cache = NameCache::new();
-        let visuals = entity_visual_system(&world, None, &mut cache);
+        let visuals = entity_visual_system(&world, None, &mut cache, &SpeechBubbleState::default());
         let npc2 = visuals.iter().find(|(_, v)| v.render_lod == 3).unwrap();
         assert!(!npc2.1.show_label());
         assert!(npc2.1.is_visible());
@@ -473,11 +488,11 @@ mod tests {
     #[test]
     fn test_name_cache_reuse() {
         let mut world = hecs::World::new();
-        let e = world.spawn((Position(Vec3::ZERO), EcsKind::Creature, LodLevel::default()));
+        let _e = world.spawn((Position(Vec3::ZERO), EcsKind::Creature, LodLevel::default()));
         let mut cache = NameCache::new();
-        let v1 = entity_visual_system(&world, None, &mut cache);
+        let v1 = entity_visual_system(&world, None, &mut cache, &SpeechBubbleState::default());
         let name1 = v1[0].1.display_name.clone();
-        let v2 = entity_visual_system(&world, None, &mut cache);
+        let v2 = entity_visual_system(&world, None, &mut cache, &SpeechBubbleState::default());
         assert_eq!(name1, v2[0].1.display_name, "name should be cached");
     }
 
@@ -515,7 +530,7 @@ mod tests {
         let mut world = hecs::World::new();
         world.spawn((Position(Vec3::ZERO), EcsKind::Plant, LodLevel::default()));
         let mut cache = NameCache::new();
-        let visuals = entity_visual_system(&world, None, &mut cache);
+        let visuals = entity_visual_system(&world, None, &mut cache, &SpeechBubbleState::default());
         assert_eq!(visuals.len(), 1);
         assert_eq!(visuals[0].1.kind, woworld_core::types::EntityKind::Plant);
     }
@@ -524,7 +539,7 @@ mod tests {
     fn test_empty_world() {
         let world = hecs::World::new();
         let mut cache = NameCache::new();
-        let visuals = entity_visual_system(&world, None, &mut cache);
+        let visuals = entity_visual_system(&world, None, &mut cache, &SpeechBubbleState::default());
         assert!(visuals.is_empty());
     }
 }

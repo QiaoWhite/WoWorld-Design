@@ -6,3 +6,4 @@ pub mod goal;
 pub mod movement;
 pub mod needs;
 pub mod social;
+pub mod speech_bubble;

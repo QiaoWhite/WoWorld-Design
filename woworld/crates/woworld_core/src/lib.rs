@@ -20,6 +20,7 @@ pub mod ocean;
 pub mod player;
 pub mod power;
 pub mod spatial;
+pub mod speech_bubble;
 pub mod time;
 pub mod types;
 pub mod vegetation;
@@ -61,6 +62,7 @@ pub mod prelude {
     pub use crate::naming::{generate_name, NpcName};
     pub use crate::player::{ActionDomain, ControlMode};
     pub use crate::power::{PowerAtom, PowerEdge, PowerSource, LEGITIMACY_CRISIS_THRESHOLD};
+    pub use crate::speech_bubble::BubbleType;
     pub use crate::time::*;
     pub use crate::types::*;
     pub use crate::vegetation::*;

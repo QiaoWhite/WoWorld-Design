@@ -36,6 +36,8 @@ struct EntityNode {
     root: Gd<Node3D>,
     mesh_instance: Gd<MeshInstance3D>,
     label: Option<Gd<Label3D>>,
+    /// 对话气泡标签（头顶,在名字之上,由 speech_bubble_system 驱动）
+    bubble_label: Option<Gd<Label3D>>,
 }
 
 impl EntityRenderer {
@@ -114,6 +116,23 @@ impl EntityRenderer {
                             && visual.position.distance(player) <= LABEL_MAX_DISTANCE;
                         lbl.set_visible(show);
                         lbl.set_text(&visual.display_name);
+                    }
+                    // 对话气泡：有 bubble_text 且在距离/LOD 范围内则显示
+                    if let Some(ref bubble) = node.bubble_label {
+                        let mut b = bubble.clone();
+                        match &visual.bubble_text {
+                            Some(text)
+                                if visual.show_label()
+                                    && visual.position.distance(player) <= LABEL_MAX_DISTANCE =>
+                            {
+                                b.set_text(text);
+                                if let Some(c) = visual.bubble_color {
+                                    b.set_modulate(Color::from_rgb(c[0], c[1], c[2]));
+                                }
+                                b.set_visible(true);
+                            }
+                            _ => b.set_visible(false),
+                        }
                     }
                 }
             } else {
@@ -247,10 +266,27 @@ impl EntityRenderer {
             Some(lbl)
         };
 
+        // Label3D — 对话气泡（初始隐藏，由 speech_bubble_system 驱动）
+        // 位于名字标签之上；黑色描边保证任意地形背景下可读（对齐 UI 002 §Bark 气泡）。
+        let bubble_label = {
+            let mut lbl = Label3D::new_alloc();
+            lbl.set_billboard_mode(godot::classes::base_material_3d::BillboardMode::ENABLED);
+            lbl.set_position(Vector3::new(0.0, 2.7, 0.0)); // 名字(2.2)之上
+            lbl.set_visible(false);
+            lbl.set_font_size(28);
+            lbl.set_outline_size(10); // ≈ font_size/3，防糊
+            lbl.set_outline_modulate(Color::from_rgb(0.0, 0.0, 0.0)); // 黑边
+            lbl.set_width(300.0); // 最大宽度 300px（UI 002）
+            lbl.set_autowrap_mode(godot::classes::text_server::AutowrapMode::WORD_SMART);
+            root.add_child(&lbl);
+            Some(lbl)
+        };
+
         EntityNode {
             root,
             mesh_instance,
             label,
+            bubble_label,
         }
     }
 

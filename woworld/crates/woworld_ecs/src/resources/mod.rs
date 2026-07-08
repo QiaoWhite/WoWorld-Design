@@ -6,3 +6,4 @@ pub mod item_registry;
 pub mod power_registry;
 pub mod relation_storage;
 pub mod spatial_grid;
+pub mod speech_bubble_state;

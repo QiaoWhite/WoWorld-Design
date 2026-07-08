@@ -26,6 +26,10 @@ pub struct EntityVisual {
     pub kind: EntityKind,
     /// 渲染 LOD 等级: 0=全细节, 4=不可见
     pub render_lod: u8,
+    /// 当前对话气泡文字（None=无气泡）
+    pub bubble_text: Option<String>,
+    /// 对话气泡文字颜色（RGB 0.0-1.0，None=无气泡）
+    pub bubble_color: Option<[f32; 3]>,
 }
 
 impl EntityVisual {
@@ -121,6 +125,8 @@ mod tests {
             color_hint: [1.0, 1.0, 1.0],
             kind: EntityKind::Creature,
             render_lod: 3,
+            bubble_text: None,
+            bubble_color: None,
         };
         assert!(v.is_visible());
         assert!(!v.show_label());
@@ -135,6 +141,8 @@ mod tests {
             color_hint: [1.0, 1.0, 1.0],
             kind: EntityKind::Creature,
             render_lod: 4,
+            bubble_text: None,
+            bubble_color: None,
         };
         assert!(!v.is_visible());
     }
@@ -148,6 +156,8 @@ mod tests {
             color_hint: [1.0, 1.0, 1.0],
             kind: EntityKind::Creature,
             render_lod: 0,
+            bubble_text: None,
+            bubble_color: None,
         };
         assert!(v.show_label());
     }

@@ -129,6 +129,8 @@
 | 编辑密度层 | `EditDensityLayer` | woworld_core::edit_terrain（DensityProvider桥接·插入DensityStack） |
 | 修改类型 | `ModificationKind` | woworld_core::edit_terrain（Dig/Fill/Smooth/Paint/Flatten） |
 | 修改请求 | `ModificationRequest` | woworld_core::edit_terrain（单次修改描述符） |
+| 对话气泡类型 | `BubbleType` | woworld_core::speech_bubble（Normal/Emotion/Ambient/Quest/Damage·CHG-066·UI文字气泡·区别于音频 BarkType） |
+| 对话气泡状态 | `SpeechBubbleState` | woworld_ecs::resources（Resource·跨帧气泡 duration+cooldown·CHG-066） |
 | 地形修改编排层 | Terrain Modification Orchestration | CHG-065——内核不转ECS·编排层入ECS |
 | 开发阶段 | Phase | 开发治理——模块从设计到交付的宏观阶段划分 |
 | 子里程碑 | Milestone | 开发治理——Phase 内的可验证进度节点 |
@@ -138,4 +140,4 @@
 
 ---
 
-> **最后更新**: 2026-07-06 — CHG-065 追加 11 个地形修改编排层类型 + 1 个架构术语。
+> **最后更新**: 2026-07-08 — CHG-066 追加 BubbleType + SpeechBubbleState（对话气泡·区别于音频 BarkType）。

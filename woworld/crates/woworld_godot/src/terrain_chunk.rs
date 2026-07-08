@@ -189,6 +189,8 @@ pub struct WorldDriver {
     debug_console: Option<crate::debug_console::DebugConsole>,
     /// Sprint-059: 名字缓存（entity_visual_system 内部维护）
     name_cache: std::collections::HashMap<hecs::Entity, String>,
+    /// Sprint-061: 对话气泡状态（speech_bubble_system 维护，跨帧）
+    bubble_state: woworld_ecs::resources::speech_bubble_state::SpeechBubbleState,
     /// Sprint-059: ECS Player 实体（排除用）
     /// Sprint-060: 夺舍时切换为被控 NPC，自由相机时指向裸实体
     player_ecs_entity: Option<hecs::Entity>,
@@ -264,6 +266,7 @@ impl INode3D for WorldDriver {
             entity_renderer: None,
             debug_console: None,
             name_cache: std::collections::HashMap::new(),
+            bubble_state: woworld_ecs::resources::speech_bubble_state::SpeechBubbleState::new(),
             player_ecs_entity: None,
             bare_player_entity: None,
             possession_candidate_index: 0,
@@ -1181,6 +1184,15 @@ impl INode3D for WorldDriver {
         }
 
         // ── Sprint-059: ECS → EntityVisual → Godot 视觉同步 ──
+        // Sprint-061: 先更新对话气泡状态（必须在 entity_visual_system 之前，
+        // 否则气泡数据滞后一帧）。跳过被夺舍 NPC，防退出夺舍时闪现残留气泡。
+        woworld_ecs::systems::npc::speech_bubble::speech_bubble_system(
+            &self.ecs,
+            self.frame_count,
+            self.player_ecs_entity,
+            &mut self.bubble_state,
+        );
+
         // 先获取玩家位置（避免 borrow 冲突）
         let player_pos = self.get_player_position();
         if let Some(ref mut renderer) = self.entity_renderer {
@@ -1194,6 +1206,7 @@ impl INode3D for WorldDriver {
                 &self.ecs,
                 self.player_ecs_entity,
                 &mut self.name_cache,
+                &self.bubble_state,
             );
             // 每 60 帧打印一次诊断
             if self.frame_count % 60 == 0 {

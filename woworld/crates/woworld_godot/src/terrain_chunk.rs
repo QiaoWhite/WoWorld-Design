@@ -1208,8 +1208,8 @@ impl INode3D for WorldDriver {
                 &mut self.name_cache,
                 &self.bubble_state,
             );
-            // 每 60 帧打印一次诊断
-            if self.frame_count % 60 == 0 {
+            // 每 600 帧（~10s）打印一次诊断
+            if self.frame_count % 600 == 0 {
                 godot_print!(
                     "[EntityRenderer] frame={} entity_count={} renderer_exists=true",
                     self.frame_count,

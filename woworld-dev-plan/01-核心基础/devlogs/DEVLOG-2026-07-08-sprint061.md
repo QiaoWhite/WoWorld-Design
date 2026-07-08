@@ -44,6 +44,16 @@
 - 测试 807 全绿(783→807, +24):core 292 / ecs 431 / worldgen 58 / atmosphere 26
 - clippy 文档门零警告 · build DLL 更新 · fmt clean
 
-## 明日计划
-- [ ] 手动 Godot 验证气泡渲染(启动看 NPC 冒泡、跟随、50m 裁剪、夺舍无残留)
-- [ ] 下一冲刺候选:NPC-NPC 双向对话 / 物品 Phase 3 / 经济 Phase 4
+## 冲刺尾声(用户验证 + 收尾)
+- **手动 Godot 验证通过**——用户用 `_console.exe` 启动,确认气泡渲染"一切正常"。
+- **用户反馈处理(分诊)**:
+  - 🟢 诊断日志每秒刷屏 → 修复:`[EntityRenderer]` 频率 60→600 帧(~10s)。commit `fd3853c`。
+  - ❓ "没有气泡直接显示文字" → 澄清后确认:纯文字+黑描边正是选定的 MVP,非缺陷。
+  - 🟡 两个 warning(pdb 重命名 / godot-rust API v4.6 runtime v4.7 strict)→ 均为 godot 0.5 既有无害提示,非本冲刺引入,不改。
+- **提交 + 推送**:`842e712`(主冲刺)+ `fd3853c`(日志修复)已 push 到 remote master。
+- **学到**:`_console.exe`(198KB launcher,显示 stdout/panic/GDExtension 错误)vs 主 exe(GUI,吞输出)vs `project.godot`(项目配置文本)——三个不同东西。调试渲染/加载问题必须用 console 版。
+
+## 下一冲刺候选
+- 🥇 NPC-NPC 双向对话(气泡管线已就位,加内容源)
+- 🥈 经济 Phase 4(自包含低风险,行为函数已写好只差接线)/ 物品 Phase 3(横切,建议拆两冲刺)
+

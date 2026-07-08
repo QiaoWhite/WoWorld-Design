@@ -27,7 +27,11 @@ mod tests {
         item_seed_system(&mut reg);
 
         assert!(reg.def_count() > 0, "registry should have items after seed");
-        assert!(reg.def_count() >= 20, "expected at least 20 test items, got {}", reg.def_count());
+        assert!(
+            reg.def_count() >= 20,
+            "expected at least 20 test items, got {}",
+            reg.def_count()
+        );
 
         // 验证已知物品存在
         let ids = reg.all_def_ids().to_vec();
@@ -94,11 +98,17 @@ mod tests {
         assert!(names.contains(&"金币"), "金币 should be present");
 
         // 验证货币堆叠
-        let copper_def = ids.iter().find(|id| reg.get_name(**id) == Some("铜币")).unwrap();
+        let copper_def = ids
+            .iter()
+            .find(|id| reg.get_name(**id) == Some("铜币"))
+            .unwrap();
         assert_eq!(reg.get_stack_size(*copper_def), Some(999));
         assert_eq!(reg.get_base_value(*copper_def), Some(1));
 
-        let gold_def = ids.iter().find(|id| reg.get_name(**id) == Some("金币")).unwrap();
+        let gold_def = ids
+            .iter()
+            .find(|id| reg.get_name(**id) == Some("金币"))
+            .unwrap();
         assert_eq!(reg.get_base_value(*gold_def), Some(400));
     }
 }

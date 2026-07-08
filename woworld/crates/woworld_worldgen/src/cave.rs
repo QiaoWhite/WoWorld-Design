@@ -30,7 +30,7 @@ pub struct CaveParams {
 impl Default for CaveParams {
     fn default() -> Self {
         Self {
-            frequency: 0.05,  // Sprint 045: 0.04→0.05 (稍多洞穴)
+            frequency: 0.05, // Sprint 045: 0.04→0.05 (稍多洞穴)
             threshold: 0.18, // Sprint 045: 0.15→0.18 (稍大洞口)
             amplitude: 80.0,
         }
@@ -49,7 +49,8 @@ pub struct CaveDensity {
 impl CaveDensity {
     /// 从世界种子确定性创建
     pub fn new(master_seed: u64, params: CaveParams) -> Self {
-        let cave_seed = noise_gen::derive_noise_seed(master_seed, noise_gen::NOISE_DISCRIMINANT_WORLEY_CAVE);
+        let cave_seed =
+            noise_gen::derive_noise_seed(master_seed, noise_gen::NOISE_DISCRIMINANT_WORLEY_CAVE);
         let perm = PermutationTable::new(cave_seed);
         Self { perm, params }
     }
@@ -62,11 +63,7 @@ impl CaveDensity {
 
 impl DensityProvider for CaveDensity {
     fn density_at(&self, pos: WorldPos) -> f32 {
-        let w = noise_gen::worley_3d_f2f1(
-            &self.perm,
-            self.params.frequency,
-            [pos.x, pos.y, pos.z],
-        );
+        let w = noise_gen::worley_3d_f2f1(&self.perm, self.params.frequency, [pos.x, pos.y, pos.z]);
         if w < self.params.threshold {
             -self.params.amplitude as f32
         } else {
@@ -96,7 +93,13 @@ mod tests {
 
     #[test]
     fn test_cave_returns_zero_outside_threshold() {
-        let cave = CaveDensity::new(42, CaveParams { threshold: 0.0, ..Default::default() });
+        let cave = CaveDensity::new(
+            42,
+            CaveParams {
+                threshold: 0.0,
+                ..Default::default()
+            },
+        );
         // threshold=0 意味着 worley < 0 才触发——worley ∈ [0, ~1.2] 永不为负 → 始终返回 0
         let d = cave.density_at(WorldPos::default());
         assert!(d.abs() < 0.001, "threshold=0 should never trigger, got {d}");
@@ -104,9 +107,19 @@ mod tests {
 
     #[test]
     fn test_cave_returns_negative_inside_threshold() {
-        let cave = CaveDensity::new(42, CaveParams { threshold: 1.0, ..Default::default() });
+        let cave = CaveDensity::new(
+            42,
+            CaveParams {
+                threshold: 1.0,
+                ..Default::default()
+            },
+        );
         // threshold=1.0 意味着 worley < 1.0 触发——大多数区域 → 返回 -amplitude
-        let d = cave.density_at(WorldPos { x: 100.0, y: 0.0, z: 100.0 });
+        let d = cave.density_at(WorldPos {
+            x: 100.0,
+            y: 0.0,
+            z: 100.0,
+        });
         // 不能保证一定 < 0（极少数点 worley > 1.0），但大概率是
         // 只验证不 panic
         assert!(d <= 0.0, "cave density must be <= 0, got {d}");
@@ -116,7 +129,11 @@ mod tests {
     fn test_cave_deterministic() {
         let cave_a = CaveDensity::new(42, CaveParams::default());
         let cave_b = CaveDensity::new(42, CaveParams::default());
-        let pos = WorldPos { x: 100.0, y: 50.0, z: 200.0 };
+        let pos = WorldPos {
+            x: 100.0,
+            y: 50.0,
+            z: 200.0,
+        };
         let da = cave_a.density_at(pos);
         let db = cave_b.density_at(pos);
         assert!((da - db).abs() < 0.001, "same seed should give same output");
@@ -141,14 +158,24 @@ mod tests {
 
         let noise = Arc::new(WorldNoise::new(42));
         let terrain = Arc::new(TerrainBaseDensity::new(noise));
-        let cave = CaveDensity::new_arc(42, CaveParams { amplitude: 80.0, ..Default::default() });
+        let cave = CaveDensity::new_arc(
+            42,
+            CaveParams {
+                amplitude: 80.0,
+                ..Default::default()
+            },
+        );
 
         let mut stack = DensityStack::new();
         stack.push(terrain);
         stack.push(cave);
 
         // 在地下较深位置，地形密度应大于 0，洞穴可能降低它
-        let pos = WorldPos { x: 500.0, y: -20.0, z: 500.0 };
+        let pos = WorldPos {
+            x: 500.0,
+            y: -20.0,
+            z: 500.0,
+        };
         let d = stack.density_at(pos);
         // 只验证不 panic，不保证具体值（取决于噪声）
         assert!(d.is_finite(), "stack density should be finite");

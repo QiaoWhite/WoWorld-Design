@@ -298,15 +298,26 @@ mod tests {
                 ..default_params()
             };
             let m = loss_aversion_multiplier(&p);
-            assert!((1.5..=2.5).contains(&m), "seed {seed}: {m} not in [1.5,2.5]");
+            assert!(
+                (1.5..=2.5).contains(&m),
+                "seed {seed}: {m} not in [1.5,2.5]"
+            );
         }
     }
 
     #[test]
     fn test_loss_aversion_high_neuroticism() {
-        let p = EconBehaviorParams { neuroticism: 1.0, financial_literacy: 0.0, market_understanding: 0.0, ..default_params() };
+        let p = EconBehaviorParams {
+            neuroticism: 1.0,
+            financial_literacy: 0.0,
+            market_understanding: 0.0,
+            ..default_params()
+        };
         let m = loss_aversion_multiplier(&p);
-        assert!(m > 2.2, "high neuroticism + low wisdom → high loss aversion");
+        assert!(
+            m > 2.2,
+            "high neuroticism + low wisdom → high loss aversion"
+        );
     }
 
     #[test]
@@ -328,7 +339,10 @@ mod tests {
 
     #[test]
     fn test_spending_propensity_windfall_high() {
-        let p = EconBehaviorParams { conscientiousness: 0.0, ..default_params() };
+        let p = EconBehaviorParams {
+            conscientiousness: 0.0,
+            ..default_params()
+        };
         assert!(spending_propensity(MentalAccount::Windfall, &p) > 0.8);
     }
 
@@ -340,7 +354,12 @@ mod tests {
                 extraversion: ((seed + 40) as f32 % 100.0) / 100.0,
                 ..default_params()
             };
-            for account in [MentalAccount::RegularIncome, MentalAccount::Windfall, MentalAccount::Savings, MentalAccount::Gift] {
+            for account in [
+                MentalAccount::RegularIncome,
+                MentalAccount::Windfall,
+                MentalAccount::Savings,
+                MentalAccount::Gift,
+            ] {
                 let sp = spending_propensity(account, &p);
                 assert!((0.0..=1.0).contains(&sp));
             }
@@ -359,7 +378,11 @@ mod tests {
 
     #[test]
     fn test_price_perception_wisdom_narrows_fair_range() {
-        let p = EconBehaviorParams { financial_literacy: 1.0, market_understanding: 1.0, ..default_params() };
+        let p = EconBehaviorParams {
+            financial_literacy: 1.0,
+            market_understanding: 1.0,
+            ..default_params()
+        };
         // wisdom=1.0: VeryCheap < 0.65, Cheap < 0.85, Fair < 1.15, Expensive < 1.40
         assert_eq!(price_perception(0.5, &p), PricePerception::VeryCheap);
         assert_eq!(price_perception(0.75, &p), PricePerception::Cheap);
@@ -370,13 +393,21 @@ mod tests {
 
     #[test]
     fn test_endowment_no_ownership() {
-        let p = EconBehaviorParams { ownership_days: 0.0, openness: 1.0, ..default_params() };
+        let p = EconBehaviorParams {
+            ownership_days: 0.0,
+            openness: 1.0,
+            ..default_params()
+        };
         assert!((endowment_multiplier(&p) - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]
     fn test_endowment_long_ownership() {
-        let p = EconBehaviorParams { ownership_days: 365.0, openness: 0.0, ..default_params() };
+        let p = EconBehaviorParams {
+            ownership_days: 365.0,
+            openness: 0.0,
+            ..default_params()
+        };
         let m = endowment_multiplier(&p);
         // 1.0 + 0.3 * (1.5 - 0*0.5) = 1.0 + 0.45 = 1.45
         assert!(m > 1.3, "1 year ownership + low openness → endowment: {m}");
@@ -419,7 +450,11 @@ mod tests {
 
     #[test]
     fn test_herd_extrovert_agreeable() {
-        let p = EconBehaviorParams { extraversion: 1.0, agreeableness: 1.0, ..default_params() };
+        let p = EconBehaviorParams {
+            extraversion: 1.0,
+            agreeableness: 1.0,
+            ..default_params()
+        };
         let w = social_proof_weight(0.5, &p);
         assert!(w > 0.8, "extrovert+agreeable should follow herd: {w}");
     }
@@ -476,30 +511,53 @@ mod tests {
 
     #[test]
     fn test_overconfidence_boosts() {
-        let p = EconBehaviorParams { financial_literacy: 0.2, market_understanding: 0.2, extraversion: 0.8, ..default_params() };
+        let p = EconBehaviorParams {
+            financial_literacy: 0.2,
+            market_understanding: 0.2,
+            extraversion: 0.8,
+            ..default_params()
+        };
         let self_assess = overconfident_bargaining(0.5, &p);
         assert!(self_assess > 0.5, "should overestimate: {self_assess}");
     }
 
     #[test]
     fn test_overconfidence_expert_accurate() {
-        let p = EconBehaviorParams { financial_literacy: 1.0, market_understanding: 1.0, extraversion: 0.0, ..default_params() };
+        let p = EconBehaviorParams {
+            financial_literacy: 1.0,
+            market_understanding: 1.0,
+            extraversion: 0.0,
+            ..default_params()
+        };
         let self_assess = overconfident_bargaining(0.5, &p);
-        assert!((self_assess - 0.5).abs() < 0.09, "expert should be accurate: {self_assess}");
+        assert!(
+            (self_assess - 0.5).abs() < 0.09,
+            "expert should be accurate: {self_assess}"
+        );
     }
 
     // ── Status Quo Bias ──
 
     #[test]
     fn test_status_quo_open_adventurous() {
-        let p = EconBehaviorParams { openness: 1.0, conscientiousness: 0.0, ownership_days: 0.0, ..default_params() };
+        let p = EconBehaviorParams {
+            openness: 1.0,
+            conscientiousness: 0.0,
+            ownership_days: 0.0,
+            ..default_params()
+        };
         let b = status_quo_bias(&p);
         assert!(b < 0.2, "high openness should resist bias: {b}");
     }
 
     #[test]
     fn test_status_quo_conservative() {
-        let p = EconBehaviorParams { openness: 0.0, conscientiousness: 1.0, ownership_days: 365.0, ..default_params() };
+        let p = EconBehaviorParams {
+            openness: 0.0,
+            conscientiousness: 1.0,
+            ownership_days: 365.0,
+            ..default_params()
+        };
         let b = status_quo_bias(&p);
         assert!(b > 0.7, "conservative should resist change: {b}");
     }
@@ -523,7 +581,12 @@ mod tests {
 
     #[test]
     fn test_consumption_propensity_conservative() {
-        let p = EconBehaviorParams { conscientiousness: 1.0, neuroticism: 1.0, financial_literacy: 1.0, ..default_params() };
+        let p = EconBehaviorParams {
+            conscientiousness: 1.0,
+            neuroticism: 1.0,
+            financial_literacy: 1.0,
+            ..default_params()
+        };
         let cp = consumption_propensity(&p, 0.0, 0.0, 0.5);
         assert!(cp < 0.4, "conservative → less spending: {cp}");
     }
@@ -541,7 +604,12 @@ mod tests {
                 market_understanding: ((seed + 35) as f32 % 100.0) / 100.0,
                 ..default_params()
             };
-            let cp = consumption_propensity(&p, (seed % 3) as f32 * 0.4 - 0.4, (seed % 3) as f32 * 0.3 - 0.3, 0.5);
+            let cp = consumption_propensity(
+                &p,
+                (seed % 3) as f32 * 0.4 - 0.4,
+                (seed % 3) as f32 * 0.3 - 0.3,
+                0.5,
+            );
             assert!((0.05..=0.95).contains(&cp), "seed {seed}: {cp}");
         }
     }

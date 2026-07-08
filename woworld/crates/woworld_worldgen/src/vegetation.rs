@@ -8,8 +8,8 @@
 
 use glam::{Vec2, Vec3};
 use woworld_core::vegetation::{
-    GroundCoverMap, HarvestableInfo, LandcoverType, PlantCommunitySnapshot,
-    TimberAvailability, TimberQuality, VegetationProvider,
+    GroundCoverMap, HarvestableInfo, LandcoverType, PlantCommunitySnapshot, TimberAvailability,
+    TimberQuality, VegetationProvider,
 };
 
 use crate::biome::{BiomeClassifier, BiomeDef};
@@ -192,7 +192,7 @@ impl VegetationProvider for BiomeVegetation {
 /// 群系 → Shannon 多样性指数（Phase 1 固定值）
 fn biome_shannon(biome_name: &str) -> f32 {
     match biome_name {
-        "Forest" => 2.0,    // 高多样性
+        "Forest" => 2.0, // 高多样性
         "Swamp" => 1.8,
         "Grassland" => 1.2, // 中等
         "Desert" => 0.3,    // 低
@@ -252,8 +252,10 @@ mod tests {
         let v = make_veg();
         let g = v.ground_cover(Vec2::new(0.0, 0.0));
         let total = g.grass_density + g.moss_density + g.leaf_litter + g.bare_soil;
-        assert!((total - 1.0).abs() < 0.01,
-            "ground cover should sum to 1.0, got {total}");
+        assert!(
+            (total - 1.0).abs() < 0.01,
+            "ground cover should sum to 1.0, got {total}"
+        );
     }
 
     #[test]
@@ -270,8 +272,10 @@ mod tests {
         for name in &["Snowfield", "Grassland", "Forest", "Desert", "Swamp"] {
             let g = BiomeVegetation::biome_ground(name);
             let total = g.grass_density + g.moss_density + g.leaf_litter + g.bare_soil;
-            assert!((total - 1.0).abs() < 0.01,
-                "{name}: ground cover sums to {total}, expected 1.0");
+            assert!(
+                (total - 1.0).abs() < 0.01,
+                "{name}: ground cover sums to {total}, expected 1.0"
+            );
         }
     }
 
@@ -311,9 +315,6 @@ mod tests {
             bare_soil: 0.9,
             ..GroundCoverMap::default()
         };
-        assert_eq!(
-            landcover_from_canopy(0.0, &ground),
-            LandcoverType::Desert
-        );
+        assert_eq!(landcover_from_canopy(0.0, &ground), LandcoverType::Desert);
     }
 }

@@ -15,7 +15,9 @@ pub enum BiologicalSex {
     /// 同时具有两性生殖能力
     Hermaphroditic,
     /// 生命中可变——当前阶段
-    Sequential { current_phase: SequentialPhase },
+    Sequential {
+        current_phase: SequentialPhase,
+    },
     /// 无性别（亡灵/构装体等）
     Neuter,
 }
@@ -147,6 +149,10 @@ mod tests {
             }
         }
         let binary_pct = (male_count + female_count) as f32 / total as f32;
-        assert!(binary_pct > 0.80, "binary should be >80%, got {:.1}%", binary_pct * 100.0);
+        assert!(
+            binary_pct > 0.80,
+            "binary should be >80%, got {:.1}%",
+            binary_pct * 100.0
+        );
     }
 }

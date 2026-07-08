@@ -119,7 +119,11 @@ impl BigFive {
                 .max_by(|(_, d1), (_, d2)| d1.total_cmp(d2))
                 .unwrap();
             // 向远离 0.5 的方向推至 0.26
-            let target = if [o, c, e, a, n][*max_idx] >= 0.5 { 0.76 } else { 0.24 };
+            let target = if [o, c, e, a, n][*max_idx] >= 0.5 {
+                0.76
+            } else {
+                0.24
+            };
             match max_idx {
                 0 => bf.openness = target,
                 1 => bf.conscientiousness = target,
@@ -233,7 +237,11 @@ mod tests {
     #[test]
     fn test_derive_esteem_sensitivity() {
         // E=1, A=0 → 0.2 + 1.0×0.5 + 1.0×0.3 = 1.0
-        let b = BigFive { extraversion: 1.0, agreeableness: 0.0, ..BigFive::default() };
+        let b = BigFive {
+            extraversion: 1.0,
+            agreeableness: 0.0,
+            ..BigFive::default()
+        };
         let s = b.derive_sensitivity();
         assert!((s.esteem_sens - 1.0).abs() < 0.01);
     }
@@ -241,7 +249,11 @@ mod tests {
     #[test]
     fn test_derive_competence_sensitivity() {
         // C=1, N=0 → 0.2 + 1.0×0.5 + 0×0.3 = 0.7
-        let b = BigFive { conscientiousness: 1.0, neuroticism: 0.0, ..BigFive::default() };
+        let b = BigFive {
+            conscientiousness: 1.0,
+            neuroticism: 0.0,
+            ..BigFive::default()
+        };
         let s = b.derive_sensitivity();
         assert!((s.competence_sens - 0.7).abs() < 0.01);
     }
@@ -249,7 +261,11 @@ mod tests {
     #[test]
     fn test_esteem_clamped_min() {
         // E=0, A=1 → 0.2 + 0×0.5 + 0×0.3 = 0.2（下限）
-        let b = BigFive { extraversion: 0.0, agreeableness: 1.0, ..BigFive::default() };
+        let b = BigFive {
+            extraversion: 0.0,
+            agreeableness: 1.0,
+            ..BigFive::default()
+        };
         let s = b.derive_sensitivity();
         assert!((s.esteem_sens - 0.2).abs() < 0.01);
     }
@@ -257,7 +273,11 @@ mod tests {
     #[test]
     fn test_competence_clamped_min() {
         // C=0, N=0 → 0.2 + 0×0.5 + 0×0.3 = 0.2（下限）
-        let b = BigFive { conscientiousness: 0.0, neuroticism: 0.0, ..BigFive::default() };
+        let b = BigFive {
+            conscientiousness: 0.0,
+            neuroticism: 0.0,
+            ..BigFive::default()
+        };
         let s = b.derive_sensitivity();
         assert!((s.competence_sens - 0.2).abs() < 0.01);
     }
@@ -340,7 +360,10 @@ mod tests {
             && (a.conscientiousness - b.conscientiousness).abs() < f32::EPSILON;
         let same_bc = (b.openness - c.openness).abs() < f32::EPSILON
             && (b.conscientiousness - c.conscientiousness).abs() < f32::EPSILON;
-        assert!(!same_ab || !same_bc, "different seeds should produce diverse results");
+        assert!(
+            !same_ab || !same_bc,
+            "different seeds should produce diverse results"
+        );
     }
 
     #[test]
@@ -379,8 +402,10 @@ mod tests {
         // urgency = value * sensitivity (baseline=0)
         let u_anxious = 0.6 * s_anxious.hunger_sens;
         let u_stable = 0.6 * s_stable.hunger_sens;
-        assert!(u_anxious > u_stable,
-            "anxious NPC should feel hungrier: {u_anxious} vs {u_stable}");
+        assert!(
+            u_anxious > u_stable,
+            "anxious NPC should feel hungrier: {u_anxious} vs {u_stable}"
+        );
     }
 
     #[test]

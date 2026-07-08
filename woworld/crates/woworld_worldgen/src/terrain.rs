@@ -48,7 +48,11 @@ impl DensityProvider for TerrainBaseDensity {
     fn material_at(&self, pos: WorldPos) -> u8 {
         let h = self.noise.sample_height(pos.x, pos.z);
         if let Some(ref classifier) = self.biome {
-            if let Some(biome) = classifier.classify(WorldPos { x: pos.x, y: h, z: pos.z }) {
+            if let Some(biome) = classifier.classify(WorldPos {
+                x: pos.x,
+                y: h,
+                z: pos.z,
+            }) {
                 return biome.surface_material as u8;
             }
         }
@@ -198,7 +202,10 @@ impl HeightfieldTerrain {
         new_stack.push(Arc::new(
             TerrainBaseDensity::new(self.noise.clone()).with_biomes(classifier.clone()),
         ));
-        new_stack.push(crate::cave::CaveDensity::new_arc(self.seed, Default::default()));
+        new_stack.push(crate::cave::CaveDensity::new_arc(
+            self.seed,
+            Default::default(),
+        ));
         self.density_stack = new_stack;
         self.biome_classifier = Some(classifier);
         self
@@ -218,7 +225,10 @@ impl HeightfieldTerrain {
     ///
     /// 返回 Clone 成本极低（内部 Arc 引用计数 +1）。
     /// voxel_size 应与 Transvoxel 提取的体素尺寸一致（LOD 0 = 0.5m）。
-    pub fn edit_density_layer(&self, voxel_size: f64) -> Option<woworld_core::edit_terrain::EditDensityLayer> {
+    pub fn edit_density_layer(
+        &self,
+        voxel_size: f64,
+    ) -> Option<woworld_core::edit_terrain::EditDensityLayer> {
         self.edit_terrain.as_ref().map(|et| {
             woworld_core::edit_terrain::EditDensityLayer::new(et.density.clone(), voxel_size)
         })
@@ -266,11 +276,11 @@ impl HeightfieldTerrain {
         }
         // 2. 水下：3 层高度法（与旧 surface_material_at 行为一致）
         if h < -100.0 {
-            return SurfaceMaterial::Stone;   // 深海
+            return SurfaceMaterial::Stone; // 深海
         } else if h < -10.0 {
-            return SurfaceMaterial::Gravel;  // 大陆架
+            return SurfaceMaterial::Gravel; // 大陆架
         } else if h < 0.0 {
-            return SurfaceMaterial::Sand;    // 浅海床
+            return SurfaceMaterial::Sand; // 浅海床
         }
         // 3. 陆地：群系分类优先
         if let Some(ref classifier) = self.biome_classifier {
@@ -293,13 +303,27 @@ impl HeightfieldTerrain {
     fn material_id_to_surface(mat_id: u8) -> SurfaceMaterial {
         use woworld_core::material::SurfaceMaterial;
         match mat_id {
-            0 => SurfaceMaterial::Grass, 1 => SurfaceMaterial::Sand, 2 => SurfaceMaterial::Rock,
-            3 => SurfaceMaterial::Stone, 4 => SurfaceMaterial::Wood, 5 => SurfaceMaterial::Metal,
-            6 => SurfaceMaterial::Water, 7 => SurfaceMaterial::Ice, 8 => SurfaceMaterial::Mud,
-            9 => SurfaceMaterial::Snow, 10 => SurfaceMaterial::Gravel, 11 => SurfaceMaterial::Clay,
-            12 => SurfaceMaterial::Moss, 13 => SurfaceMaterial::LeafLitter, 14 => SurfaceMaterial::Cobblestone,
-            15 => SurfaceMaterial::Marble, 16 => SurfaceMaterial::Glass, 17 => SurfaceMaterial::Fabric,
-            18 => SurfaceMaterial::Thatch, 19 => SurfaceMaterial::Bone, 20 => SurfaceMaterial::Flesh,
+            0 => SurfaceMaterial::Grass,
+            1 => SurfaceMaterial::Sand,
+            2 => SurfaceMaterial::Rock,
+            3 => SurfaceMaterial::Stone,
+            4 => SurfaceMaterial::Wood,
+            5 => SurfaceMaterial::Metal,
+            6 => SurfaceMaterial::Water,
+            7 => SurfaceMaterial::Ice,
+            8 => SurfaceMaterial::Mud,
+            9 => SurfaceMaterial::Snow,
+            10 => SurfaceMaterial::Gravel,
+            11 => SurfaceMaterial::Clay,
+            12 => SurfaceMaterial::Moss,
+            13 => SurfaceMaterial::LeafLitter,
+            14 => SurfaceMaterial::Cobblestone,
+            15 => SurfaceMaterial::Marble,
+            16 => SurfaceMaterial::Glass,
+            17 => SurfaceMaterial::Fabric,
+            18 => SurfaceMaterial::Thatch,
+            19 => SurfaceMaterial::Bone,
+            20 => SurfaceMaterial::Flesh,
             _ => SurfaceMaterial::Stone,
         }
     }

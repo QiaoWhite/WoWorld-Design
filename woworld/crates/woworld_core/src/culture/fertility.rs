@@ -35,15 +35,15 @@ impl FertilityNorms {
     pub fn derive_from(core: &CultureCoreParams) -> Self {
         // ideal_family_size: 乘法公式（设计文档 004 §4）
         let base = if core.individualism < 0.4 { 4.0 } else { 2.0 };
-        let adjusted = base * (1.0 - core.long_term_orientation * 0.5) * (1.0 + core.militarism * 0.5);
+        let adjusted =
+            base * (1.0 - core.long_term_orientation * 0.5) * (1.0 + core.militarism * 0.5);
         let mid = adjusted.clamp(1.0, 8.0) as u32;
         let ideal_family_size = (mid.max(1) - 1, mid + 1);
 
         // illegitimacy_stigma = religiosity×0.5 + uncertainty×0.3 + power_distance×0.2
-        let illegitimacy_stigma = (core.religiosity * 0.5
-            + core.uncertainty_avoidance * 0.3
-            + core.power_distance * 0.2)
-            .clamp(0.0, 1.0);
+        let illegitimacy_stigma =
+            (core.religiosity * 0.5 + core.uncertainty_avoidance * 0.3 + core.power_distance * 0.2)
+                .clamp(0.0, 1.0);
 
         // sex_preference — Phase 1: 固定 0.0
         // 设计文档未指定完整公式；后续阶段从历史/经济/文化组合派生
@@ -151,8 +151,10 @@ mod tests {
             let core = CultureCoreParams::from_seed(seed);
             let norms = FertilityNorms::derive_from(&core);
             let rate = norms.annual_fertility_rate();
-            assert!((0.02..=0.50).contains(&rate),
-                "seed {seed}: rate {rate} not in [0.02, 0.50]");
+            assert!(
+                (0.02..=0.50).contains(&rate),
+                "seed {seed}: rate {rate} not in [0.02, 0.50]"
+            );
         }
     }
 
@@ -171,8 +173,14 @@ mod tests {
         for seed in 0..100 {
             let core = CultureCoreParams::from_seed(seed);
             let (f, m) = FertilityNorms::marriage_age_typical(&core);
-            assert!((14..=30).contains(&f), "seed {seed}: female={f} not in [14,30]");
-            assert!((16..=35).contains(&m), "seed {seed}: male={m} not in [16,35]");
+            assert!(
+                (14..=30).contains(&f),
+                "seed {seed}: female={f} not in [14,30]"
+            );
+            assert!(
+                (16..=35).contains(&m),
+                "seed {seed}: male={m} not in [16,35]"
+            );
         }
     }
 

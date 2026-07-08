@@ -14,8 +14,7 @@ use crate::components::vitals::{Corpse, CorpseLooted, LootResult};
 
 /// 每帧执行——将 LootResult 转换为实际的物品 Entity。
 pub fn item_spawn_system(world: &hecs::World, cmd: &mut CommandBuffer) {
-    for (entity, (_corpse, loot, pos)) in
-        world.query::<(&Corpse, &LootResult, &Position)>().iter()
+    for (entity, (_corpse, loot, pos)) in world.query::<(&Corpse, &LootResult, &Position)>().iter()
     {
         // 为每个掉落物 spawn 新 Entity
         for i in 0..loot.count as usize {
@@ -23,7 +22,9 @@ pub fn item_spawn_system(world: &hecs::World, cmd: &mut CommandBuffer) {
                 // 掉落物 Entity：DroppedItem tag + Item component + Position（尸体旁微偏移）
                 cmd.spawn((
                     EntityKind::DroppedItem,
-                    Item { item_def_id: item_id },
+                    Item {
+                        item_def_id: item_id,
+                    },
                     Position(glam::Vec3::new(
                         pos.0.x + random_offset(i),
                         pos.0.y,
@@ -58,7 +59,16 @@ mod tests {
         let corpse_entity = world.spawn((
             Corpse::default(),
             LootResult {
-                items: [Some(ItemDefId(1)), Some(ItemDefId(2)), None, None, None, None, None, None],
+                items: [
+                    Some(ItemDefId(1)),
+                    Some(ItemDefId(2)),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
                 count: 2,
             },
             Position(glam::Vec3::new(10.0, 0.0, 10.0)),

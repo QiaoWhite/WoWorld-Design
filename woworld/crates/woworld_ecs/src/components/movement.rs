@@ -21,8 +21,8 @@ pub struct Movement {
 impl Default for Movement {
     fn default() -> Self {
         Self {
-            speed: 3.0,           // 步行 ~3 m/s
-            arrival_radius: 0.5,  // 半米内算到达
+            speed: 3.0,          // 步行 ~3 m/s
+            arrival_radius: 0.5, // 半米内算到达
         }
     }
 }

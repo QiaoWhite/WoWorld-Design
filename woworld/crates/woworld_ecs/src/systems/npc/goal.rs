@@ -44,7 +44,10 @@ mod tests {
         let mut world = hecs::World::new();
         let mut cmd = CommandBuffer::new();
 
-        let e = world.spawn((Desire { kind: DesireKind::Eat, urgency: 0.9 },));
+        let e = world.spawn((Desire {
+            kind: DesireKind::Eat,
+            urgency: 0.9,
+        },));
 
         goal_resolution_system(&world, &mut cmd);
         cmd.run_on(&mut world);
@@ -61,7 +64,10 @@ mod tests {
         let mut world = hecs::World::new();
         let mut cmd = CommandBuffer::new();
 
-        let e = world.spawn((Desire { kind: DesireKind::Drink, urgency: 0.85 },));
+        let e = world.spawn((Desire {
+            kind: DesireKind::Drink,
+            urgency: 0.85,
+        },));
 
         goal_resolution_system(&world, &mut cmd);
         cmd.run_on(&mut world);
@@ -75,7 +81,10 @@ mod tests {
         let mut world = hecs::World::new();
         let mut cmd = CommandBuffer::new();
 
-        let e = world.spawn((Desire { kind: DesireKind::Rest, urgency: 0.88 },));
+        let e = world.spawn((Desire {
+            kind: DesireKind::Rest,
+            urgency: 0.88,
+        },));
 
         goal_resolution_system(&world, &mut cmd);
         cmd.run_on(&mut world);

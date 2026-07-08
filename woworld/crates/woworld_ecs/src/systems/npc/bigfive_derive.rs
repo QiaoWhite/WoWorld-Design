@@ -15,7 +15,8 @@ use crate::components::needs::NeedSensitivity;
 /// 调用者负责在返回后执行 `cmd.run_on(&mut world)`。
 pub fn bigfive_derive_system(world: &hecs::World, cmd: &mut CommandBuffer) {
     // 派生 NeedSensitivity（只处理缺失的）
-    for (entity, bf) in world.query::<&BigFive>()
+    for (entity, bf) in world
+        .query::<&BigFive>()
         .iter()
         .filter(|(e, _)| world.get::<&NeedSensitivity>(*e).is_err())
     {
@@ -23,7 +24,8 @@ pub fn bigfive_derive_system(world: &hecs::World, cmd: &mut CommandBuffer) {
     }
 
     // 派生 Chronotype（只处理缺失的）
-    for (entity, bf) in world.query::<&BigFive>()
+    for (entity, bf) in world
+        .query::<&BigFive>()
         .iter()
         .filter(|(e, _)| world.get::<&Chronotype>(*e).is_err())
     {
@@ -49,8 +51,14 @@ mod tests {
         cmd.run_on(&mut world);
 
         // Both should now exist
-        assert!(world.get::<&NeedSensitivity>(e).is_ok(), "NeedSensitivity should be inserted");
-        assert!(world.get::<&Chronotype>(e).is_ok(), "Chronotype should be inserted");
+        assert!(
+            world.get::<&NeedSensitivity>(e).is_ok(),
+            "NeedSensitivity should be inserted"
+        );
+        assert!(
+            world.get::<&Chronotype>(e).is_ok(),
+            "Chronotype should be inserted"
+        );
     }
 
     #[test]
@@ -75,9 +83,16 @@ mod tests {
 
         // Should keep original values, not overwrite
         let s = world.get::<&NeedSensitivity>(e).unwrap();
-        assert!((s.hunger_sens - 9.99).abs() < 0.01, "pre-existing sensitivity should not be overwritten");
+        assert!(
+            (s.hunger_sens - 9.99).abs() < 0.01,
+            "pre-existing sensitivity should not be overwritten"
+        );
         let c = world.get::<&Chronotype>(e).unwrap();
-        assert_eq!(*c, Chronotype::Evening, "pre-existing chronotype should not be overwritten");
+        assert_eq!(
+            *c,
+            Chronotype::Evening,
+            "pre-existing chronotype should not be overwritten"
+        );
     }
 
     #[test]
@@ -120,7 +135,10 @@ mod tests {
         for (_entity, (sens, chrono)) in world.query::<(&NeedSensitivity, &Chronotype)>().iter() {
             // Verify derived values are in valid ranges
             assert!((0.2..=1.0).contains(&sens.hunger_sens));
-            assert!(matches!(*chrono, Chronotype::Morning | Chronotype::Neutral | Chronotype::Evening));
+            assert!(matches!(
+                *chrono,
+                Chronotype::Morning | Chronotype::Neutral | Chronotype::Evening
+            ));
         }
     }
 }

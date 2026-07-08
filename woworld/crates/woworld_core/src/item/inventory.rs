@@ -119,8 +119,7 @@ impl PersonalInventory {
 
         let mut added = 0u32;
         let stack_size = props.stack_size;
-        let effective_weight_per_item =
-            (effective_encumbrance_kg(props) * 1000.0) as u32;
+        let effective_weight_per_item = (effective_encumbrance_kg(props) * 1000.0) as u32;
 
         // 步骤 1: 堆叠到已有同 ID 槽位
         if stack_size > 1 {
@@ -158,9 +157,7 @@ impl PersonalInventory {
             let to_fill = quantity.min(max_fill);
             // 重量二次检查
             let weight_for_fill = effective_weight_per_item.saturating_mul(to_fill);
-            if effective_weight_per_item > 0
-                && weight_for_fill > remaining_weight
-            {
+            if effective_weight_per_item > 0 && weight_for_fill > remaining_weight {
                 // 尝试减量
                 let max_by_weight = remaining_weight / effective_weight_per_item;
                 if max_by_weight == 0 {
@@ -176,8 +173,7 @@ impl PersonalInventory {
                     if final_fill == 0 {
                         break;
                     }
-                    self.total_weight_grams +=
-                        effective_weight_per_item.saturating_mul(final_fill);
+                    self.total_weight_grams += effective_weight_per_item.saturating_mul(final_fill);
                     slot.item_def_id = item_def_id;
                     slot.quantity = final_fill;
                     added += final_fill;
@@ -209,12 +205,19 @@ impl PersonalInventory {
     /// `quantity == 0` 表示清空整个槽位。
     /// 返回实际移除的数量。
     pub fn remove(&mut self, slot_idx: usize, quantity: u32) -> Result<u32, InventoryError> {
-        let slot = self.slots.get_mut(slot_idx).ok_or(InventoryError::ItemNotFound)?;
+        let slot = self
+            .slots
+            .get_mut(slot_idx)
+            .ok_or(InventoryError::ItemNotFound)?;
         if slot.quantity == 0 {
             return Err(InventoryError::ItemNotFound);
         }
 
-        let effective_qty = if quantity == 0 { slot.quantity } else { quantity.min(slot.quantity) };
+        let effective_qty = if quantity == 0 {
+            slot.quantity
+        } else {
+            quantity.min(slot.quantity)
+        };
         let removed_item = slot.item_def_id;
         slot.quantity -= effective_qty;
 
@@ -276,7 +279,8 @@ impl PersonalInventory {
         let current = self.slots.len() as u16;
         if new_capacity > current {
             let extra = (new_capacity - current) as usize;
-            self.slots.extend(std::iter::repeat(InventorySlot::default()).take(extra));
+            self.slots
+                .extend(std::iter::repeat(InventorySlot::default()).take(extra));
         } else if new_capacity < current {
             // 收缩：只移除空槽位
             self.slots.truncate(new_capacity as usize);

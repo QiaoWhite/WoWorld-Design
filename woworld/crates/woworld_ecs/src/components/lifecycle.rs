@@ -344,15 +344,20 @@ mod tests {
     #[test]
     fn test_attribute_multiplier_monotonic_rise_then_fall() {
         let stages = [
-            LifeStage::Infant, LifeStage::Juvenile, LifeStage::Adolescent,
-            LifeStage::YoungAdult, LifeStage::Adult, LifeStage::MiddleAge, LifeStage::Elder,
+            LifeStage::Infant,
+            LifeStage::Juvenile,
+            LifeStage::Adolescent,
+            LifeStage::YoungAdult,
+            LifeStage::Adult,
+            LifeStage::MiddleAge,
+            LifeStage::Elder,
         ];
         let mults: Vec<f32> = stages.iter().map(|s| s.attribute_multiplier()).collect();
         // 上升阶段
         assert!(mults[0] < mults[1]);
         assert!(mults[1] < mults[2]);
         assert!(mults[2] < mults[3]); // peak at YoungAdult
-        // 下降阶段
+                                      // 下降阶段
         assert!(mults[3] > mults[4]);
         assert!(mults[4] > mults[5]);
         assert!(mults[5] > mults[6]);
@@ -393,19 +398,18 @@ mod tests {
     #[test]
     fn test_senescence_survival_below_70_pct() {
         // 70% 寿命前无衰老风险
-        assert!(
-            (senescence_survival(0.5, 0.01, 0.5, 0.0) - 1.0).abs() < f32::EPSILON
-        );
-        assert!(
-            (senescence_survival(0.69, 0.01, 0.5, 0.0) - 1.0).abs() < f32::EPSILON
-        );
+        assert!((senescence_survival(0.5, 0.01, 0.5, 0.0) - 1.0).abs() < f32::EPSILON);
+        assert!((senescence_survival(0.69, 0.01, 0.5, 0.0) - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]
     fn test_senescence_survival_at_70_pct() {
         // 刚好 70%——风险初现，月存活率仍很高（~95%）
         let s = senescence_survival(0.70, 0.001, 0.5, 0.0);
-        assert!(s > 0.90, "survival at 70% with small dt should be >0.90, got {s}");
+        assert!(
+            s > 0.90,
+            "survival at 70% with small dt should be >0.90, got {s}"
+        );
     }
 
     #[test]
@@ -421,8 +425,14 @@ mod tests {
         // max 年龄——月度存活率 ~70%（对应 ~30% 月死亡率，~98% 年死亡率）
         let delta_monthly = 30.0 / (70.0 * 360.0); // ~0.00119
         let s = senescence_survival(1.0, delta_monthly, 0.5, 0.0);
-        assert!(s < 0.80, "monthly survival at max lifespan should be <0.80, got {s}");
-        assert!(s > 0.50, "should not be certain death in a single month, got {s}");
+        assert!(
+            s < 0.80,
+            "monthly survival at max lifespan should be <0.80, got {s}"
+        );
+        assert!(
+            s > 0.50,
+            "should not be certain death in a single month, got {s}"
+        );
     }
 
     #[test]
@@ -430,7 +440,10 @@ mod tests {
         // 低体质 → 更高死亡率
         let s_low_con = senescence_survival(0.85, 0.002, 0.2, 0.0);
         let s_high_con = senescence_survival(0.85, 0.002, 0.8, 0.0);
-        assert!(s_low_con < s_high_con, "low constitution should mean lower survival");
+        assert!(
+            s_low_con < s_high_con,
+            "low constitution should mean lower survival"
+        );
     }
 
     #[test]
@@ -444,9 +457,7 @@ mod tests {
     #[test]
     fn test_senescence_survival_zero_delta() {
         // 零时间增量 → 100% 存活
-        assert!(
-            (senescence_survival(0.85, 0.0, 0.5, 0.0) - 1.0).abs() < f32::EPSILON
-        );
+        assert!((senescence_survival(0.85, 0.0, 0.5, 0.0) - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -454,7 +465,10 @@ mod tests {
         // 结果在 [0, 1] 范围内
         for age_pct in [0.7, 0.8, 0.9, 1.0, 1.2, 1.5] {
             let s = senescence_survival(age_pct, 0.01, 0.1, 5.0);
-            assert!(s >= 0.0 && s <= 1.0, "survival {s} out of [0,1] at age_pct={age_pct}");
+            assert!(
+                s >= 0.0 && s <= 1.0,
+                "survival {s} out of [0,1] at age_pct={age_pct}"
+            );
         }
     }
 

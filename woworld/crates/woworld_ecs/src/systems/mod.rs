@@ -4,6 +4,7 @@ pub mod entity_visual;
 pub mod faith;
 pub mod item;
 pub mod life;
-pub mod power;
 pub mod lod_coordinator;
 pub mod npc;
+pub mod player;
+pub mod power;

@@ -142,8 +142,7 @@ pub fn order_creation_system(
 
         // ── 遍历 NPC 持有的物品 + 一些随机物品 ──
         let holdings = registry.get_holdings(entity_id);
-        let holdings_map: HashMap<ItemDefId, u32> =
-            holdings.cloned().unwrap_or_default();
+        let holdings_map: HashMap<ItemDefId, u32> = holdings.cloned().unwrap_or_default();
 
         // 在持有的物品中选一个评估
         let candidates: Vec<(ItemDefId, u32)> = if holdings_map.is_empty() {
@@ -185,21 +184,41 @@ pub fn order_creation_system(
             let discount = price * satisficing * 0.4;
             let ask_price = (price - discount).max(1.0) as u64;
             let qty = surplus.min(3);
-            registry.submit_order(market_id, Order {
-                order_id: 0, entity_id, item_id, quantity: qty,
-                limit_price_copper: ask_price, side: OrderSide::Ask, created_tick: tick,
-                listing_type: ListingType::Normal, filled_quantity: 0, status: ListingStatus::Active,
-            });
+            registry.submit_order(
+                market_id,
+                Order {
+                    order_id: 0,
+                    entity_id,
+                    item_id,
+                    quantity: qty,
+                    limit_price_copper: ask_price,
+                    side: OrderSide::Ask,
+                    created_tick: tick,
+                    listing_type: ListingType::Normal,
+                    filled_quantity: 0,
+                    status: ListingStatus::Active,
+                },
+            );
         } else if surplus > 0 && !wallet_poor {
             // 有 surplus + 不缺钱 → 正常卖单
             let premium = price * satisficing * 0.15;
             let ask_price = (price + premium).max(1.0) as u64;
             let qty = surplus.min(2);
-            registry.submit_order(market_id, Order {
-                order_id: 0, entity_id, item_id, quantity: qty,
-                limit_price_copper: ask_price, side: OrderSide::Ask, created_tick: tick,
-                listing_type: ListingType::Normal, filled_quantity: 0, status: ListingStatus::Active,
-            });
+            registry.submit_order(
+                market_id,
+                Order {
+                    order_id: 0,
+                    entity_id,
+                    item_id,
+                    quantity: qty,
+                    limit_price_copper: ask_price,
+                    side: OrderSide::Ask,
+                    created_tick: tick,
+                    listing_type: ListingType::Normal,
+                    filled_quantity: 0,
+                    status: ListingStatus::Active,
+                },
+            );
         } else if deficit > 0 {
             // 有 deficit → 买单（补货），只要付得起
             let urgency = if wallet_poor { 0.6 } else { 0.3 }; // 缺钱则更压价
@@ -207,21 +226,41 @@ pub fn order_creation_system(
             let bid_price = (price - discount).max(1.0) as u64;
             if wallet_balance >= bid_price {
                 let qty = deficit.min(2);
-                registry.submit_order(market_id, Order {
-                    order_id: 0, entity_id, item_id, quantity: qty,
-                    limit_price_copper: bid_price, side: OrderSide::Bid, created_tick: tick,
-                    listing_type: ListingType::Normal, filled_quantity: 0, status: ListingStatus::Active,
-                });
+                registry.submit_order(
+                    market_id,
+                    Order {
+                        order_id: 0,
+                        entity_id,
+                        item_id,
+                        quantity: qty,
+                        limit_price_copper: bid_price,
+                        side: OrderSide::Bid,
+                        created_tick: tick,
+                        listing_type: ListingType::Normal,
+                        filled_quantity: 0,
+                        status: ListingStatus::Active,
+                    },
+                );
             }
         } else if wallet_rich && held_qty > 0 {
             // 不缺物品 + 有钱 → 投资性买入
             let bid_price = (price * 0.9).max(1.0) as u64;
             if wallet_balance >= bid_price {
-                registry.submit_order(market_id, Order {
-                    order_id: 0, entity_id, item_id, quantity: 1,
-                    limit_price_copper: bid_price, side: OrderSide::Bid, created_tick: tick,
-                    listing_type: ListingType::Normal, filled_quantity: 0, status: ListingStatus::Active,
-                });
+                registry.submit_order(
+                    market_id,
+                    Order {
+                        order_id: 0,
+                        entity_id,
+                        item_id,
+                        quantity: 1,
+                        limit_price_copper: bid_price,
+                        side: OrderSide::Bid,
+                        created_tick: tick,
+                        listing_type: ListingType::Normal,
+                        filled_quantity: 0,
+                        status: ListingStatus::Active,
+                    },
+                );
             }
         }
     }
@@ -266,10 +305,7 @@ mod tests {
         let mut cmd = CommandBuffer::new();
         let mut registry = EconomyRegistry::new();
 
-        world.spawn((
-            BigFive::from_seed(42),
-            EconomicCognition::default(),
-        ));
+        world.spawn((BigFive::from_seed(42), EconomicCognition::default()));
 
         let initial = registry.econ_params_count();
         economic_cognition_update_system(&world, &mut cmd, &mut registry);
@@ -477,11 +513,36 @@ mod tests {
         use woworld_core::item::{ItemCategory, ItemProperties, Quality, Rarity};
 
         let items: Vec<(ItemDefId, ItemCategory, &str, u32)> = vec![
-            (ItemDefId::new(ItemCategory::Food, 1, 0), ItemCategory::Food, "生肉", 20),
-            (ItemDefId::new(ItemCategory::MineralOre, 1, 0), ItemCategory::MineralOre, "铁矿", 8),
-            (ItemDefId::new(ItemCategory::LeatherMat, 1, 0), ItemCategory::LeatherMat, "兽皮", 15),
-            (ItemDefId::new(ItemCategory::Weapon, 0, 0), ItemCategory::Weapon, "铁剑", 50),
-            (ItemDefId::new(ItemCategory::WoodMat, 0, 0), ItemCategory::WoodMat, "橡木", 6),
+            (
+                ItemDefId::new(ItemCategory::Food, 1, 0),
+                ItemCategory::Food,
+                "生肉",
+                20,
+            ),
+            (
+                ItemDefId::new(ItemCategory::MineralOre, 1, 0),
+                ItemCategory::MineralOre,
+                "铁矿",
+                8,
+            ),
+            (
+                ItemDefId::new(ItemCategory::LeatherMat, 1, 0),
+                ItemCategory::LeatherMat,
+                "兽皮",
+                15,
+            ),
+            (
+                ItemDefId::new(ItemCategory::Weapon, 0, 0),
+                ItemCategory::Weapon,
+                "铁剑",
+                50,
+            ),
+            (
+                ItemDefId::new(ItemCategory::WoodMat, 0, 0),
+                ItemCategory::WoodMat,
+                "橡木",
+                6,
+            ),
         ];
 
         for (def_id, cat, name, value) in items {

@@ -5,7 +5,7 @@
 //!   `set_world_position()` 移动块位置。
 //! - Goal 2 (rayon 后台): 扩展为自驱动——持有 DensityStack 引用，rayon 后台自提取。
 
-use godot::classes::{ArrayMesh, MeshInstance3D, INode3D};
+use godot::classes::{ArrayMesh, INode3D, MeshInstance3D};
 use godot::prelude::*;
 
 /// Transvoxel 等值面块——LOD 0 3D 体素地形的 Godot 表现节点。
@@ -90,13 +90,18 @@ impl VoxelChunk {
         self.origin_x = x;
         self.origin_y = y;
         self.origin_z = z;
-        self.base_mut().set_position(Vector3::new(x as f32, y as f32, z as f32));
+        self.base_mut()
+            .set_position(Vector3::new(x as f32, y as f32, z as f32));
     }
 
     /// Get current world origin
     #[func]
     pub fn get_world_origin(&self) -> Vector3 {
-        Vector3::new(self.origin_x as f32, self.origin_y as f32, self.origin_z as f32)
+        Vector3::new(
+            self.origin_x as f32,
+            self.origin_y as f32,
+            self.origin_z as f32,
+        )
     }
 
     /// Whether this chunk currently has a visible mesh

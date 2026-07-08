@@ -16,20 +16,24 @@ use godot::classes::{
     ShaderMaterial, WorldEnvironment,
 };
 use godot::prelude::*;
-use woworld_atmosphere::{AtmosphereSynthesizer, SeasonAtmosQuery, SimpleSeasonProvider, WeatherAtmosQuery, WeatherDriver};
-use woworld_core::lod::{LodCoordinator, LodCoordinatorInput, CameraState, PlayerAttention, FrameBudget, VramPressure, EntityLodInput, HysteresisState};
 use hecs::World as EcsWorld;
+use std::collections::HashMap;
+use woworld_atmosphere::{
+    AtmosphereSynthesizer, SeasonAtmosQuery, SimpleSeasonProvider, WeatherAtmosQuery, WeatherDriver,
+};
+use woworld_core::lod::{
+    CameraState, EntityLodInput, FrameBudget, HysteresisState, LodCoordinator, LodCoordinatorInput,
+    PlayerAttention, VramPressure,
+};
 use woworld_core::prelude::*;
 use woworld_core::spatial::TerrainQuery;
-use std::collections::HashMap;
 
 use woworld_core::material::SurfaceMaterial;
 use woworld_core::ocean::OceanProvider;
 use woworld_worldgen::{
-    generate_clipmap_grid, generate_heightmap_data,
-    layer_tex_config, level_spacing, load_material_colors, BiomeClassifier, HeightfieldOcean,
+    generate_clipmap_grid, generate_heightmap_data, layer_tex_config, level_spacing,
+    load_material_colors, transvoxel_extract, BiomeClassifier, HeightfieldOcean,
     HeightfieldTerrain, HeightmapData, NoiseParams, TerrainBaseDensity, WorldNoise, LEVELS,
-    transvoxel_extract,
 };
 
 use crate::voxel_chunk::VoxelChunk;
@@ -186,7 +190,12 @@ pub struct WorldDriver {
     /// Sprint-059: 名字缓存（entity_visual_system 内部维护）
     name_cache: std::collections::HashMap<hecs::Entity, String>,
     /// Sprint-059: ECS Player 实体（排除用）
+    /// Sprint-060: 夺舍时切换为被控 NPC，自由相机时指向裸实体
     player_ecs_entity: Option<hecs::Entity>,
+    /// Sprint-060: 自由相机模式的裸 Player 实体（init 时创建，永久保留）
+    bare_player_entity: Option<hecs::Entity>,
+    /// Sprint-060: 夺舍候选列表索引（Tab 循环用）
+    possession_candidate_index: usize,
 
     // Sprint-059: 边缘检测变量
     f3_was_pressed: bool,
@@ -195,6 +204,9 @@ pub struct WorldDriver {
     down_was_pressed: bool,
     #[allow(dead_code)]
     mouse_left_was_pressed: bool,
+    /// Sprint-060: Tab 夺舍 / F 退出夺舍边缘检测
+    tab_was_pressed: bool,
+    f_key_was_pressed: bool,
 
     #[base]
     base: Base<Node3D>,
@@ -242,7 +254,8 @@ impl INode3D for WorldDriver {
             loot_tables: woworld_ecs::systems::life::loot_roll::LootTableRegistry::default(),
             relation_storage: woworld_ecs::resources::relation_storage::RelationStorage::default(),
             economy_registry: woworld_ecs::resources::economy_registry::EconomyRegistry::new(),
-            inventory_registry: woworld_ecs::resources::inventory_registry::InventoryRegistry::new(),
+            inventory_registry: woworld_ecs::resources::inventory_registry::InventoryRegistry::new(
+            ),
             item_registry: woworld_ecs::resources::item_registry::ItemRegistry::new(),
             item_seeded: false,
             frame_count: 0,
@@ -252,26 +265,28 @@ impl INode3D for WorldDriver {
             debug_console: None,
             name_cache: std::collections::HashMap::new(),
             player_ecs_entity: None,
+            bare_player_entity: None,
+            possession_candidate_index: 0,
             f3_was_pressed: false,
             enter_was_pressed: false,
             up_was_pressed: false,
             down_was_pressed: false,
             mouse_left_was_pressed: false,
+            tab_was_pressed: false,
+            f_key_was_pressed: false,
             base,
         }
     }
 
     fn ready(&mut self) {
-        use godot::classes::image::Format;
         use godot::builtin::PackedByteArray;
+        use godot::classes::image::Format;
         use godot::classes::ImageTexture;
 
         // ── 1. 创建 HeightfieldTerrain（含群系）────
         let seed: u64 = 99;
-        let params = NoiseParams::from_toml_str(include_str!(
-            "../../../assets/noise_params.toml"
-        ))
-        .expect("noise_params.toml must be valid");
+        let params = NoiseParams::from_toml_str(include_str!("../../../assets/noise_params.toml"))
+            .expect("noise_params.toml must be valid");
         let noise = WorldNoise::with_params(seed, params);
         let biome_toml = include_str!("../../../assets/biomes.toml");
         let biome_classifier = BiomeClassifier::from_toml_str(biome_toml, noise.clone())
@@ -285,10 +300,9 @@ impl INode3D for WorldDriver {
         self.clock = clock;
 
         // 加载材质色表（编译时嵌入——委托 woworld_worldgen 解析）
-        self.material_colors = load_material_colors(include_str!(
-            "../../../assets/material_colors.toml"
-        ))
-        .expect("material_colors.toml must be valid");
+        self.material_colors =
+            load_material_colors(include_str!("../../../assets/material_colors.toml"))
+                .expect("material_colors.toml must be valid");
 
         // ── 2. 缓存场景节点引用 ──────────
         self.sun = self.base().try_get_node_as::<DirectionalLight3D>("../Sun");
@@ -328,17 +342,16 @@ impl INode3D for WorldDriver {
             godot_print!(
                 "  LOD {}: {}×{} vertices, {} tris (hm: {}², margin: {:.0}m)",
                 level_idx,
-                grid_n, grid_n,
+                grid_n,
+                grid_n,
                 grid.indices.len() / 3,
                 hm_size,
                 hm_extent as f64 / 2.0 - level.max_range - spacing,
             );
 
             // 3c. 创建 R32F heightmap 纹理（按层分辨率）
-            let mut img = Image::create(
-                hm_size as i32, hm_size as i32, false, Format::RF,
-            )
-            .expect("Image::create for heightmap");
+            let mut img = Image::create(hm_size as i32, hm_size as i32, false, Format::RF)
+                .expect("Image::create for heightmap");
             let mut bytes = PackedByteArray::new();
             for _ in 0..(hm_size * hm_size) {
                 for &b in &0.0f32.to_le_bytes() {
@@ -350,10 +363,8 @@ impl INode3D for WorldDriver {
                 .expect("ImageTexture::create_from_image for heightmap");
 
             // 3c-bis. 创建 RGBA8 材质纹理（初始化为沙色）
-            let mut mat_img = Image::create(
-                hm_size as i32, hm_size as i32, false, Format::RGBA8,
-            )
-            .expect("Image::create for material map");
+            let mut mat_img = Image::create(hm_size as i32, hm_size as i32, false, Format::RGBA8)
+                .expect("Image::create for material map");
             let mut mat_bytes = PackedByteArray::new();
             for _ in 0..(hm_size * hm_size) {
                 for &b in &[191u8, 178, 128, 255] {
@@ -361,25 +372,22 @@ impl INode3D for WorldDriver {
                     mat_bytes.push(b);
                 }
             }
-            mat_img.set_data(hm_size as i32, hm_size as i32, false, Format::RGBA8, &mat_bytes);
+            mat_img.set_data(
+                hm_size as i32,
+                hm_size as i32,
+                false,
+                Format::RGBA8,
+                &mat_bytes,
+            );
             let mt_tex = ImageTexture::create_from_image(&mat_img)
                 .expect("ImageTexture::create_from_image for material map");
 
             // 3d. 创建 ShaderMaterial（全部 8 层共享同一个 .gdshader）
             let mut mat = ShaderMaterial::new_gd();
             mat.set_shader(&terrain_shader);
-            mat.set_shader_parameter(
-                &StringName::from("heightmap"),
-                &ht_tex.to_variant(),
-            );
-            mat.set_shader_parameter(
-                &StringName::from("material_map"),
-                &mt_tex.to_variant(),
-            );
-            mat.set_shader_parameter(
-                &StringName::from("hm_extent"),
-                &Variant::from(hm_extent),
-            );
+            mat.set_shader_parameter(&StringName::from("heightmap"), &ht_tex.to_variant());
+            mat.set_shader_parameter(&StringName::from("material_map"), &mt_tex.to_variant());
+            mat.set_shader_parameter(&StringName::from("hm_extent"), &Variant::from(hm_extent));
             mat.set_shader_parameter(
                 &StringName::from("grid_origin"),
                 &Variant::from(Vector2::new(0.0, 0.0)),
@@ -396,17 +404,23 @@ impl INode3D for WorldDriver {
             mi.set_surface_override_material(0, &mat);
 
             // 3f. Texture pool: create standby Image + ImageTexture (double-buffering)
-            let mut hm_standby_img = Image::create(
-                hm_size as i32, hm_size as i32, false, Format::RF,
-            ).expect("Image::create for standby heightmap");
+            let mut hm_standby_img =
+                Image::create(hm_size as i32, hm_size as i32, false, Format::RF)
+                    .expect("Image::create for standby heightmap");
             hm_standby_img.set_data(hm_size as i32, hm_size as i32, false, Format::RF, &bytes);
             let hm_standby_tex = ImageTexture::create_from_image(&hm_standby_img)
                 .expect("ImageTexture for standby heightmap");
 
-            let mut mat_standby_img = Image::create(
-                hm_size as i32, hm_size as i32, false, Format::RGBA8,
-            ).expect("Image::create for standby material map");
-            mat_standby_img.set_data(hm_size as i32, hm_size as i32, false, Format::RGBA8, &mat_bytes);
+            let mut mat_standby_img =
+                Image::create(hm_size as i32, hm_size as i32, false, Format::RGBA8)
+                    .expect("Image::create for standby material map");
+            mat_standby_img.set_data(
+                hm_size as i32,
+                hm_size as i32,
+                false,
+                Format::RGBA8,
+                &mat_bytes,
+            );
             let mat_standby_tex = ImageTexture::create_from_image(&mat_standby_img)
                 .expect("ImageTexture for standby material map");
 
@@ -435,8 +449,12 @@ impl INode3D for WorldDriver {
         // ── 4. 设置细层交叉采样 uniform（L1-L7 引用 L0-L6 的 heightmap）──
         for level_idx in 1..8u8 {
             let (left, right) = self.lod_layers.split_at_mut(level_idx as usize);
-            let Some(finer) = left[level_idx as usize - 1].as_ref() else { continue; };
-            let Some(layer) = right[0].as_mut() else { continue; };
+            let Some(finer) = left[level_idx as usize - 1].as_ref() else {
+                continue;
+            };
+            let Some(layer) = right[0].as_mut() else {
+                continue;
+            };
             let fine_level = &LEVELS[level_idx as usize - 1];
             let fine_spacing = level_spacing(fine_level);
             let inner_bound = LEVELS[level_idx as usize].min_range as f32;
@@ -458,10 +476,9 @@ impl INode3D for WorldDriver {
                 &StringName::from("inner_bound"),
                 &Variant::from(inner_bound),
             );
-            layer.material.set_shader_parameter(
-                &StringName::from("blend_zone"),
-                &Variant::from(blend_zone),
-            );
+            layer
+                .material
+                .set_shader_parameter(&StringName::from("blend_zone"), &Variant::from(blend_zone));
         }
         // L1: LOD 0 由 VoxelChunk 覆盖 → L1 为最内层 clipmap, 无更细层
         //     设 inner_bound=-1 禁用内边界 morphing
@@ -470,10 +487,8 @@ impl INode3D for WorldDriver {
                 &StringName::from("fine_heightmap"),
                 &l1.heightmap_tex.to_variant(),
             );
-            l1.material.set_shader_parameter(
-                &StringName::from("inner_bound"),
-                &Variant::from(-1.0f32),
-            );
+            l1.material
+                .set_shader_parameter(&StringName::from("inner_bound"), &Variant::from(-1.0f32));
         }
 
         // ── 5. 外边界 coarse 交叉采样（L1-L6 引用 L2-L7 的 heightmap）──
@@ -513,10 +528,8 @@ impl INode3D for WorldDriver {
                 &StringName::from("coarse_heightmap"),
                 &l7.heightmap_tex.to_variant(),
             );
-            l7.material.set_shader_parameter(
-                &StringName::from("outer_bound"),
-                &Variant::from(99999.0f32),
-            );
+            l7.material
+                .set_shader_parameter(&StringName::from("outer_bound"), &Variant::from(99999.0f32));
         }
 
         // ── 6. 邻居高度图引用（L[n] → L[n+1], L7 → 自身）──
@@ -546,13 +559,22 @@ impl INode3D for WorldDriver {
         self.init_voxel_grid();
 
         // ECS Phase 0: spawn Player Entity (保存 hecs Entity 用于互转)
-        let player_terrain_y = self.terrain.height_at(WorldPos { x: 0.0, y: 0.0, z: 0.0 });
+        let player_terrain_y = self.terrain.height_at(WorldPos {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        });
         let player_entity = self.ecs.spawn((
-            woworld_ecs::components::transform::Position(glam::Vec3::new(0.0, player_terrain_y, 0.0)),
+            woworld_ecs::components::transform::Position(glam::Vec3::new(
+                0.0,
+                player_terrain_y,
+                0.0,
+            )),
             woworld_ecs::prelude::EntityKind::Creature,
             woworld_ecs::prelude::LodLevel::default(),
         ));
         self.player_ecs_entity = Some(player_entity);
+        self.bare_player_entity = Some(player_entity);
 
         // Spawn NPC 种群（20 个，半径 30m 环形分布，Y 从地形查询）
         const NPC_COUNT: usize = 20;
@@ -562,7 +584,11 @@ impl INode3D for WorldDriver {
             let dist = (i as f32 + 1.0) / NPC_COUNT as f32 * 30.0;
             let x = angle.cos() * dist;
             let z = angle.sin() * dist;
-            let terrain_y = self.terrain.height_at(WorldPos { x: x as f64, y: 0.0, z: z as f64 });
+            let terrain_y = self.terrain.height_at(WorldPos {
+                x: x as f64,
+                y: 0.0,
+                z: z as f64,
+            });
             let pos = glam::Vec3::new(x, terrain_y, z); // root 放地表，mesh 子节点向上偏移
             self.spawn_npc(npc_seed, pos);
         }
@@ -570,19 +596,27 @@ impl INode3D for WorldDriver {
 
         // 初始化 ECS → Godot 视觉桥接
         if let Some(ref mut terrain_parent) = self.terrain_parent {
-            self.entity_renderer = Some(
-                crate::entity_renderer::EntityRenderer::new(terrain_parent)
-            );
+            self.entity_renderer =
+                Some(crate::entity_renderer::EntityRenderer::new(terrain_parent));
             godot_print!("WorldDriver: EntityRenderer initialized");
         }
 
         // Sprint-059: 初始化调试控制台
-        let camera: Option<Gd<godot::classes::Camera3D>> =
-            self.base().try_get_node_as::<godot::classes::Camera3D>("../Player/Camera3D");
+        let camera: Option<Gd<godot::classes::Camera3D>> = self
+            .base()
+            .try_get_node_as::<godot::classes::Camera3D>("../Player/Camera3D");
         if let Some(ref mut terrain_parent) = self.terrain_parent {
-            self.debug_console = Some(crate::debug_console::DebugConsole::new(terrain_parent, camera));
-            godot_print!("WorldDriver: DebugConsole initialized (camera={})",
-                self.debug_console.as_ref().and_then(|c| c.camera()).is_some());
+            self.debug_console = Some(crate::debug_console::DebugConsole::new(
+                terrain_parent,
+                camera,
+            ));
+            godot_print!(
+                "WorldDriver: DebugConsole initialized (camera={})",
+                self.debug_console
+                    .as_ref()
+                    .and_then(|c| c.camera())
+                    .is_some()
+            );
         }
 
         self.base_mut().set_process(true);
@@ -600,30 +634,56 @@ impl INode3D for WorldDriver {
             let mut target_weather: Option<WeatherState> = None;
             let mut target_time: Option<f64> = None;
 
-            if input.is_key_pressed(godot::global::Key::KEY_1) { target_weather = Some(WeatherState::Clear); }
-            if input.is_key_pressed(godot::global::Key::KEY_2) { target_weather = Some(WeatherState::PartlyCloudy); }
-            if input.is_key_pressed(godot::global::Key::KEY_3) { target_weather = Some(WeatherState::Overcast); }
-            if input.is_key_pressed(godot::global::Key::KEY_4) { target_weather = Some(WeatherState::LightPrecip); }
-            if input.is_key_pressed(godot::global::Key::KEY_5) { target_weather = Some(WeatherState::ModeratePrecip); }
-            if input.is_key_pressed(godot::global::Key::KEY_6) { target_weather = Some(WeatherState::HeavyStorm); }
-            if input.is_key_pressed(godot::global::Key::KEY_7) { target_time = Some(0.25); } // Dawn
-            if input.is_key_pressed(godot::global::Key::KEY_8) { target_time = Some(0.50); } // Noon
-            if input.is_key_pressed(godot::global::Key::KEY_9) { target_time = Some(0.75); } // Dusk
-            if input.is_key_pressed(godot::global::Key::KEY_0) { target_time = Some(0.00); } // Midnight
+            if input.is_key_pressed(godot::global::Key::KEY_1) {
+                target_weather = Some(WeatherState::Clear);
+            }
+            if input.is_key_pressed(godot::global::Key::KEY_2) {
+                target_weather = Some(WeatherState::PartlyCloudy);
+            }
+            if input.is_key_pressed(godot::global::Key::KEY_3) {
+                target_weather = Some(WeatherState::Overcast);
+            }
+            if input.is_key_pressed(godot::global::Key::KEY_4) {
+                target_weather = Some(WeatherState::LightPrecip);
+            }
+            if input.is_key_pressed(godot::global::Key::KEY_5) {
+                target_weather = Some(WeatherState::ModeratePrecip);
+            }
+            if input.is_key_pressed(godot::global::Key::KEY_6) {
+                target_weather = Some(WeatherState::HeavyStorm);
+            }
+            if input.is_key_pressed(godot::global::Key::KEY_7) {
+                target_time = Some(0.25);
+            } // Dawn
+            if input.is_key_pressed(godot::global::Key::KEY_8) {
+                target_time = Some(0.50);
+            } // Noon
+            if input.is_key_pressed(godot::global::Key::KEY_9) {
+                target_time = Some(0.75);
+            } // Dusk
+            if input.is_key_pressed(godot::global::Key::KEY_0) {
+                target_time = Some(0.00);
+            } // Midnight
 
             if let Some(state) = target_weather {
                 self.weather_driver.set_preset(state);
                 self.debug_weather_cooldown = 0.3;
-                godot_print!("[Debug] Weather preset → {:?} | params={:?}",
-                    state, self.weather_driver.params,
+                godot_print!(
+                    "[Debug] Weather preset → {:?} | params={:?}",
+                    state,
+                    self.weather_driver.params,
                 );
             }
             if let Some(prog) = target_time {
                 self.clock.set_time(prog);
                 self.debug_weather_cooldown = 0.3;
                 let phase = self.clock.current.phase;
-                godot_print!("[Debug] Time → day_progress={:.2} phase={:?} light={:.2}",
-                    prog, phase, self.clock.current.light_level);
+                godot_print!(
+                    "[Debug] Time → day_progress={:.2} phase={:?} light={:.2}",
+                    prog,
+                    phase,
+                    self.clock.current.light_level
+                );
             }
         }
 
@@ -633,7 +693,8 @@ impl INode3D for WorldDriver {
         let player_pos = self.get_player_position();
 
         // 天气驱动 tick
-        self.weather_driver.tick(delta, self.season_provider.current_season());
+        self.weather_driver
+            .tick(delta, self.season_provider.current_season());
 
         // 季节检测（每天一次）
         let total_days = self.clock.current.day_number;
@@ -651,9 +712,9 @@ impl INode3D for WorldDriver {
             let ss = self.season_provider.saturation_mult();
             let sw = self.season_provider.warmth();
 
-            let atm = self.atmosphere.resolve_with_weather(
-                wt, player_pos, ws, wf, we, wsa, ss, sw,
-            );
+            let atm = self
+                .atmosphere
+                .resolve_with_weather(wt, player_pos, ws, wf, we, wsa, ss, sw);
             self.update_sun_and_sky(&atm, delta);
         }
 
@@ -671,7 +732,11 @@ impl INode3D for WorldDriver {
         // ★ Sprint-059 修复: 收集所有实体送入 LOD 计算器
         // 之前只送入了 Player，NPC 永远 render_lod=4(不可见)
         let mut lod_entities: Vec<EntityLodInput> = Vec::new();
-        for (entity, pos) in self.ecs.query::<&woworld_ecs::components::transform::Position>().iter() {
+        for (entity, pos) in self
+            .ecs
+            .query::<&woworld_ecs::components::transform::Position>()
+            .iter()
+        {
             let eid = woworld_ecs::entity_id::entity_id_from_hecs(entity);
             lod_entities.push(EntityLodInput {
                 id: eid,
@@ -700,11 +765,8 @@ impl INode3D for WorldDriver {
             interactions: vec![],
         };
 
-        let prescriptions = WorldLodCoordinator::compute_lod(
-            &lod_input,
-            &self.lod_prev,
-            &mut self.lod_hyst,
-        );
+        let prescriptions =
+            WorldLodCoordinator::compute_lod(&lod_input, &self.lod_prev, &mut self.lod_hyst);
 
         // 提取玩家 scene_lod 驱动植被 + clipmap
         let scene_lod = prescriptions
@@ -724,7 +786,10 @@ impl INode3D for WorldDriver {
             }
         }
         if lod_write_count == 0 && self.frame_count % 60 == 0 {
-            godot_print!("[LOD] WARN: 0 entities received LOD prescription! prescriptions.len()={}", prescriptions.len());
+            godot_print!(
+                "[LOD] WARN: 0 entities received LOD prescription! prescriptions.len()={}",
+                prescriptions.len()
+            );
         }
 
         self.lod_prev = prescriptions;
@@ -769,7 +834,9 @@ impl INode3D for WorldDriver {
                             hm_bytes.push(b);
                         }
                     }
-                    layer.hm_standby_img.set_data(size, size, false, Format::RF, &hm_bytes);
+                    layer
+                        .hm_standby_img
+                        .set_data(size, size, false, Format::RF, &hm_bytes);
                     layer.hm_standby_tex.update(&layer.hm_standby_img);
                     mem::swap(&mut layer.heightmap_tex, &mut layer.hm_standby_tex);
 
@@ -785,7 +852,9 @@ impl INode3D for WorldDriver {
                             mat_bytes.push(v);
                         }
                     }
-                    layer.mat_standby_img.set_data(size, size, false, Format::RGBA8, &mat_bytes);
+                    layer
+                        .mat_standby_img
+                        .set_data(size, size, false, Format::RGBA8, &mat_bytes);
                     layer.mat_standby_tex.update(&layer.mat_standby_img);
                     mem::swap(&mut layer.material_tex, &mut layer.mat_standby_tex);
 
@@ -835,7 +904,9 @@ impl INode3D for WorldDriver {
                 if snap_changed {
                     layer.last_snap = snap;
                     layer.instance.set_global_position(Vector3::new(
-                        snap_x as f32, 0.0, snap_z as f32,
+                        snap_x as f32,
+                        0.0,
+                        snap_z as f32,
                     ));
                 }
 
@@ -865,12 +936,9 @@ impl INode3D for WorldDriver {
                     let grid_origin_x = snap_x - half;
                     let grid_origin_z = snap_z - half;
                     rayon::spawn(move || {
-                        let result =
-                            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                generate_heightmap_data(
-                                    &terrain, snap_x, snap_z, spacing, hm_size, &mc,
-                                )
-                            }));
+                        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            generate_heightmap_data(&terrain, snap_x, snap_z, spacing, hm_size, &mc)
+                        }));
                         let (hd, panicked) = match result {
                             Ok(hd) => (hd, false),
                             Err(_) => {
@@ -961,7 +1029,11 @@ impl INode3D for WorldDriver {
                         Self::upload_voxel_mesh(&mut vc_clone, &result.mesh);
                     }
                 } else {
-                    godot_error!("VoxelChunk ({},{}) extraction panicked", result.cx, result.cz);
+                    godot_error!(
+                        "VoxelChunk ({},{}) extraction panicked",
+                        result.cx,
+                        result.cz
+                    );
                 }
                 vx_uploaded += 1;
             }
@@ -980,7 +1052,9 @@ impl INode3D for WorldDriver {
                 self.voxel_center = (pcx, pcz);
 
                 // Remove chunks outside the new grid
-                let to_remove: Vec<(i32, i32)> = self.voxel_chunks.keys()
+                let to_remove: Vec<(i32, i32)> = self
+                    .voxel_chunks
+                    .keys()
                     .filter(|(cx, cz)| {
                         (cx - pcx).abs() > grid_radius || (cz - pcz).abs() > grid_radius
                     })
@@ -1003,7 +1077,9 @@ impl INode3D for WorldDriver {
                             let wx = (pcx + dx) as f64 * CHUNK_SIZE as f64;
                             let wz = (pcz + dz) as f64 * CHUNK_SIZE as f64;
                             let h = self.terrain.height_at(WorldPos {
-                                x: wx + 8.0, y: 0.0, z: wz + 8.0,
+                                x: wx + 8.0,
+                                y: 0.0,
+                                z: wz + 8.0,
                             }) as f64;
                             y_min = y_min.min(h);
                             y_max = y_max.max(h);
@@ -1030,7 +1106,8 @@ impl INode3D for WorldDriver {
                         let mut vc = VoxelChunk::new_alloc();
                         vc.bind_mut().set_world_origin(wx, wy, wz);
                         if let Some(ref voxel_mat) = self.voxel_material {
-                            vc.bind_mut().set_terrain_material(voxel_mat.clone().upcast());
+                            vc.bind_mut()
+                                .set_terrain_material(voxel_mat.clone().upcast());
                         }
                         if let Some(ref mut parent) = self.terrain_parent {
                             parent.add_child(&vc.clone().upcast::<Node>());
@@ -1108,7 +1185,9 @@ impl INode3D for WorldDriver {
         let player_pos = self.get_player_position();
         if let Some(ref mut renderer) = self.entity_renderer {
             renderer.set_player_pos(glam::Vec3::new(
-                player_pos.x as f32, player_pos.y as f32, player_pos.z as f32,
+                player_pos.x as f32,
+                player_pos.y as f32,
+                player_pos.z as f32,
             ));
 
             let entity_visuals = woworld_ecs::systems::entity_visual::entity_visual_system(
@@ -1118,11 +1197,20 @@ impl INode3D for WorldDriver {
             );
             // 每 60 帧打印一次诊断
             if self.frame_count % 60 == 0 {
-                godot_print!("[EntityRenderer] frame={} entity_count={} renderer_exists=true",
-                    self.frame_count, entity_visuals.len());
+                godot_print!(
+                    "[EntityRenderer] frame={} entity_count={} renderer_exists=true",
+                    self.frame_count,
+                    entity_visuals.len()
+                );
                 for (_, v) in entity_visuals.iter().take(3) {
-                    godot_print!("  name={} pos=({:.1},{:.1},{:.1}) lod={}",
-                        v.display_name, v.position.x, v.position.y, v.position.z, v.render_lod);
+                    godot_print!(
+                        "  name={} pos=({:.1},{:.1},{:.1}) lod={}",
+                        v.display_name,
+                        v.position.x,
+                        v.position.y,
+                        v.position.z,
+                        v.render_lod
+                    );
                 }
             }
             let visuals_refs: Vec<(hecs::Entity, &woworld_core::entity_visual::EntityVisual)> =
@@ -1135,7 +1223,11 @@ impl INode3D for WorldDriver {
         }
 
         // ── Sprint-059: 调试控制台 ──
-        let console_visible = self.debug_console.as_ref().map(|c| c.is_visible()).unwrap_or(false);
+        let console_visible = self
+            .debug_console
+            .as_ref()
+            .map(|c| c.is_visible())
+            .unwrap_or(false);
 
         // F3 边缘检测
         let input = Input::singleton();
@@ -1152,6 +1244,25 @@ impl INode3D for WorldDriver {
             }
         }
         self.f3_was_pressed = f3_pressed;
+
+        // ── Sprint-060: Tab 夺舍 / F 退出夺舍 ──
+        let tab_pressed = input.is_key_pressed(godot::global::Key::TAB);
+        let f_key_pressed = input.is_key_pressed(godot::global::Key::F);
+
+        // Tab 夺舍——仅在非控制台模式下生效
+        if tab_pressed && !self.tab_was_pressed && !console_visible {
+            self.handle_possess_tab();
+        }
+        self.tab_was_pressed = tab_pressed;
+
+        // F 退出夺舍——仅在非控制台模式下生效
+        if f_key_pressed && !self.f_key_was_pressed && !console_visible {
+            self.handle_unpossess();
+        }
+        self.f_key_was_pressed = f_key_pressed;
+
+        // 夺舍模式下：CharacterBody3D 位置 → ECS Position 同步
+        self.sync_possessed_position();
 
         // 提前获取 viewport 引用（避免与 console borrow 冲突）
         let viewport = self.base().get_viewport();
@@ -1181,14 +1292,15 @@ impl INode3D for WorldDriver {
                     }
                     console.fill_from_history(console.state.history_cursor);
                 }
-                if down && !self.down_was_pressed {
-                    if console.state.history_cursor < console.state.command_history.len() {
-                        console.state.history_cursor += 1;
-                        if console.state.history_cursor == console.state.command_history.len() {
-                            console.clear_input();
-                        } else {
-                            console.fill_from_history(console.state.history_cursor);
-                        }
+                if down
+                    && !self.down_was_pressed
+                    && console.state.history_cursor < console.state.command_history.len()
+                {
+                    console.state.history_cursor += 1;
+                    if console.state.history_cursor == console.state.command_history.len() {
+                        console.clear_input();
+                    } else {
+                        console.fill_from_history(console.state.history_cursor);
                     }
                 }
                 self.up_was_pressed = up;
@@ -1198,7 +1310,8 @@ impl INode3D for WorldDriver {
                 let mouse_left = input.is_mouse_button_pressed(godot::global::MouseButton::LEFT);
                 if mouse_left && !self.mouse_left_was_pressed {
                     // 使用提前获取的 viewport
-                    let mouse_pos = viewport.as_ref()
+                    let mouse_pos = viewport
+                        .as_ref()
                         .map(|vp| vp.get_mouse_position())
                         .unwrap_or(Vector2::ZERO);
                     if let Some(ref camera) = console.camera().cloned() {
@@ -1221,7 +1334,7 @@ impl INode3D for WorldDriver {
                 self.mouse_left_was_pressed = mouse_left;
 
                 // ── 高亮同步 ──
-                if let Some(changed) = console.highlight_changed() {
+                if let Some(_changed) = console.highlight_changed() {
                     if let Some(ref mut renderer) = self.entity_renderer {
                         // 恢复旧高亮 + 设置新高亮
                         renderer.highlight_entity(console.state.selected_entity);
@@ -1236,7 +1349,9 @@ impl INode3D for WorldDriver {
 
                 // 同步玩家位置到 ConsoleState（listnpc 距离用）
                 console.state.player_pos = glam::Vec3::new(
-                    player_pos.x as f32, player_pos.y as f32, player_pos.z as f32,
+                    player_pos.x as f32,
+                    player_pos.y as f32,
+                    player_pos.z as f32,
                 );
 
                 // 同步 nameshow/color 设置到 renderer
@@ -1245,6 +1360,15 @@ impl INode3D for WorldDriver {
                     renderer.set_color_enhanced(console.state.color_enhanced);
                 }
             }
+        }
+
+        // Sprint-060: 处理 possess 命令的请求（console borrow 已释放）
+        let pending_possess = self
+            .debug_console
+            .as_mut()
+            .and_then(|c| c.state.pending_possess_request.take());
+        if let Some(target) = pending_possess {
+            self.handle_possess_by_entity(target);
         }
     }
 }
@@ -1306,6 +1430,157 @@ impl WorldDriver {
         }
     }
 
+    /// Sprint-060: Tab 键夺舍——循环切换到下一个可夺舍 NPC
+    fn handle_possess_tab(&mut self) {
+        use woworld_ecs::systems::player::possess::{find_possessable_entities, possess_entity};
+
+        // 获取摄像机位置和朝向
+        let cam_pos = self.get_player_position();
+        let cam_forward = self.get_camera_forward();
+
+        let camera_pos_glam = glam::Vec3::new(cam_pos.x as f32, cam_pos.y as f32, cam_pos.z as f32);
+
+        let candidates = find_possessable_entities(
+            &self.ecs,
+            camera_pos_glam,
+            cam_forward,
+            self.player_ecs_entity,
+        );
+
+        if candidates.is_empty() {
+            godot_print!("[Possess] No possessable NPCs found.");
+            return;
+        }
+
+        // 循环索引
+        let idx = self.possession_candidate_index % candidates.len();
+        let target = candidates[idx].entity;
+        self.possession_candidate_index = idx + 1;
+
+        // 先退出当前夺舍（如果正在夺舍中）
+        self.handle_unpossess_internal();
+
+        // 执行夺舍
+        let mut cmd = hecs::CommandBuffer::new();
+        let npc_pos = possess_entity(&self.ecs, &mut cmd, target);
+        cmd.run_on(&mut self.ecs);
+
+        if let Some(pos) = npc_pos {
+            // 切换 player_ecs_entity
+            self.player_ecs_entity = Some(target);
+
+            // 瞬移 CharacterBody3D 到 NPC 位置
+            if let Some(ref mut player) = self.player_node {
+                player.set_global_position(godot::builtin::Vector3::new(pos.x, pos.y, pos.z));
+            }
+
+            // 打印被夺舍 NPC 的信息
+            let name = self
+                .name_cache
+                .get(&target)
+                .cloned()
+                .unwrap_or_else(|| "Unknown".into());
+            godot_print!(
+                "[Possess] Now controlling: {name} at ({:.1}, {:.1}, {:.1})",
+                pos.x,
+                pos.y,
+                pos.z
+            );
+        }
+    }
+
+    /// Sprint-060: F 键退出夺舍
+    fn handle_unpossess(&mut self) {
+        if self.is_possessing() {
+            self.handle_unpossess_internal();
+            // 恢复到自由相机模式的裸实体
+            self.player_ecs_entity = self.bare_player_entity;
+            godot_print!("[Possess] Exited possession. Free camera mode.");
+        }
+    }
+
+    /// 内部：退出夺舍（不改变 player_ecs_entity）
+    fn handle_unpossess_internal(&mut self) {
+        if let Some(current_player) = self.player_ecs_entity {
+            // 只在夺舍模式下操作（不是裸实体）
+            if self.bare_player_entity != Some(current_player) {
+                use woworld_ecs::systems::player::possess::unpossess_entity;
+                let mut cmd = hecs::CommandBuffer::new();
+                unpossess_entity(&self.ecs, &mut cmd, current_player);
+                cmd.run_on(&mut self.ecs);
+            }
+        }
+    }
+
+    /// 夺舍模式下：CharacterBody3D.global_position → ECS Position
+    fn sync_possessed_position(&mut self) {
+        if !self.is_possessing() {
+            return;
+        }
+        if let Some(player_entity) = self.player_ecs_entity {
+            let pos = self.get_player_position();
+            use woworld_ecs::systems::player::possess::sync_player_position;
+            sync_player_position(
+                &mut self.ecs,
+                player_entity,
+                glam::Vec3::new(pos.x as f32, pos.y as f32, pos.z as f32),
+            );
+        }
+    }
+
+    /// 是否正在夺舍模式（不是自由相机）
+    fn is_possessing(&self) -> bool {
+        self.player_ecs_entity.is_some()
+            && self.bare_player_entity.is_some()
+            && self.player_ecs_entity != self.bare_player_entity
+    }
+
+    /// Sprint-060: 夺舍指定实体（控制台 possess <id> 命令使用）
+    fn handle_possess_by_entity(&mut self, target: hecs::Entity) {
+        use woworld_ecs::systems::player::possess::possess_entity;
+
+        // 先退出当前夺舍
+        self.handle_unpossess_internal();
+
+        let mut cmd = hecs::CommandBuffer::new();
+        let npc_pos = possess_entity(&self.ecs, &mut cmd, target);
+        cmd.run_on(&mut self.ecs);
+
+        if let Some(pos) = npc_pos {
+            self.player_ecs_entity = Some(target);
+
+            // 瞬移 CharacterBody3D
+            if let Some(ref mut player) = self.player_node {
+                player.set_global_position(godot::builtin::Vector3::new(pos.x, pos.y, pos.z));
+            }
+
+            let bits = target.to_bits().get();
+            let name = self
+                .name_cache
+                .get(&target)
+                .cloned()
+                .unwrap_or_else(|| format!("Entity_{bits}"));
+            godot_print!(
+                "[Possess] Console possess: {name} (id={bits}) at ({:.1}, {:.1}, {:.1})",
+                pos.x,
+                pos.y,
+                pos.z
+            );
+        }
+    }
+
+    /// 获取摄像机前方向量（glam Vec3）
+    fn get_camera_forward(&self) -> glam::Vec3 {
+        if let Some(ref player) = self.player_node {
+            let basis = player.get_global_basis();
+            let r = &basis.rows;
+            // Godot Basis: -Z = forward
+            glam::Vec3::new(-r[0].z, -r[1].z, -r[2].z)
+        } else {
+            glam::Vec3::NEG_Z
+        }
+    }
+
     /// 设置植被提供者——LODCoordinator 每帧通过 `set_scene_lod` 驱动植被细节。
     #[allow(dead_code)]
     pub fn set_vegetation_provider(&mut self, vp: Arc<dyn VegetationProvider>) {
@@ -1314,10 +1589,10 @@ impl WorldDriver {
 
     /// 将静态网格上传到 ArrayMesh（仅启动时调用一次）
     fn upload_static_mesh(am: &mut Gd<ArrayMesh>, mesh: &woworld_worldgen::TerrainMeshData) {
-        use godot::builtin::PackedVector3Array;
+        use godot::builtin::Array;
         use godot::builtin::PackedColorArray;
         use godot::builtin::PackedInt32Array;
-        use godot::builtin::Array;
+        use godot::builtin::PackedVector3Array;
 
         let mut vertices = PackedVector3Array::new();
         let mut normals = PackedVector3Array::new();
@@ -1326,7 +1601,11 @@ impl WorldDriver {
         for i in 0..mesh.vertices.len() {
             let v = mesh.vertices[i];
             vertices.push(Vector3::new(v.x, v.y, v.z));
-            normals.push(Vector3::new(mesh.normals[i].x, mesh.normals[i].y, mesh.normals[i].z));
+            normals.push(Vector3::new(
+                mesh.normals[i].x,
+                mesh.normals[i].y,
+                mesh.normals[i].z,
+            ));
             let c = mesh.colors[i];
             colors.push(Color::from_rgb(c.x, c.y, c.z));
         }
@@ -1433,19 +1712,34 @@ impl WorldDriver {
             regen::regen_system(&mut self.ecs);
             emotion_drift_system(&mut self.ecs, delta as f32);
             physiological_pull_system(&mut self.ecs);
-            social_system(&mut self.ecs, delta as f32, self.frame_count, &mut self.relation_storage);
+            social_system(
+                &mut self.ecs,
+                delta as f32,
+                self.frame_count,
+                &mut self.relation_storage,
+            );
 
             // ── Block A2: movement_system (&mut World + active cmd) ──
             {
                 let mut move_cmd = CommandBuffer::new();
-                movement_system(&mut self.ecs, &mut move_cmd, delta as f32, self.frame_count, &self.terrain);
+                movement_system(
+                    &mut self.ecs,
+                    &mut move_cmd,
+                    delta as f32,
+                    self.frame_count,
+                    &self.terrain,
+                );
                 move_cmd.run_on(&mut self.ecs);
             }
 
             // ── Block A3: age_system (&mut World + cmd) ──
             {
                 let mut age_cmd = CommandBuffer::new();
-                age_system(&mut self.ecs, &mut age_cmd, delta as f32 / self.clock.seconds_per_day as f32);
+                age_system(
+                    &mut self.ecs,
+                    &mut age_cmd,
+                    delta as f32 / self.clock.seconds_per_day as f32,
+                );
                 age_cmd.run_on(&mut self.ecs);
             }
 
@@ -1458,14 +1752,21 @@ impl WorldDriver {
                 action_weight_system(&self.ecs, &mut cmd);
                 // Economy: cognition + wallet init
                 woworld_ecs::systems::economy::economic_cognition_update_system(
-                    &self.ecs, &mut cmd, &mut self.economy_registry,
+                    &self.ecs,
+                    &mut cmd,
+                    &mut self.economy_registry,
                 );
                 woworld_ecs::systems::economy::wallet_init_system(
-                    &self.ecs, &mut cmd, &mut self.economy_registry,
+                    &self.ecs,
+                    &mut cmd,
+                    &mut self.economy_registry,
                 );
                 // ★ Phase 2: 库存初始化（含 NPC 初始物品播种）
                 woworld_ecs::systems::item::inventory_init_system(
-                    &self.ecs, &mut cmd, &mut self.inventory_registry, &self.item_registry,
+                    &self.ecs,
+                    &mut cmd,
+                    &mut self.inventory_registry,
+                    &self.item_registry,
                 );
                 death_watch::death_watch_system(&self.ecs, &mut cmd, self.frame_count);
                 loot_roll::loot_roll_system(&self.ecs, &mut cmd, &self.loot_tables);
@@ -1506,7 +1807,10 @@ impl WorldDriver {
     /// Sprint-059: 调试控制台是否开启（player.gd 消费）
     #[func]
     fn is_console_open(&self) -> bool {
-        self.debug_console.as_ref().map(|c| c.is_visible()).unwrap_or(false)
+        self.debug_console
+            .as_ref()
+            .map(|c| c.is_visible())
+            .unwrap_or(false)
     }
 
     /// 创建完整 NPC Entity（全 Component bundle），返回 hecs Entity
@@ -1581,22 +1885,24 @@ impl WorldDriver {
             life_stage,
         ));
         // 第二批：Vitals + Movement + Needs + Emotion + Goal + GrowthNeeds + Gompertz + RelationHandle
-        self.ecs.insert(
-            entity,
-            (
-                Vitals::default(),
-                RegenState::default(),
-                Movement::default(),
-                Needs::default(),
-                emotion,
-                Goal::default(),
-                GrowthNeeds::default(),
-                gmort,
-                RelationHandle,
-                Wallet::from_seed(seed),
-                EconomicCognition::default(),
-            ),
-        ).expect("NPC entity should exist after spawn");
+        self.ecs
+            .insert(
+                entity,
+                (
+                    Vitals::default(),
+                    RegenState::default(),
+                    Movement::default(),
+                    Needs::default(),
+                    emotion,
+                    Goal::default(),
+                    GrowthNeeds::default(),
+                    gmort,
+                    RelationHandle,
+                    Wallet::from_seed(seed),
+                    EconomicCognition::default(),
+                ),
+            )
+            .expect("NPC entity should exist after spawn");
         entity
     }
 
@@ -1616,7 +1922,9 @@ impl WorldDriver {
                 let wx = (pcx + dx) as f64 * CHUNK_SIZE;
                 let wz = (pcz + dz) as f64 * CHUNK_SIZE;
                 let h = self.terrain.height_at(WorldPos {
-                    x: wx + 8.0, y: 0.0, z: wz + 8.0,
+                    x: wx + 8.0,
+                    y: 0.0,
+                    z: wz + 8.0,
                 }) as f64;
                 y_min = y_min.min(h);
                 y_max = y_max.max(h);
@@ -1625,7 +1933,13 @@ impl WorldDriver {
         let wy = y_min - 4.0; // no .max(0.0) — allow terrain below sea level
         let total_h = (y_max - wy + 12.0).max(16.0);
         let vy = ((total_h / VOXEL_SIZE).ceil() as u32).max(32);
-        godot_print!("VoxelGrid unified: wy={:.0} vy={}  y=[{:.0}, {:.0}]", wy, vy, y_min, y_max);
+        godot_print!(
+            "VoxelGrid unified: wy={:.0} vy={}  y=[{:.0}, {:.0}]",
+            wy,
+            vy,
+            y_min,
+            y_max
+        );
         self.voxel_wy = wy;
         self.voxel_vy = vy;
 
@@ -1640,7 +1954,8 @@ impl WorldDriver {
                 let mut vc = VoxelChunk::new_alloc();
                 vc.bind_mut().set_world_origin(wx, wy, wz);
                 if let Some(ref voxel_mat) = self.voxel_material {
-                    vc.bind_mut().set_terrain_material(voxel_mat.clone().upcast());
+                    vc.bind_mut()
+                        .set_terrain_material(voxel_mat.clone().upcast());
                 }
                 if let Some(ref mut parent) = self.terrain_parent {
                     parent.add_child(&vc.clone().upcast::<Node>());
@@ -1664,7 +1979,8 @@ impl WorldDriver {
         let biome = self.terrain.biome_classifier.clone();
         let material_colors = self.material_colors.clone();
         let voxel_size = 0.5f64;
-        let vx = 32u32; let vz = 32u32;
+        let vx = 32u32;
+        let vz = 32u32;
         // ★ 捕获 EditDensity 层（若存在）——CoW 快照，Clone 成本极低
         let edit_layer = self.terrain.edit_density_layer(voxel_size);
 
@@ -1674,7 +1990,11 @@ impl WorldDriver {
             // Use biome classifier for material_at — same color as clipmap.
             let mk_base = || -> TerrainBaseDensity {
                 let b = TerrainBaseDensity::new(noise_arc.clone());
-                if let Some(ref bc) = biome { b.with_biomes(bc.clone()) } else { b }
+                if let Some(ref bc) = biome {
+                    b.with_biomes(bc.clone())
+                } else {
+                    b
+                }
             };
             let surface_layer: Arc<dyn DensityProvider> = Arc::new(mk_base());
             let mut stack = DensityStack::new();
@@ -1686,20 +2006,32 @@ impl WorldDriver {
             let base_layer = mk_base();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 transvoxel_extract(
-                    &stack, &base_layer,
-                    wx, wy, wz,
-                    vx, vy, vz, voxel_size,
+                    &stack,
+                    &base_layer,
+                    wx,
+                    wy,
+                    wz,
+                    vx,
+                    vy,
+                    vz,
+                    voxel_size,
                     0, // no transition faces
                     &material_colors,
                 )
             }));
             match result {
                 Ok(mesh) => {
-                    let _ = tx.send(VoxelResult { cx, cz, mesh, panicked: false });
+                    let _ = tx.send(VoxelResult {
+                        cx,
+                        cz,
+                        mesh,
+                        panicked: false,
+                    });
                 }
                 Err(_) => {
                     let _ = tx.send(VoxelResult {
-                        cx, cz,
+                        cx,
+                        cz,
                         mesh: woworld_worldgen::TerrainMeshData {
                             vertices: Vec::new(),
                             normals: Vec::new(),
@@ -1721,7 +2053,12 @@ impl WorldDriver {
 
         if mesh.vertices.is_empty() {
             let (ox, oy, oz) = vc.bind().origin_tuple();
-            godot_print!("Voxel empty @ ({:.0},{:.0},{:.0}) — all-air chunk", ox, oy, oz);
+            godot_print!(
+                "Voxel empty @ ({:.0},{:.0},{:.0}) — all-air chunk",
+                ox,
+                oy,
+                oz
+            );
             vc.bind_mut().set_terrain_mesh(None);
             return;
         }
@@ -1737,7 +2074,11 @@ impl WorldDriver {
 
         for i in 0..mesh.vertices.len() {
             let v = mesh.vertices[i];
-            vertices.push(Vector3::new(v.x - ox as f32, v.y - oy as f32, v.z - oz as f32));
+            vertices.push(Vector3::new(
+                v.x - ox as f32,
+                v.y - oy as f32,
+                v.z - oz as f32,
+            ));
             let n = mesh.normals[i];
             normals_packed.push(Vector3::new(n.x, n.y, n.z));
             let c = mesh.colors[i];

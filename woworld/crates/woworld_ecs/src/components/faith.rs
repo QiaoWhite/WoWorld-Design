@@ -15,7 +15,9 @@ pub struct Faith {
 
 impl Default for Faith {
     fn default() -> Self {
-        Self { faith_id: FAITH_ID_NONE }
+        Self {
+            faith_id: FAITH_ID_NONE,
+        }
     }
 }
 

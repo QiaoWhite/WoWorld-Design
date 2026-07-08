@@ -61,46 +61,62 @@ impl Default for LootTableRegistry {
 
         // 内置测试掉落表：Creature → 兽皮 + 兽骨 + 生肉
         // sub_category 编码见 assets/items/test_items.toml
-        registry.set_table(EntityKind::Creature, LootTable {
-            entries: vec![
-                LootEntry {
-                    item_id: woworld_core::id::ItemDefId::new(
-                        woworld_core::item::ItemCategory::LeatherMat, 1, 0,
-                    ),
-                    weight: 1.0,
-                }, // 兽皮
-                LootEntry {
-                    item_id: woworld_core::id::ItemDefId::new(
-                        woworld_core::item::ItemCategory::LeatherMat, 2, 0,
-                    ),
-                    weight: 0.8,
-                }, // 兽骨
-                LootEntry {
-                    item_id: woworld_core::id::ItemDefId::new(
-                        woworld_core::item::ItemCategory::Food, 1, 0,
-                    ),
-                    weight: 0.5,
-                }, // 生肉
-            ],
-        });
+        registry.set_table(
+            EntityKind::Creature,
+            LootTable {
+                entries: vec![
+                    LootEntry {
+                        item_id: woworld_core::id::ItemDefId::new(
+                            woworld_core::item::ItemCategory::LeatherMat,
+                            1,
+                            0,
+                        ),
+                        weight: 1.0,
+                    }, // 兽皮
+                    LootEntry {
+                        item_id: woworld_core::id::ItemDefId::new(
+                            woworld_core::item::ItemCategory::LeatherMat,
+                            2,
+                            0,
+                        ),
+                        weight: 0.8,
+                    }, // 兽骨
+                    LootEntry {
+                        item_id: woworld_core::id::ItemDefId::new(
+                            woworld_core::item::ItemCategory::Food,
+                            1,
+                            0,
+                        ),
+                        weight: 0.5,
+                    }, // 生肉
+                ],
+            },
+        );
 
         // 内置测试掉落表：Plant → 纤维 + 种子
-        registry.set_table(EntityKind::Plant, LootTable {
-            entries: vec![
-                LootEntry {
-                    item_id: woworld_core::id::ItemDefId::new(
-                        woworld_core::item::ItemCategory::FiberMat, 1, 0,
-                    ),
-                    weight: 1.0,
-                }, // 植物纤维
-                LootEntry {
-                    item_id: woworld_core::id::ItemDefId::new(
-                        woworld_core::item::ItemCategory::OrganicMat, 1, 0,
-                    ),
-                    weight: 0.6,
-                }, // 种子
-            ],
-        });
+        registry.set_table(
+            EntityKind::Plant,
+            LootTable {
+                entries: vec![
+                    LootEntry {
+                        item_id: woworld_core::id::ItemDefId::new(
+                            woworld_core::item::ItemCategory::FiberMat,
+                            1,
+                            0,
+                        ),
+                        weight: 1.0,
+                    }, // 植物纤维
+                    LootEntry {
+                        item_id: woworld_core::id::ItemDefId::new(
+                            woworld_core::item::ItemCategory::OrganicMat,
+                            1,
+                            0,
+                        ),
+                        weight: 0.6,
+                    }, // 种子
+                ],
+            },
+        );
 
         registry
     }
@@ -147,11 +163,7 @@ mod tests {
         let mut cmd = CommandBuffer::new();
         let registry = LootTableRegistry::default();
 
-        let e = world.spawn((
-            Corpse::default(),
-            PendingLoot,
-            EntityKind::Creature,
-        ));
+        let e = world.spawn((Corpse::default(), PendingLoot, EntityKind::Creature));
 
         loot_roll_system(&world, &mut cmd, &registry);
         cmd.run_on(&mut world);

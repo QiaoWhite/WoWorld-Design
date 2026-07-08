@@ -43,12 +43,42 @@ impl Default for GerstnerWave {
 /// 默认 6 波配置——与 `ocean_waves.toml` / `ocean.gdshader` 保持同步
 pub fn default_waves() -> [GerstnerWave; 6] {
     [
-        GerstnerWave { dir_x: 1.0, dir_z: 0.0, steepness: 0.3, wavelength: 4.0 },
-        GerstnerWave { dir_x: 0.0, dir_z: 1.0, steepness: 0.2, wavelength: 6.0 },
-        GerstnerWave { dir_x: 0.7, dir_z: 0.5, steepness: 0.15, wavelength: 8.0 },
-        GerstnerWave { dir_x: -0.3, dir_z: 0.9, steepness: 0.1, wavelength: 12.0 },
-        GerstnerWave { dir_x: 0.9, dir_z: -0.3, steepness: 0.08, wavelength: 3.0 },
-        GerstnerWave { dir_x: -0.5, dir_z: -0.4, steepness: 0.05, wavelength: 18.0 },
+        GerstnerWave {
+            dir_x: 1.0,
+            dir_z: 0.0,
+            steepness: 0.3,
+            wavelength: 4.0,
+        },
+        GerstnerWave {
+            dir_x: 0.0,
+            dir_z: 1.0,
+            steepness: 0.2,
+            wavelength: 6.0,
+        },
+        GerstnerWave {
+            dir_x: 0.7,
+            dir_z: 0.5,
+            steepness: 0.15,
+            wavelength: 8.0,
+        },
+        GerstnerWave {
+            dir_x: -0.3,
+            dir_z: 0.9,
+            steepness: 0.1,
+            wavelength: 12.0,
+        },
+        GerstnerWave {
+            dir_x: 0.9,
+            dir_z: -0.3,
+            steepness: 0.08,
+            wavelength: 3.0,
+        },
+        GerstnerWave {
+            dir_x: -0.5,
+            dir_z: -0.4,
+            steepness: 0.05,
+            wavelength: 18.0,
+        },
     ]
 }
 
@@ -184,8 +214,15 @@ mod tests {
         let ocean = HeightfieldOcean::default();
         let h = ocean.terrain_height(5000.0, 5000.0);
         if h < 0.0 {
-            let depth = ocean.water_depth_at(WorldPos { x: 5000.0, y: 0.0, z: 5000.0 });
-            assert!(depth > 0.0, "depth should be positive over ocean, terrain_h={h}, depth={depth}");
+            let depth = ocean.water_depth_at(WorldPos {
+                x: 5000.0,
+                y: 0.0,
+                z: 5000.0,
+            });
+            assert!(
+                depth > 0.0,
+                "depth should be positive over ocean, terrain_h={h}, depth={depth}"
+            );
             // 水深不应超过合理范围（最深海沟 ~400m）
             assert!(depth < 450.0, "unexpectedly deep: {depth}");
         }
@@ -195,7 +232,11 @@ mod tests {
     fn test_water_depth_over_land_is_zero() {
         let ocean = HeightfieldOcean::default();
         // 找已知的高地形位置
-        let depth = ocean.water_depth_at(WorldPos { x: 2000.0, y: 0.0, z: 2000.0 });
+        let depth = ocean.water_depth_at(WorldPos {
+            x: 2000.0,
+            y: 0.0,
+            z: 2000.0,
+        });
         // 如果这里是陆地，深度应为 0
         // 不能断言一定为 0（可能是海），但应 ≥ 0
         assert!(depth >= 0.0, "depth must not be negative, got {depth}");
@@ -203,18 +244,26 @@ mod tests {
 
     #[test]
     fn test_is_underwater() {
-        let ocean = HeightfieldOcean::with_waves(
-            Arc::new(WorldNoise::new(42)),
-            default_waves(),
-        );
+        let ocean = HeightfieldOcean::with_waves(Arc::new(WorldNoise::new(42)), default_waves());
         // 水下位置——y = -50, sea_level(0) + wave_height(小) → 应判定为水下
-        let pos = WorldPos { x: 100.0, y: -50.0, z: 100.0 };
+        let pos = WorldPos {
+            x: 100.0,
+            y: -50.0,
+            z: 100.0,
+        };
         let time = 100.0;
         assert!(ocean.is_underwater(pos, time), "y=-50 should be underwater");
 
         // 水上位置
-        let pos_above = WorldPos { x: 100.0, y: 100.0, z: 100.0 };
-        assert!(!ocean.is_underwater(pos_above, time), "y=100 should be above water");
+        let pos_above = WorldPos {
+            x: 100.0,
+            y: 100.0,
+            z: 100.0,
+        };
+        assert!(
+            !ocean.is_underwater(pos_above, time),
+            "y=100 should be above water"
+        );
     }
 
     #[test]
@@ -233,14 +282,21 @@ mod tests {
         let pos = WorldPos::default();
         let h1 = ocean.wave_height_at(pos, 42.0);
         let h2 = ocean.wave_height_at(pos, 42.0);
-        assert!((h1 - h2).abs() < 0.001, "same input should give same output");
+        assert!(
+            (h1 - h2).abs() < 0.001,
+            "same input should give same output"
+        );
     }
 
     #[test]
     fn test_wave_height_varies_with_position() {
         let ocean = HeightfieldOcean::default();
         let pos_a = WorldPos::default();
-        let pos_b = WorldPos { x: 100.0, y: 0.0, z: 0.0 };
+        let pos_b = WorldPos {
+            x: 100.0,
+            y: 0.0,
+            z: 0.0,
+        };
         let h_a = ocean.wave_height_at(pos_a, 10.0);
         let h_b = ocean.wave_height_at(pos_b, 10.0);
         // 不同水平位置应产生不同的波高（除非极端巧合）
@@ -254,7 +310,11 @@ mod tests {
     fn test_is_underwater_considers_waves() {
         let ocean = HeightfieldOcean::default();
         // 刚好在海平面以下——is_underwater 应考虑波浪
-        let pos = WorldPos { x: 0.0, y: -0.1, z: 0.0 };
+        let pos = WorldPos {
+            x: 0.0,
+            y: -0.1,
+            z: 0.0,
+        };
         // 即使有波浪，y=-0.1 绝大多数情况下在水下
         let underwater = ocean.is_underwater(pos, 0.0);
         assert!(underwater, "y=-0.1 should almost always be underwater");

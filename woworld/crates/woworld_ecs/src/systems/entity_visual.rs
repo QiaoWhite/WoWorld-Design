@@ -43,7 +43,7 @@ pub fn entity_visual_system(
 
         let color_hint = world
             .get::<&Emotion>(entity)
-            .map(|e| pad_to_color(&*e))
+            .map(|e| pad_to_color(&e))
             .unwrap_or([0.5, 0.5, 0.5]);
 
         let display_name = name_cache
@@ -54,14 +54,17 @@ pub fn entity_visual_system(
             })
             .clone();
 
-        visuals.push((entity, EntityVisual {
-            position: pos.0,
-            rotation,
-            display_name,
-            color_hint,
-            kind: kind.to_core(),
-            render_lod: lod.render_lod,
-        }));
+        visuals.push((
+            entity,
+            EntityVisual {
+                position: pos.0,
+                rotation,
+                display_name,
+                color_hint,
+                kind: kind.to_core(),
+                render_lod: lod.render_lod,
+            },
+        ));
     }
 
     visuals
@@ -120,17 +123,41 @@ pub fn entity_debug_system(
 }
 
 /// 收集 Creature 实体的全部 NPC Component 数据
-fn collect_creature_debug(world: &hecs::World, entity: hecs::Entity, sections: &mut Vec<DebugSection>) {
+fn collect_creature_debug(
+    world: &hecs::World,
+    entity: hecs::Entity,
+    sections: &mut Vec<DebugSection>,
+) {
     // Vitals
     if let Ok(v) = world.get::<&crate::components::vitals::Vitals>(entity) {
         sections.push(DebugSection {
             title: "Vitals".into(),
             fields: vec![
-                DebugField { label: "HP".into(), value: format!("{:.1} / {:.1}", v.hp, v.max_hp), color_hint: hp_color(v.hp, v.max_hp) },
-                DebugField { label: "Stamina".into(), value: format!("{:.1} / {:.1}", v.stamina, v.max_stamina), color_hint: None },
-                DebugField { label: "Spirit".into(), value: format!("{:.2}", v.spirit), color_hint: None },
-                DebugField { label: "Body Temp".into(), value: format!("{:.1}°C", v.body_temp), color_hint: None },
-                DebugField { label: "Oxygen".into(), value: format!("{:.1}", v.oxygen), color_hint: None },
+                DebugField {
+                    label: "HP".into(),
+                    value: format!("{:.1} / {:.1}", v.hp, v.max_hp),
+                    color_hint: hp_color(v.hp, v.max_hp),
+                },
+                DebugField {
+                    label: "Stamina".into(),
+                    value: format!("{:.1} / {:.1}", v.stamina, v.max_stamina),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Spirit".into(),
+                    value: format!("{:.2}", v.spirit),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Body Temp".into(),
+                    value: format!("{:.1}°C", v.body_temp),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Oxygen".into(),
+                    value: format!("{:.1}", v.oxygen),
+                    color_hint: None,
+                },
             ],
         });
     }
@@ -140,9 +167,21 @@ fn collect_creature_debug(world: &hecs::World, entity: hecs::Entity, sections: &
         sections.push(DebugSection {
             title: "Emotion (PAD)".into(),
             fields: vec![
-                DebugField { label: "Pleasure".into(), value: format!("{:.3}", e.pleasure), color_hint: None },
-                DebugField { label: "Arousal".into(), value: format!("{:.3}", e.arousal), color_hint: None },
-                DebugField { label: "Control".into(), value: format!("{:.3}", e.control), color_hint: None },
+                DebugField {
+                    label: "Pleasure".into(),
+                    value: format!("{:.3}", e.pleasure),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Arousal".into(),
+                    value: format!("{:.3}", e.arousal),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Control".into(),
+                    value: format!("{:.3}", e.control),
+                    color_hint: None,
+                },
             ],
         });
     }
@@ -152,26 +191,59 @@ fn collect_creature_debug(world: &hecs::World, entity: hecs::Entity, sections: &
         sections.push(DebugSection {
             title: "BigFive".into(),
             fields: vec![
-                DebugField { label: "Openness".into(), value: format!("{:.3}", bf.openness), color_hint: None },
-                DebugField { label: "Conscientiousness".into(), value: format!("{:.3}", bf.conscientiousness), color_hint: None },
-                DebugField { label: "Extraversion".into(), value: format!("{:.3}", bf.extraversion), color_hint: None },
-                DebugField { label: "Agreeableness".into(), value: format!("{:.3}", bf.agreeableness), color_hint: None },
-                DebugField { label: "Neuroticism".into(), value: format!("{:.3}", bf.neuroticism), color_hint: None },
+                DebugField {
+                    label: "Openness".into(),
+                    value: format!("{:.3}", bf.openness),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Conscientiousness".into(),
+                    value: format!("{:.3}", bf.conscientiousness),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Extraversion".into(),
+                    value: format!("{:.3}", bf.extraversion),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Agreeableness".into(),
+                    value: format!("{:.3}", bf.agreeableness),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Neuroticism".into(),
+                    value: format!("{:.3}", bf.neuroticism),
+                    color_hint: None,
+                },
             ],
         });
     }
 
     // Goal
     if let Ok(g) = world.get::<&crate::components::goal::Goal>(entity) {
-        let target_str = g.target_pos
+        let target_str = g
+            .target_pos
             .map(|p| format!("({:.1}, {:.1}, {:.1})", p.x, p.y, p.z))
             .unwrap_or_else(|| "(none)".into());
         sections.push(DebugSection {
             title: "Goal".into(),
             fields: vec![
-                DebugField { label: "Type".into(), value: format!("{:?}", g.goal_type), color_hint: None },
-                DebugField { label: "Urgency".into(), value: format!("{:.3}", g.urgency), color_hint: None },
-                DebugField { label: "Target".into(), value: target_str, color_hint: None },
+                DebugField {
+                    label: "Type".into(),
+                    value: format!("{:?}", g.goal_type),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Urgency".into(),
+                    value: format!("{:.3}", g.urgency),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Target".into(),
+                    value: target_str,
+                    color_hint: None,
+                },
             ],
         });
     }
@@ -181,12 +253,36 @@ fn collect_creature_debug(world: &hecs::World, entity: hecs::Entity, sections: &
         sections.push(DebugSection {
             title: "Needs".into(),
             fields: vec![
-                DebugField { label: "Hunger".into(), value: format!("{:.3}", n.hunger), color_hint: None },
-                DebugField { label: "Thirst".into(), value: format!("{:.3}", n.thirst), color_hint: None },
-                DebugField { label: "Fatigue".into(), value: format!("{:.3}", n.fatigue), color_hint: None },
-                DebugField { label: "Safety".into(), value: format!("{:.3}", n.safety), color_hint: None },
-                DebugField { label: "Social".into(), value: format!("{:.3}", n.social), color_hint: None },
-                DebugField { label: "Libido".into(), value: format!("{:.3}", n.libido), color_hint: None },
+                DebugField {
+                    label: "Hunger".into(),
+                    value: format!("{:.3}", n.hunger),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Thirst".into(),
+                    value: format!("{:.3}", n.thirst),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Fatigue".into(),
+                    value: format!("{:.3}", n.fatigue),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Safety".into(),
+                    value: format!("{:.3}", n.safety),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Social".into(),
+                    value: format!("{:.3}", n.social),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Libido".into(),
+                    value: format!("{:.3}", n.libido),
+                    color_hint: None,
+                },
             ],
         });
     }
@@ -196,8 +292,16 @@ fn collect_creature_debug(world: &hecs::World, entity: hecs::Entity, sections: &
         sections.push(DebugSection {
             title: "Movement".into(),
             fields: vec![
-                DebugField { label: "Speed".into(), value: format!("{:.1} m/s", m.speed), color_hint: None },
-                DebugField { label: "Arrival Radius".into(), value: format!("{:.2} m", m.arrival_radius), color_hint: None },
+                DebugField {
+                    label: "Speed".into(),
+                    value: format!("{:.1} m/s", m.speed),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Arrival Radius".into(),
+                    value: format!("{:.2} m", m.arrival_radius),
+                    color_hint: None,
+                },
             ],
         });
     }
@@ -207,15 +311,29 @@ fn collect_creature_debug(world: &hecs::World, entity: hecs::Entity, sections: &
         sections.push(DebugSection {
             title: "Lifecycle".into(),
             fields: vec![
-                DebugField { label: "Age".into(), value: format!("{:.1} years", a.age_days / 365.25), color_hint: None },
-                DebugField { label: "Max Lifespan".into(), value: format!("{:.1} years", a.max_lifespan_days / 365.25), color_hint: None },
-                DebugField { label: "Ratio".into(), value: format!("{:.3}", a.age_ratio()), color_hint: None },
+                DebugField {
+                    label: "Age".into(),
+                    value: format!("{:.1} years", a.age_days / 365.25),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Max Lifespan".into(),
+                    value: format!("{:.1} years", a.max_lifespan_days / 365.25),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Ratio".into(),
+                    value: format!("{:.3}", a.age_ratio()),
+                    color_hint: None,
+                },
             ],
         });
         if let Ok(ls) = world.get::<&crate::components::lifecycle::LifeStage>(entity) {
-            sections.last_mut().unwrap().fields.push(
-                DebugField { label: "Stage".into(), value: format!("{:?}", ls), color_hint: None }
-            );
+            sections.last_mut().unwrap().fields.push(DebugField {
+                label: "Stage".into(),
+                value: format!("{:?}", ls),
+                color_hint: None,
+            });
         }
     }
 }
@@ -265,14 +383,25 @@ mod tests {
             Position(Vec3::new(10.0, 0.0, 5.0)),
             EcsKind::Creature,
             LodLevel::default(),
-            Emotion { pleasure: 0.7, arousal: 0.8, control: 0.5 },
+            Emotion {
+                pleasure: 0.7,
+                arousal: 0.8,
+                control: 0.5,
+            },
         ));
         // NPC 2 — 不愉快、平静
         world.spawn((
             Position(Vec3::new(20.0, 0.0, 5.0)),
             EcsKind::Creature,
-            LodLevel { render_lod: 3, ..LodLevel::default() },
-            Emotion { pleasure: -0.5, arousal: 0.2, control: -0.3 },
+            LodLevel {
+                render_lod: 3,
+                ..LodLevel::default()
+            },
+            Emotion {
+                pleasure: -0.5,
+                arousal: 0.2,
+                control: -0.3,
+            },
         ));
         world
     }
@@ -334,17 +463,17 @@ mod tests {
         let snap = entity_debug_system(&world, e).unwrap();
         assert_eq!(snap.entity_bits, e.to_bits().get());
         // 应包含 Transform + Vitals + Emotion + BigFive + Goal + Needs + Movement + Lifecycle
-        assert!(snap.sections.len() >= 8, "expected >=8 sections, got {}", snap.sections.len());
+        assert!(
+            snap.sections.len() >= 8,
+            "expected >=8 sections, got {}",
+            snap.sections.len()
+        );
     }
 
     #[test]
     fn test_name_cache_reuse() {
         let mut world = hecs::World::new();
-        let e = world.spawn((
-            Position(Vec3::ZERO),
-            EcsKind::Creature,
-            LodLevel::default(),
-        ));
+        let e = world.spawn((Position(Vec3::ZERO), EcsKind::Creature, LodLevel::default()));
         let mut cache = NameCache::new();
         let v1 = entity_visual_system(&world, None, &mut cache);
         let name1 = v1[0].1.display_name.clone();
@@ -354,16 +483,28 @@ mod tests {
 
     #[test]
     fn test_pad_to_color_happy() {
-        let e = Emotion { pleasure: 1.0, arousal: 1.0, control: 1.0 };
+        let e = Emotion {
+            pleasure: 1.0,
+            arousal: 1.0,
+            control: 1.0,
+        };
         let c = pad_to_color(&e);
         // 愉快→绿色高，高唤醒→亮
         assert!(c[1] > 0.7, "green should be high for happy, got {}", c[1]);
-        assert!(c[0] <= 0.5, "red should be neutral/low for happy, got {}", c[0]);
+        assert!(
+            c[0] <= 0.5,
+            "red should be neutral/low for happy, got {}",
+            c[0]
+        );
     }
 
     #[test]
     fn test_pad_to_color_unhappy() {
-        let e = Emotion { pleasure: -1.0, arousal: 0.8, control: -1.0 };
+        let e = Emotion {
+            pleasure: -1.0,
+            arousal: 0.8,
+            control: -1.0,
+        };
         let c = pad_to_color(&e);
         // 不愉快→红色高
         assert!(c[0] > 0.7, "red should be high for unhappy, got {}", c[0]);

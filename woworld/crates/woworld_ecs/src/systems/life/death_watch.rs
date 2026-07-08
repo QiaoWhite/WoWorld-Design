@@ -94,16 +94,21 @@ mod tests {
         let mut world = hecs::World::new();
         let mut cmd = CommandBuffer::new();
 
-        let e = world.spawn((Vitals {
-            hp: 0.0,
-            ..Vitals::default()
-        }, EntityKind::Creature));
+        let e = world.spawn((
+            Vitals {
+                hp: 0.0,
+                ..Vitals::default()
+            },
+            EntityKind::Creature,
+        ));
 
         death_watch_system(&world, &mut cmd, 42);
         cmd.run_on(&mut world);
 
         // EntityKind 保留（DeathWatch 不碰它）
-        let kind = world.get::<&EntityKind>(e).expect("EntityKind should persist");
+        let kind = world
+            .get::<&EntityKind>(e)
+            .expect("EntityKind should persist");
         assert_eq!(*kind, EntityKind::Creature);
     }
 

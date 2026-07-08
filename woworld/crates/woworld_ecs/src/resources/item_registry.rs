@@ -71,9 +71,7 @@ impl ItemRegistry {
     /// # Panics
     /// 若 TOML 格式错误或必需字段缺失则 panic（数据文件错误应尽早暴露）。
     pub fn load_from_toml(&mut self, toml_str: &str) {
-        let root: toml::Value = toml_str
-            .parse()
-            .expect("item TOML parse error");
+        let root: toml::Value = toml_str.parse().expect("item TOML parse error");
         let items = root["items"]
             .as_array()
             .expect("TOML missing [[items]] array");

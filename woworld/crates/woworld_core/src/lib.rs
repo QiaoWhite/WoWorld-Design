@@ -11,13 +11,14 @@ pub mod economy;
 pub mod edit_terrain;
 pub mod entity_visual;
 pub mod faith;
-pub mod item;
-pub mod naming;
-pub mod power;
 pub mod id;
+pub mod item;
 pub mod lod;
 pub mod material;
+pub mod naming;
 pub mod ocean;
+pub mod player;
+pub mod power;
 pub mod spatial;
 pub mod time;
 pub mod types;
@@ -37,12 +38,9 @@ pub mod prelude {
         EconomicHealthIndex, EconomyId, EconomyQuery, Market, MarketId, Order, OrderBook,
         OrderSide, PriceSnapshot, TradeRecord, WalletSnapshot, MARKET_ID_NONE,
     };
+    pub use crate::entity_visual::{DebugField, DebugSection, EntityDebugSnapshot, EntityVisual};
     pub use crate::faith::{FaithId, FaithTheology, ReligiousMotivation, FAITH_ID_NONE};
-    pub use crate::item::{
-        effective_encumbrance_kg, ConsumableEffect, ItemCategory, ItemDef, ItemPlacementProps,
-        ItemProperties, ItemQuery, ItemStack, ItemState, ItemTag, Quality, Rarity,
-        ITEM_DEF_ID_NONE,
-    };
+    pub use crate::id::*;
     pub use crate::item::assembly::{
         ComponentConnection, ComponentSlot, ItemAssembly, ItemParams, JointType, ParamDef,
         ParamSchema, SlotInstanceId,
@@ -53,12 +51,16 @@ pub mod prelude {
     };
     pub use crate::item::inventory::{InventoryError, InventorySlot, PersonalInventory};
     pub use crate::item::inventory_tuning;
-    pub use crate::entity_visual::{DebugField, DebugSection, EntityDebugSnapshot, EntityVisual};
-    pub use crate::naming::{generate_name, NpcName};
-    pub use crate::power::{PowerAtom, PowerEdge, PowerSource, LEGITIMACY_CRISIS_THRESHOLD};
-    pub use crate::id::*;
+    pub use crate::item::{
+        effective_encumbrance_kg, ConsumableEffect, ItemCategory, ItemDef, ItemPlacementProps,
+        ItemProperties, ItemQuery, ItemStack, ItemState, ItemTag, Quality, Rarity,
+        ITEM_DEF_ID_NONE,
+    };
     pub use crate::lod::*;
     pub use crate::material::*;
+    pub use crate::naming::{generate_name, NpcName};
+    pub use crate::player::{ActionDomain, ControlMode};
+    pub use crate::power::{PowerAtom, PowerEdge, PowerSource, LEGITIMACY_CRISIS_THRESHOLD};
     pub use crate::time::*;
     pub use crate::types::*;
     pub use crate::vegetation::*;

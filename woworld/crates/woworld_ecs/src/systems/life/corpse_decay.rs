@@ -58,7 +58,9 @@ mod tests {
 
         assert!(world.get::<&Corpse>(e).is_err());
         assert!(world.get::<&CorpseLooted>(e).is_err());
-        let remains = world.get::<&DecayingRemains>(e).expect("should have DecayingRemains");
+        let remains = world
+            .get::<&DecayingRemains>(e)
+            .expect("should have DecayingRemains");
         assert_eq!(remains.decay_progress, 0.0);
     }
 
@@ -88,12 +90,16 @@ mod tests {
         let mut world = hecs::World::new();
         let mut cmd = CommandBuffer::new();
 
-        let e = world.spawn((DecayingRemains { decay_progress: 0.0 },));
+        let e = world.spawn((DecayingRemains {
+            decay_progress: 0.0,
+        },));
 
         corpse_decay_system(&world, &mut cmd, 0);
         cmd.run_on(&mut world);
 
-        let remains = world.get::<&DecayingRemains>(e).expect("still has DecayingRemains");
+        let remains = world
+            .get::<&DecayingRemains>(e)
+            .expect("still has DecayingRemains");
         assert!(remains.decay_progress > 0.0);
         assert!(remains.decay_progress < 1.0);
     }

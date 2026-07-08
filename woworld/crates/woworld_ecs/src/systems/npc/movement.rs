@@ -69,12 +69,14 @@ pub fn movement_system(
     tick: u64,
     terrain: &dyn TerrainQuery,
 ) {
-    for (entity, (pos, mov, goal, needs, wander_opt, mut rot_opt)) in
-        world.query_mut::<(
-            &mut Position, &Movement, &Goal, &mut Needs,
-            Option<&mut Wander>, Option<&mut Rotation>,
-        )>()
-    {
+    for (entity, (pos, mov, goal, needs, wander_opt, mut rot_opt)) in world.query_mut::<(
+        &mut Position,
+        &Movement,
+        &Goal,
+        &mut Needs,
+        Option<&mut Wander>,
+        Option<&mut Rotation>,
+    )>() {
         let current = pos.0;
 
         let (direction, new_wander) = if let Some(target) = goal.target_pos {
@@ -90,10 +92,7 @@ pub fn movement_system(
                     if dist < DIR_EPSILON {
                         rot.0 = glam::Quat::IDENTITY;
                     } else {
-                        rot.0 = glam::Quat::from_rotation_arc(
-                            glam::Vec3::Z,
-                            to_target_xz / dist,
-                        );
+                        rot.0 = glam::Quat::from_rotation_arc(glam::Vec3::Z, to_target_xz / dist);
                     }
                 }
                 satisfy_goal(goal, needs);
@@ -215,7 +214,12 @@ mod tests {
         fn normal_at(&self, _pos: WorldPos) -> Vec3 {
             Vec3::Y // 完全水平
         }
-        fn terrain_raycast(&self, _origin: WorldPos, _direction: Vec3, _max_dist: f32) -> Option<TerrainHit> {
+        fn terrain_raycast(
+            &self,
+            _origin: WorldPos,
+            _direction: Vec3,
+            _max_dist: f32,
+        ) -> Option<TerrainHit> {
             None
         }
         fn density_at(&self, _pos: WorldPos) -> f32 {
@@ -253,7 +257,12 @@ mod tests {
             let sin_theta = (1.0 - self.slope_cos * self.slope_cos).sqrt();
             Vec3::new(sin_theta, self.slope_cos, 0.0).normalize()
         }
-        fn terrain_raycast(&self, _origin: WorldPos, _direction: Vec3, _max_dist: f32) -> Option<TerrainHit> {
+        fn terrain_raycast(
+            &self,
+            _origin: WorldPos,
+            _direction: Vec3,
+            _max_dist: f32,
+        ) -> Option<TerrainHit> {
             None
         }
         fn density_at(&self, _pos: WorldPos) -> f32 {
@@ -320,7 +329,10 @@ mod tests {
         movement_system(&mut world, &mut cmd, 1.0, 0, &terrain);
         cmd.run_on(&mut world);
 
-        assert!(world.get::<&Goal>(e).is_err(), "Goal should be removed on arrival");
+        assert!(
+            world.get::<&Goal>(e).is_err(),
+            "Goal should be removed on arrival"
+        );
     }
 
     #[test]
@@ -340,8 +352,14 @@ mod tests {
     fn test_movement_wander_is_xz_plane() {
         for seed in 0..20 {
             let dir = wander_direction(seed);
-            assert!((dir.y).abs() < 0.001, "seed {seed}: direction should be in XZ plane");
-            assert!((dir.length() - 1.0).abs() < 0.001, "seed {seed}: should be unit vector");
+            assert!(
+                (dir.y).abs() < 0.001,
+                "seed {seed}: direction should be in XZ plane"
+            );
+            assert!(
+                (dir.length() - 1.0).abs() < 0.001,
+                "seed {seed}: should be unit vector"
+            );
         }
     }
 
@@ -368,7 +386,11 @@ mod tests {
         cmd.run_on(&mut world);
 
         let pos = world.get::<&Position>(e).unwrap();
-        assert!((pos.0.y - 5.0).abs() < 0.01, "NPC should be on terrain surface, got y={}", pos.0.y);
+        assert!(
+            (pos.0.y - 5.0).abs() < 0.01,
+            "NPC should be on terrain surface, got y={}",
+            pos.0.y
+        );
     }
 
     #[test]
@@ -489,8 +511,11 @@ mod tests {
         cmd.run_on(&mut world);
 
         let pos = world.get::<&Position>(e).unwrap();
-        assert!((pos.0.y - 3.0).abs() < 0.01,
-            "wandering NPC should snap to terrain, got y={}", pos.0.y);
+        assert!(
+            (pos.0.y - 3.0).abs() < 0.01,
+            "wandering NPC should snap to terrain, got y={}",
+            pos.0.y
+        );
     }
 
     #[test]
@@ -505,7 +530,10 @@ mod tests {
         movement_system(&mut world, &mut cmd, 1.0, 0, &terrain);
         cmd.run_on(&mut world);
 
-        assert!(world.get::<&Goal>(e).is_err(), "arrival should ignore Y difference");
+        assert!(
+            world.get::<&Goal>(e).is_err(),
+            "arrival should ignore Y difference"
+        );
     }
 
     #[test]
@@ -525,16 +553,30 @@ mod tests {
 
     #[test]
     fn test_satisfy_goal_hunger() {
-        let mut needs = Needs { hunger: 0.9, ..Needs::default() };
-        let goal = Goal { goal_type: GoalType::FindFood, urgency: 0.9, target_pos: Some(Vec3::ZERO) };
+        let mut needs = Needs {
+            hunger: 0.9,
+            ..Needs::default()
+        };
+        let goal = Goal {
+            goal_type: GoalType::FindFood,
+            urgency: 0.9,
+            target_pos: Some(Vec3::ZERO),
+        };
         satisfy_goal(&goal, &mut needs);
         assert!((needs.hunger - 0.4).abs() < 0.01);
     }
 
     #[test]
     fn test_satisfy_goal_never_negative() {
-        let mut needs = Needs { social: 0.1, ..Needs::default() };
-        let goal = Goal { goal_type: GoalType::FindSocialContact, urgency: 0.5, target_pos: Some(Vec3::ZERO) };
+        let mut needs = Needs {
+            social: 0.1,
+            ..Needs::default()
+        };
+        let goal = Goal {
+            goal_type: GoalType::FindSocialContact,
+            urgency: 0.5,
+            target_pos: Some(Vec3::ZERO),
+        };
         satisfy_goal(&goal, &mut needs);
         assert_eq!(needs.social, 0.0);
     }

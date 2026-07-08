@@ -2,7 +2,7 @@
 
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-07-07
+> **最后更新**: 2026-07-08
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `附录D-模块依赖图.md` · `../CLAUDE-INTERFACES.md`
 
@@ -15,15 +15,15 @@
 | 指标 | 值 |
 |------|-----|
 | 设计模块总数 | 27 个独立系统 + 1 个子模块（家具与放置物品） |
-| 有代码的模块 | **7 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、**地形修改编排层**） |
-| 零代码的模块 | **22 / 27** — 设计完备，待实现 |
+| 有代码的模块 | **8 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、地形修改编排层、**★玩家系统 Phase 1**） |
+| 零代码的模块 | **21 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **737 tests 全绿** (core: 270 + worldgen: 58 + atmosphere: 26 + ecs: 383 + godot: 0), cargo clippy 零警告 |
-| ECS 架构 | **Phase 0/1/2/3 ✅** — 42 Components + 28 Systems + 737 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 就位。 |
-| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整（常规+过渡）+ Clipmap LOD 8 层 CHG-049 对齐（0.5m-64m, 15km 视野）+ Signed Heightfield (LOD 5-7) + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + **经济循环接入 + 库存系统接入** |
-| 当前冲刺 | 物品 Phase 2 + 经济 Phase 3 完成（737 tests）→ 下一步：可视化 / 对话 / 玩家系统 / 物品 Phase 3 / 经济 Phase 4 |
+| Rust workspace | 5 crates, **783 tests 全绿** (core: 286 + worldgen: 58 + atmosphere: 26 + ecs: 413 + godot: 0), cargo clippy 零警告 |
+| ECS 架构 | **Phase 0/1/2/3 ✅** — 44 Components + 29 Systems + 783 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + **玩家 Phase 1** 就位。 |
+| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + **★Tab夺舍NPC** |
+| 当前冲刺 | **Sprint-060 完成** — 玩家系统 Phase 1: ControlMode + 夺舍NPC（783 tests）→ 下一步：对话雏形 / 物品 Phase 3 / 经济 Phase 4 / 玩家 Phase 2 |
 | 最新 CHG | CHG-065（2026-07-06）— 地形修改编排层 ~800行代码 + 50 tests · 内核不转ECS编排层入ECS |
-| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260708]]（2026-07-08·物品 Phase 2+经济 Phase 3·737 tests） |
+| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260708-late]]（2026-07-08·Sprint-060 玩家Phase1·783 tests） |
 
 ---
 
@@ -224,7 +224,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 | 载具系统 | P4 | 🟡 就绪 | — | 5 动力类型/L1-L3 半自动控制 |
 | 大气与氛围系统 | P1 | 🟡 部分实现 | ✅ woworld_atmosphere | 3/4 调制层为身份存根 |
 | 小精灵系统 | P3 | 🟡 就绪 | — | v1.0 (CHG-052) |
-| 玩家系统 | P2 | 🟡 就绪 | — | ★ CHG-063。6篇~1,448行。玩家=NPC+I/O适配层 |
+| 玩家系统 | P2 | 🟢 Phase 1 | ControlMode + ActionDomain + 夺舍NPC + Tab/F切换 + possess命令 | ★ Sprint-060。CHG-063 设计就位。Phase 1 完成 (783 tests)。延后: DomainDelegated/双角色/角色创建 |
 
 ### 设计补全待办（Track B/C 遗留）
 
@@ -248,6 +248,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | Sprint | 日期 | 目标 | 状态 |
 |--------|------|------|------|
+| Sprint-060 | 2026-07-08 | ★ 玩家系统 Phase 1 — ControlMode + 夺舍NPC + Tab/F切换 + possess命令 | ✅ 完成 |
 | Sprint-033 | 2026-07-05 | ★ MC绕序修复 + LODCoordinator Phase1 + 天气Phase1 + PBR法线修复 | ✅ 完成 |
 | Sprint-032 | 2026-07-04~06 | VoxelChunk LOD 0 7轮修复（MC绕序+统一wy+biome材质） | ✅ 完成 |
 | Sprint-031 | 2026-07-04~05 | 性能优化3轮 + 海洋视觉 + VoxelChunk LOD 0 替换 | ✅ 完成 |
@@ -300,7 +301,8 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | 文件 | 内容 |
 |------|------|
-| [handoff-20260706-031.md](01-核心基础/handoff/handoff-20260706-031.md) | ★ 最新 — Sprint-056/057（PRNG清理+ECS-Godot可视化·21 NPC·341 tests）|
+| [handoff-20260708-late.md](01-核心基础/handoff/handoff-20260708-late.md) | ★ 最新 — Sprint-060（玩家Phase1·ControlMode+夺舍NPC·783 tests）|
+| [handoff-20260706-031.md](01-核心基础/handoff/handoff-20260706-031.md) | Sprint-056/057（PRNG清理+ECS-Godot可视化·21 NPC·341 tests）|
 | [handoff-20260706-030.md](01-核心基础/handoff/handoff-20260706-030.md) | Sprint-043~055（NPC人格·BigFive·行为链·15 Sprints）|
 | [handoff-20260705-029.md](01-核心基础/handoff/handoff-20260705-029.md) | Sprint-034~042（LODCoordinator P2+ECS P0+生命+天气+NPC需求链）|
 | [handoff-20260705-028.md](01-核心基础/handoff/handoff-20260705-028.md) | Sprint-036/037（ECS Phase 1 生命系统）|

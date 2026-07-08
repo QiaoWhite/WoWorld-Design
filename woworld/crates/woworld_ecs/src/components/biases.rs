@@ -49,11 +49,7 @@ impl CognitiveBiases {
     /// 从 CognitiveStyle + BigFive + Emotion 派生 7 种偏误
     ///
     /// Phase 1: `cognitive_load` = 0.5（CognitiveTide 占位）
-    pub fn derive(
-        style: &CognitiveStyle,
-        personality: &BigFive,
-        emotion: &Emotion,
-    ) -> Self {
+    pub fn derive(style: &CognitiveStyle, personality: &BigFive, emotion: &Emotion) -> Self {
         // ── confirmation_bias ──
         // ((1-rigid_flexible)×0.6 + (1-analytic_intuitive)×0.4) × (1+|pleasure|×0.3)
         let cb = ((1.0 - style.rigid_flexible) * 0.6 + (1.0 - style.analytic_intuitive) * 0.4)
@@ -68,8 +64,7 @@ impl CognitiveBiases {
 
         // ── recency_weight ──
         // (1-reflective_impulsive)×0.7 + 0.1 → [0.1, 0.8]
-        let recency_weight =
-            ((1.0 - style.reflective_impulsive) * 0.7 + 0.1).clamp(0.0, 1.0);
+        let recency_weight = ((1.0 - style.reflective_impulsive) * 0.7 + 0.1).clamp(0.0, 1.0);
 
         // ── self_serving_bias ──
         // (1-rigid_flexible)×0.5 + (1-agreeableness)×0.5
@@ -79,9 +74,8 @@ impl CognitiveBiases {
         // ── availability_heuristic ──
         // (1-reflective_impulsive)×0.5 + cognitive_load×0.3 + extraversion×0.2
         // Phase 1: cognitive_load = 0.5
-        let ah = (1.0 - style.reflective_impulsive) * 0.5
-            + 0.5 * 0.3
-            + personality.extraversion * 0.2;
+        let ah =
+            (1.0 - style.reflective_impulsive) * 0.5 + 0.5 * 0.3 + personality.extraversion * 0.2;
         let availability_heuristic = ah.clamp(0.0, 1.0);
 
         // ── dissonance_tolerance ──
@@ -116,7 +110,10 @@ mod tests {
 
     #[test]
     fn test_neurotic_high_negativity() {
-        let b = BigFive { neuroticism: 1.0, ..BigFive::default() };
+        let b = BigFive {
+            neuroticism: 1.0,
+            ..BigFive::default()
+        };
         let style = CognitiveStyle::derive_from_bigfive(&b);
         let biases = CognitiveBiases::derive(&style, &b, &Emotion::default());
         assert!(biases.negativity_bias > 0.5, "high N → high negativity");
@@ -124,7 +121,10 @@ mod tests {
 
     #[test]
     fn test_stable_low_negativity() {
-        let b = BigFive { neuroticism: 0.0, ..BigFive::default() };
+        let b = BigFive {
+            neuroticism: 0.0,
+            ..BigFive::default()
+        };
         let style = CognitiveStyle::derive_from_bigfive(&b);
         let biases = CognitiveBiases::derive(&style, &b, &Emotion::default());
         assert!(biases.negativity_bias < 0.4, "low N → low negativity");
@@ -133,7 +133,12 @@ mod tests {
     #[test]
     fn test_reflective_low_recency() {
         // Fully reflective (ri=1.0): recency = (1-1)×0.7 + 0.1 = 0.1
-        let b = BigFive { neuroticism: 0.0, openness: 1.0, extraversion: 0.0, ..BigFive::default() };
+        let b = BigFive {
+            neuroticism: 0.0,
+            openness: 1.0,
+            extraversion: 0.0,
+            ..BigFive::default()
+        };
         let style = CognitiveStyle::derive_from_bigfive(&b);
         let biases = CognitiveBiases::derive(&style, &b, &Emotion::default());
         assert!(biases.recency_weight < 0.2, "reflective → low recency");
@@ -142,7 +147,12 @@ mod tests {
     #[test]
     fn test_impulsive_high_recency() {
         // Fully impulsive (ri=0.0): recency = (1-0)×0.7 + 0.1 = 0.8
-        let b = BigFive { neuroticism: 1.0, openness: 0.0, extraversion: 1.0, ..BigFive::default() };
+        let b = BigFive {
+            neuroticism: 1.0,
+            openness: 0.0,
+            extraversion: 1.0,
+            ..BigFive::default()
+        };
         let style = CognitiveStyle::derive_from_bigfive(&b);
         let biases = CognitiveBiases::derive(&style, &b, &Emotion::default());
         assert!(biases.recency_weight > 0.6, "impulsive → high recency");
@@ -150,16 +160,25 @@ mod tests {
 
     #[test]
     fn test_agreeable_low_self_serving() {
-        let b = BigFive { agreeableness: 1.0, ..BigFive::default() };
+        let b = BigFive {
+            agreeableness: 1.0,
+            ..BigFive::default()
+        };
         let mut style = test_style();
         style.rigid_flexible = 1.0;
         let biases = CognitiveBiases::derive(&style, &b, &Emotion::default());
-        assert!(biases.self_serving_bias < 0.3, "agreeable+flexible → low self-serving");
+        assert!(
+            biases.self_serving_bias < 0.3,
+            "agreeable+flexible → low self-serving"
+        );
     }
 
     #[test]
     fn test_flexible_high_dissonance_tolerance() {
-        let b = BigFive { neuroticism: 0.0, ..BigFive::default() };
+        let b = BigFive {
+            neuroticism: 0.0,
+            ..BigFive::default()
+        };
         let mut style = test_style();
         style.rigid_flexible = 1.0;
         let biases = CognitiveBiases::derive(&style, &b, &Emotion::default());
@@ -168,7 +187,10 @@ mod tests {
 
     #[test]
     fn test_neurotic_high_rumination() {
-        let b = BigFive { neuroticism: 1.0, ..BigFive::default() };
+        let b = BigFive {
+            neuroticism: 1.0,
+            ..BigFive::default()
+        };
         let style = CognitiveStyle::derive_from_bigfive(&b);
         let biases = CognitiveBiases::derive(&style, &b, &Emotion::default());
         assert!(biases.rumination_tendency > 0.5);
@@ -205,11 +227,30 @@ mod tests {
 
     #[test]
     fn test_sadness_amplifies_negativity() {
-        let b = BigFive { neuroticism: 0.5, ..BigFive::default() };
+        let b = BigFive {
+            neuroticism: 0.5,
+            ..BigFive::default()
+        };
         let style = test_style();
-        let happy = CognitiveBiases::derive(&style, &b, &Emotion { pleasure: 0.5, ..Emotion::default() });
-        let sad = CognitiveBiases::derive(&style, &b, &Emotion { pleasure: -0.5, ..Emotion::default() });
-        assert!(sad.negativity_bias > happy.negativity_bias,
-            "sadness amplifies negativity bias");
+        let happy = CognitiveBiases::derive(
+            &style,
+            &b,
+            &Emotion {
+                pleasure: 0.5,
+                ..Emotion::default()
+            },
+        );
+        let sad = CognitiveBiases::derive(
+            &style,
+            &b,
+            &Emotion {
+                pleasure: -0.5,
+                ..Emotion::default()
+            },
+        );
+        assert!(
+            sad.negativity_bias > happy.negativity_bias,
+            "sadness amplifies negativity bias"
+        );
     }
 }

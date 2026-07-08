@@ -5,9 +5,9 @@
 //!
 //! 参见: `开发阶段/模型动作与物理系统/007-调试可视化与EntityRenderer架构.md`
 
+use glam::Vec3;
 use godot::classes::{CapsuleMesh, Label3D, MeshInstance3D, Node3D, StandardMaterial3D};
 use godot::prelude::*;
-use glam::Vec3;
 use std::collections::HashMap;
 
 use woworld_core::entity_visual::EntityVisual;
@@ -67,7 +67,8 @@ impl EntityRenderer {
         }
 
         // 收集存活实体
-        let alive: HashMap<hecs::Entity, &EntityVisual> = visuals.iter().map(|(e, v)| (*e, *v)).collect();
+        let alive: HashMap<hecs::Entity, &EntityVisual> =
+            visuals.iter().map(|(e, v)| (*e, *v)).collect();
 
         // 移除已 despawn 的节点
         let to_remove: Vec<hecs::Entity> = self
@@ -100,7 +101,9 @@ impl EntityRenderer {
                 if let Some(node) = self.nodes.get(entity) {
                     let mut root = node.root.clone();
                     root.set_global_position(Vector3::new(
-                        visual.position.x, visual.position.y, visual.position.z,
+                        visual.position.x,
+                        visual.position.y,
+                        visual.position.z,
                     ));
                     let rot = visual.rotation;
                     root.set_quaternion(Quaternion::new(rot.x, rot.y, rot.z, rot.w));
@@ -158,11 +161,7 @@ impl EntityRenderer {
     }
 
     /// raycast 选中实体——AABB slab 交测，返回最近命中
-    pub fn raycast_select(
-        &self,
-        ray_origin: Vec3,
-        ray_dir: Vec3,
-    ) -> Option<hecs::Entity> {
+    pub fn raycast_select(&self, ray_origin: Vec3, ray_dir: Vec3) -> Option<hecs::Entity> {
         let aabbs = self.entity_aabbs();
         let mut closest: Option<(hecs::Entity, f32)> = None;
 
@@ -181,7 +180,7 @@ impl EntityRenderer {
     pub fn highlight_entity(&mut self, entity: Option<hecs::Entity>) {
         for (e, node) in self.nodes.iter_mut() {
             let color = if entity == Some(*e) {
-                Color::from_rgb(1.0, 0.85, 0.2)  // 金色高亮
+                Color::from_rgb(1.0, 0.85, 0.2) // 金色高亮
             } else {
                 entity_hash_color(*e)
             };
@@ -228,7 +227,9 @@ impl EntityRenderer {
         parent.add_child(&root);
 
         root.set_global_position(Vector3::new(
-            visual.position.x, visual.position.y, visual.position.z,
+            visual.position.x,
+            visual.position.y,
+            visual.position.z,
         ));
 
         root.add_child(&mesh_instance);
@@ -246,19 +247,31 @@ impl EntityRenderer {
             Some(lbl)
         };
 
-        EntityNode { root, mesh_instance, label }
+        EntityNode {
+            root,
+            mesh_instance,
+            label,
+        }
     }
 
     #[allow(dead_code)]
-    fn update_node(&mut self, node: &mut EntityNode, visual: &EntityVisual, _entity: &hecs::Entity) {
+    fn update_node(
+        &mut self,
+        node: &mut EntityNode,
+        visual: &EntityVisual,
+        _entity: &hecs::Entity,
+    ) {
         // 位置
         node.root.set_global_position(Vector3::new(
-            visual.position.x, visual.position.y, visual.position.z,
+            visual.position.x,
+            visual.position.y,
+            visual.position.z,
         ));
 
         // 朝向 — glam Quat → Godot Quaternion
         let rot = visual.rotation;
-        node.root.set_quaternion(Quaternion::new(rot.x, rot.y, rot.z, rot.w));
+        node.root
+            .set_quaternion(Quaternion::new(rot.x, rot.y, rot.z, rot.w));
 
         // Label3D 可见性：name_visible + LOD + 距离
         let show_label = self.name_visible
@@ -304,9 +317,24 @@ fn entity_hash_color(entity: hecs::Entity) -> Color {
 /// 返回命中距离 t。零方向分量以 f32::EPSILON 保护避免除零。
 fn ray_aabb_intersect(origin: Vec3, dir: Vec3, aabb_min: Vec3, aabb_max: Vec3) -> Option<f32> {
     let eps = f32::EPSILON;
-    let inv_x = 1.0 / if dir.x.abs() < eps { eps * dir.x.signum().max(1.0) } else { dir.x };
-    let inv_y = 1.0 / if dir.y.abs() < eps { eps * dir.y.signum().max(1.0) } else { dir.y };
-    let inv_z = 1.0 / if dir.z.abs() < eps { eps * dir.z.signum().max(1.0) } else { dir.z };
+    let inv_x = 1.0
+        / if dir.x.abs() < eps {
+            eps * dir.x.signum().max(1.0)
+        } else {
+            dir.x
+        };
+    let inv_y = 1.0
+        / if dir.y.abs() < eps {
+            eps * dir.y.signum().max(1.0)
+        } else {
+            dir.y
+        };
+    let inv_z = 1.0
+        / if dir.z.abs() < eps {
+            eps * dir.z.signum().max(1.0)
+        } else {
+            dir.z
+        };
 
     let inv = Vec3::new(inv_x, inv_y, inv_z);
     let t1 = (aabb_min - origin) * inv;

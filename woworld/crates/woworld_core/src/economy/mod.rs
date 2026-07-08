@@ -15,8 +15,10 @@ pub mod listing;
 
 use crate::id::ItemDefId;
 use crate::types::EntityId;
-pub use listing::{ListingStatus, ListingType, NeedCategory, NeedReason, Urgency, urgency_to_listing_type};
-pub use bootstrap::{BootstrapParams, LiquidityInjection, initial_money_supply, inject_liquidity};
+pub use bootstrap::{initial_money_supply, inject_liquidity, BootstrapParams, LiquidityInjection};
+pub use listing::{
+    urgency_to_listing_type, ListingStatus, ListingType, NeedCategory, NeedReason, Urgency,
+};
 use std::collections::BTreeMap;
 
 // ── 经济 ID 类型 ───────────────────────────────────────
@@ -26,7 +28,9 @@ use std::collections::BTreeMap;
 pub struct EconomyId(pub u32);
 
 impl Default for EconomyId {
-    fn default() -> Self { Self(u32::MAX) }
+    fn default() -> Self {
+        Self(u32::MAX)
+    }
 }
 
 /// 市场标识符
@@ -157,7 +161,11 @@ impl WalletSnapshot {
         let remainder = total % 400;
         let silver = remainder / 20;
         let copper = remainder % 20;
-        Self { copper, silver, gold }
+        Self {
+            copper,
+            silver,
+            gold,
+        }
     }
 }
 
@@ -214,18 +222,10 @@ pub trait EconomyQuery: Send + Sync {
     fn query_wealth_distribution(&self, economy_id: EconomyId) -> Option<WealthDistribution>;
 
     /// 查询生产能力
-    fn query_production_capacity(
-        &self,
-        economy_id: EconomyId,
-        item_id: ItemDefId,
-    ) -> Option<u64>;
+    fn query_production_capacity(&self, economy_id: EconomyId, item_id: ItemDefId) -> Option<u64>;
 
     /// 查询消费需求
-    fn query_consumption_demand(
-        &self,
-        economy_id: EconomyId,
-        item_id: ItemDefId,
-    ) -> Option<u64>;
+    fn query_consumption_demand(&self, economy_id: EconomyId, item_id: ItemDefId) -> Option<u64>;
 
     /// 查询经济健康度
     fn query_economic_health(&self, economy_id: EconomyId) -> Option<EconomicHealthIndex>;
@@ -284,7 +284,11 @@ mod tests {
 
     #[test]
     fn test_wallet_snapshot_total_copper() {
-        let w = WalletSnapshot { copper: 15, silver: 3, gold: 1 };
+        let w = WalletSnapshot {
+            copper: 15,
+            silver: 3,
+            gold: 1,
+        };
         // 1 gold = 400, 3 silver = 60, 15 copper = 15 -> 475
         assert_eq!(w.total_copper(), 475);
     }
@@ -292,9 +296,9 @@ mod tests {
     #[test]
     fn test_wallet_snapshot_from_copper() {
         let w = WalletSnapshot::from_copper(850);
-        assert_eq!(w.gold, 2);      // 850 / 400 = 2
-        assert_eq!(w.silver, 2);    // (850 - 800) / 20 = 2
-        assert_eq!(w.copper, 10);   // remainder
+        assert_eq!(w.gold, 2); // 850 / 400 = 2
+        assert_eq!(w.silver, 2); // (850 - 800) / 20 = 2
+        assert_eq!(w.copper, 10); // remainder
     }
 
     #[test]

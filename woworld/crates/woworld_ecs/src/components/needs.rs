@@ -24,8 +24,13 @@ pub struct Needs {
 impl Default for Needs {
     fn default() -> Self {
         Self {
-            hunger: 0.0, thirst: 0.0, fatigue: 0.0,
-            safety: 0.0, social: 0.0, element_balance: 0.0, libido: 0.0,
+            hunger: 0.0,
+            thirst: 0.0,
+            fatigue: 0.0,
+            safety: 0.0,
+            social: 0.0,
+            element_balance: 0.0,
+            libido: 0.0,
         }
     }
 }
@@ -50,9 +55,15 @@ pub struct NeedSensitivity {
 impl Default for NeedSensitivity {
     fn default() -> Self {
         Self {
-            hunger_sens: 1.0, thirst_sens: 1.0, fatigue_sens: 1.0,
-            safety_sens: 1.0, social_sens: 1.0, element_sens: 1.0, libido_sens: 1.0,
-            esteem_sens: 1.0, competence_sens: 1.0,
+            hunger_sens: 1.0,
+            thirst_sens: 1.0,
+            fatigue_sens: 1.0,
+            safety_sens: 1.0,
+            social_sens: 1.0,
+            element_sens: 1.0,
+            libido_sens: 1.0,
+            esteem_sens: 1.0,
+            competence_sens: 1.0,
         }
     }
 }
@@ -79,7 +90,10 @@ pub struct Desire {
 
 impl Default for Desire {
     fn default() -> Self {
-        Self { kind: DesireKind::Eat, urgency: 0.0 }
+        Self {
+            kind: DesireKind::Eat,
+            urgency: 0.0,
+        }
     }
 }
 
@@ -100,8 +114,13 @@ mod tests {
         // 验证 7 维结构（编译期保证 + 运行时烟雾测试）
         let n = Needs::default();
         let _ = (
-            n.hunger, n.thirst, n.fatigue, n.safety,
-            n.social, n.element_balance, n.libido,
+            n.hunger,
+            n.thirst,
+            n.fatigue,
+            n.safety,
+            n.social,
+            n.element_balance,
+            n.libido,
         );
     }
 
@@ -109,9 +128,15 @@ mod tests {
     fn test_sensitivity_has_nine_dimensions() {
         let s = NeedSensitivity::default();
         let _ = (
-            s.hunger_sens, s.thirst_sens, s.fatigue_sens, s.safety_sens,
-            s.social_sens, s.element_sens, s.libido_sens,
-            s.esteem_sens, s.competence_sens,
+            s.hunger_sens,
+            s.thirst_sens,
+            s.fatigue_sens,
+            s.safety_sens,
+            s.social_sens,
+            s.element_sens,
+            s.libido_sens,
+            s.esteem_sens,
+            s.competence_sens,
         );
     }
 
@@ -119,9 +144,13 @@ mod tests {
     fn test_desire_kind_count() {
         // 7 维 Needs → 7 种 DesireKind
         let kinds = [
-            DesireKind::Eat, DesireKind::Drink, DesireKind::Rest,
-            DesireKind::SeekSafety, DesireKind::Socialize,
-            DesireKind::BalanceElements, DesireKind::ExpressLibido,
+            DesireKind::Eat,
+            DesireKind::Drink,
+            DesireKind::Rest,
+            DesireKind::SeekSafety,
+            DesireKind::Socialize,
+            DesireKind::BalanceElements,
+            DesireKind::ExpressLibido,
         ];
         assert_eq!(kinds.len(), 7);
     }

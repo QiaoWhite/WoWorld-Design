@@ -96,9 +96,9 @@ impl AestheticTaste {
         // ── 标量参数 ──
         // familiarity_bias = culture.uncertainty_avoidance×0.6 + (-O)×0.4
         // Phase 1: culture.ua = 0.5
-        let familiarity_bias =
-            (0.5 * 0.6 - b.openness * 0.4 + pseudo_random_f32_range(seed, 6, -0.10, 0.10))
-                .clamp(-1.0, 1.0);
+        let familiarity_bias = (0.5 * 0.6 - b.openness * 0.4
+            + pseudo_random_f32_range(seed, 6, -0.10, 0.10))
+        .clamp(-1.0, 1.0);
 
         // aesthetic_openness = culture.openness_to_outsiders×0.40 + O×0.40
         //                      + (1-beauty_standard.confidence)×0.20
@@ -111,10 +111,9 @@ impl AestheticTaste {
 
         // complexity_tolerance = O×0.60 + culture.artistry×0.40
         // Phase 1: culture.artistry = 0.5
-        let complexity_tolerance = (b.openness * 0.60
-            + 0.5 * 0.40
-            + pseudo_random_f32_range(seed, 8, -0.10, 0.10))
-        .clamp(0.0, 1.0);
+        let complexity_tolerance =
+            (b.openness * 0.60 + 0.5 * 0.40 + pseudo_random_f32_range(seed, 8, -0.10, 0.10))
+                .clamp(0.0, 1.0);
 
         Self {
             dimension_weights: weights,
@@ -140,8 +139,14 @@ mod tests {
 
     #[test]
     fn test_openness_drives_novelty() {
-        let high = BigFive { openness: 1.0, ..BigFive::default() };
-        let low = BigFive { openness: 0.0, ..BigFive::default() };
+        let high = BigFive {
+            openness: 1.0,
+            ..BigFive::default()
+        };
+        let low = BigFive {
+            openness: 0.0,
+            ..BigFive::default()
+        };
         let t_high = AestheticTaste::derive_from_bigfive(&high, 42);
         let t_low = AestheticTaste::derive_from_bigfive(&low, 42);
         assert!(t_high.dimension_weights[DIM_NOVELTY] > t_low.dimension_weights[DIM_NOVELTY]);
@@ -149,8 +154,14 @@ mod tests {
 
     #[test]
     fn test_neurotic_reduces_fluency() {
-        let high_n = BigFive { neuroticism: 1.0, ..BigFive::default() };
-        let low_n = BigFive { neuroticism: 0.0, ..BigFive::default() };
+        let high_n = BigFive {
+            neuroticism: 1.0,
+            ..BigFive::default()
+        };
+        let low_n = BigFive {
+            neuroticism: 0.0,
+            ..BigFive::default()
+        };
         let t_high = AestheticTaste::derive_from_bigfive(&high_n, 42);
         let t_low = AestheticTaste::derive_from_bigfive(&low_n, 42);
         assert!(t_high.dimension_weights[DIM_FLUENCY] < t_low.dimension_weights[DIM_FLUENCY]);
@@ -158,14 +169,20 @@ mod tests {
 
     #[test]
     fn test_agreeable_values_harmony() {
-        let b = BigFive { agreeableness: 1.0, ..BigFive::default() };
+        let b = BigFive {
+            agreeableness: 1.0,
+            ..BigFive::default()
+        };
         let t = AestheticTaste::derive_from_bigfive(&b, 1);
         assert!(t.dimension_weights[DIM_HARMONY] > 0.55);
     }
 
     #[test]
     fn test_conscientious_values_virtuosity() {
-        let b = BigFive { conscientiousness: 1.0, ..BigFive::default() };
+        let b = BigFive {
+            conscientiousness: 1.0,
+            ..BigFive::default()
+        };
         let t = AestheticTaste::derive_from_bigfive(&b, 2);
         assert!(t.dimension_weights[DIM_VIRTUOSITY] > 0.55);
     }
@@ -175,15 +192,25 @@ mod tests {
         for seed in 0..20 {
             let b = BigFive::from_seed(seed);
             let t = AestheticTaste::derive_from_bigfive(&b, seed);
-            assert!((-1.0..=1.0).contains(&t.familiarity_bias), "seed {seed}: bias out of range");
+            assert!(
+                (-1.0..=1.0).contains(&t.familiarity_bias),
+                "seed {seed}: bias out of range"
+            );
         }
     }
 
     #[test]
     fn test_aesthetic_openness_high() {
-        let b = BigFive { openness: 1.0, ..BigFive::default() };
+        let b = BigFive {
+            openness: 1.0,
+            ..BigFive::default()
+        };
         let t = AestheticTaste::derive_from_bigfive(&b, 0);
-        assert!(t.aesthetic_openness > 0.55, "high O → high openness, got {}", t.aesthetic_openness);
+        assert!(
+            t.aesthetic_openness > 0.55,
+            "high O → high openness, got {}",
+            t.aesthetic_openness
+        );
     }
 
     #[test]
@@ -220,7 +247,14 @@ mod tests {
     #[test]
     fn test_dimension_constants_unique() {
         // 验证常量互不相同
-        let dims = [DIM_FLUENCY, DIM_NOVELTY, DIM_COMPLEXITY, DIM_HARMONY, DIM_EXPRESSIVENESS, DIM_VIRTUOSITY];
+        let dims = [
+            DIM_FLUENCY,
+            DIM_NOVELTY,
+            DIM_COMPLEXITY,
+            DIM_HARMONY,
+            DIM_EXPRESSIVENESS,
+            DIM_VIRTUOSITY,
+        ];
         for i in 0..dims.len() {
             for j in (i + 1)..dims.len() {
                 assert_ne!(dims[i], dims[j]);

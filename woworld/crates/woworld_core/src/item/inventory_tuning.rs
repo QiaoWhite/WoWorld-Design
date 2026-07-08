@@ -57,13 +57,8 @@ pub const LARGE_CARRY_BOX: u16 = 80;
 
 /// 满载 6 个容器时的理论最大槽位数:
 /// BASE(30) + MILITARY_BACKPACK(60) + MESSENGER_BAG(25) + 2×GATHERING_BAG(15+15) + SACK(40) + TOOLBOX(30) = 215
-pub const MAX_THEORETICAL_SLOTS: u16 = BASE_SLOTS
-    + MILITARY_BACKPACK
-    + MESSENGER_BAG
-    + GATHERING_BAG
-    + AMMO_POUCH
-    + SACK
-    + TOOLBOX;
+pub const MAX_THEORETICAL_SLOTS: u16 =
+    BASE_SLOTS + MILITARY_BACKPACK + MESSENGER_BAG + GATHERING_BAG + AMMO_POUCH + SACK + TOOLBOX;
 
 // ── tests ────────────────────────────────────────────────
 

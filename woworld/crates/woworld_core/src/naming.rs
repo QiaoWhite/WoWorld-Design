@@ -27,15 +27,13 @@ pub fn generate_name(seed: u64) -> NpcName {
     let s2 = splitmix(s1);
 
     let given_syllables = [
-        "明", "志", "勇", "慧", "文", "武", "安", "康", "瑞", "祥",
-        "俊", "杰", "英", "华", "思", "远", "清", "正", "仁", "义",
-        "云", "风", "山", "海", "雨", "雪", "霜", "露", "春", "秋",
+        "明", "志", "勇", "慧", "文", "武", "安", "康", "瑞", "祥", "俊", "杰", "英", "华", "思",
+        "远", "清", "正", "仁", "义", "云", "风", "山", "海", "雨", "雪", "霜", "露", "春", "秋",
         "光", "辉", "德", "信", "诚", "善", "美", "和", "平", "宁",
     ];
     let family_names = [
-        "王", "李", "张", "刘", "陈", "杨", "赵", "黄", "周", "吴",
-        "徐", "孙", "马", "胡", "朱", "郭", "何", "林", "罗", "高",
-        "梁", "郑", "谢", "宋", "唐", "韩", "冯", "于", "董", "萧",
+        "王", "李", "张", "刘", "陈", "杨", "赵", "黄", "周", "吴", "徐", "孙", "马", "胡", "朱",
+        "郭", "何", "林", "罗", "高", "梁", "郑", "谢", "宋", "唐", "韩", "冯", "于", "董", "萧",
     ];
 
     let g1 = given_syllables[(s1 as usize) % given_syllables.len()];
@@ -81,13 +79,20 @@ mod tests {
             let name = generate_name(seed);
             assert!(!name.given.is_empty(), "seed {seed}: given name empty");
             assert!(!name.family.is_empty(), "seed {seed}: family name empty");
-            assert!(name.full().len() >= 3, "seed {seed}: full name too short: {}", name.full());
+            assert!(
+                name.full().len() >= 3,
+                "seed {seed}: full name too short: {}",
+                name.full()
+            );
         }
     }
 
     #[test]
     fn test_full_name_format() {
-        let name = NpcName { given: "明志".into(), family: "王".into() };
+        let name = NpcName {
+            given: "明志".into(),
+            family: "王".into(),
+        };
         assert_eq!(name.full(), "明志 王");
     }
 

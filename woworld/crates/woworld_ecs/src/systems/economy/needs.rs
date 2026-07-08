@@ -58,9 +58,10 @@ pub fn assess_physiological_needs(
                 if let Some(consumable) = &props.consumable {
                     if consumable.is_consumable {
                         // 检查是否为食物（Edible tag）
-                        let is_food = props.tags.iter().any(|t| {
-                            matches!(t, woworld_core::item::ItemTag::Edible)
-                        });
+                        let is_food = props
+                            .tags
+                            .iter()
+                            .any(|t| matches!(t, woworld_core::item::ItemTag::Edible));
                         if is_food {
                             let qty = if urgency >= Urgency::High { 3 } else { 1 };
                             needs.push(NeedAssessment {
@@ -84,9 +85,7 @@ pub fn assess_physiological_needs(
 /// 评估 NPC 的职业需求。
 ///
 /// Phase 3 stub——依赖 ProfessionTag + pending_crafting_recipes。
-pub fn assess_occupational_needs(
-    _item_registry: &dyn ItemQuery,
-) -> Vec<NeedAssessment> {
+pub fn assess_occupational_needs(_item_registry: &dyn ItemQuery) -> Vec<NeedAssessment> {
     // Phase 4: 读取 pending_crafting_recipes → 缺原料 → 生成 Occupational 买单
     Vec::new()
 }
@@ -94,9 +93,7 @@ pub fn assess_occupational_needs(
 /// 评估 NPC 的社交需求。
 ///
 /// Phase 3 stub——依赖 gift_intents + luxury_desire。
-pub fn assess_social_needs(
-    _item_registry: &dyn ItemQuery,
-) -> Vec<NeedAssessment> {
+pub fn assess_social_needs(_item_registry: &dyn ItemQuery) -> Vec<NeedAssessment> {
     // Phase 4: 读取 gift_intents/luxury_desire → 生成 Social 买单
     Vec::new()
 }
@@ -118,8 +115,10 @@ pub fn assess_all_needs(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use woworld_core::item::{ConsumableEffect, ItemCategory, ItemProperties, ItemTag, Quality, Rarity, ITEM_DEF_ID_NONE};
     use std::collections::BTreeMap;
+    use woworld_core::item::{
+        ConsumableEffect, ItemCategory, ItemProperties, ItemTag, Quality, Rarity, ITEM_DEF_ID_NONE,
+    };
 
     fn make_food_registry() -> impl ItemQuery {
         let props = ItemProperties {
@@ -147,7 +146,9 @@ mod tests {
             element_affinity: None,
             placement: None,
             tool_tags: None,
-            consumable: Some(ConsumableEffect { is_consumable: true }),
+            consumable: Some(ConsumableEffect {
+                is_consumable: true,
+            }),
             audio_material: None,
             aesthetic_props: None,
         };
@@ -160,13 +161,27 @@ mod tests {
             fn get_properties(&self, _id: ItemDefId) -> Option<&ItemProperties> {
                 Some(&self.props)
             }
-            fn get_category(&self, _: ItemDefId) -> Option<ItemCategory> { Some(ItemCategory::Food) }
-            fn get_stack_size(&self, _: ItemDefId) -> Option<u32> { Some(10) }
-            fn get_base_value(&self, _: ItemDefId) -> Option<u32> { Some(20) }
-            fn get_rarity(&self, _: ItemDefId) -> Option<Rarity> { Some(Rarity::Common) }
-            fn get_name(&self, _: ItemDefId) -> Option<&str> { Some("raw_meat") }
-            fn all_def_ids(&self) -> &[ItemDefId] { self.ids }
-            fn def_count(&self) -> usize { self.ids.len() }
+            fn get_category(&self, _: ItemDefId) -> Option<ItemCategory> {
+                Some(ItemCategory::Food)
+            }
+            fn get_stack_size(&self, _: ItemDefId) -> Option<u32> {
+                Some(10)
+            }
+            fn get_base_value(&self, _: ItemDefId) -> Option<u32> {
+                Some(20)
+            }
+            fn get_rarity(&self, _: ItemDefId) -> Option<Rarity> {
+                Some(Rarity::Common)
+            }
+            fn get_name(&self, _: ItemDefId) -> Option<&str> {
+                Some("raw_meat")
+            }
+            fn all_def_ids(&self) -> &[ItemDefId] {
+                self.ids
+            }
+            fn def_count(&self) -> usize {
+                self.ids.len()
+            }
         }
 
         let ids: &'static [ItemDefId] = Box::leak(Box::new([ItemDefId(1)]));
@@ -178,7 +193,10 @@ mod tests {
         let vitals = Vitals::default(); // hp=100, max_hp=100, spirit=1.0
         let q = make_food_registry();
         let needs = assess_physiological_needs(&vitals, &q);
-        assert!(needs.is_empty(), "healthy NPC should have no urgent food need");
+        assert!(
+            needs.is_empty(),
+            "healthy NPC should have no urgent food need"
+        );
     }
 
     #[test]

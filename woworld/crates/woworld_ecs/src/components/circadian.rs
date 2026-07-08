@@ -75,8 +75,10 @@ mod tests {
         let f_n = circadian_factor(Chronotype::Neutral, 0.3);
         let f_e = circadian_factor(Chronotype::Evening, 0.3);
         // 至少有一个不同于其他
-        assert!(f_m != f_n || f_n != f_e || f_m != f_e,
-            "different chronotypes should differ at same time");
+        assert!(
+            f_m != f_n || f_n != f_e || f_m != f_e,
+            "different chronotypes should differ at same time"
+        );
     }
 
     #[test]
@@ -85,8 +87,10 @@ mod tests {
         let f_neutral = circadian_factor(Chronotype::Neutral, 0.9);
         let f_evening = circadian_factor(Chronotype::Evening, 0.9);
         // 深夜 (0.9) = trough for neutral, but evening type shifted later
-        assert!(f_evening > f_neutral,
-            "evening type should be more active late at night");
+        assert!(
+            f_evening > f_neutral,
+            "evening type should be more active late at night"
+        );
     }
 
     #[test]

@@ -37,7 +37,9 @@ mod tests {
         let mut world = hecs::World::new();
         let mut cmd = CommandBuffer::new();
 
-        let e = world.spawn((DecayingRemains { decay_progress: 1.0 },));
+        let e = world.spawn((DecayingRemains {
+            decay_progress: 1.0,
+        },));
 
         cleanup_system(&world, &mut cmd);
         cmd.run_on(&mut world);
@@ -51,7 +53,9 @@ mod tests {
         let mut world = hecs::World::new();
         let mut cmd = CommandBuffer::new();
 
-        let e = world.spawn((DecayingRemains { decay_progress: 0.5 },));
+        let e = world.spawn((DecayingRemains {
+            decay_progress: 0.5,
+        },));
 
         cleanup_system(&world, &mut cmd);
         cmd.run_on(&mut world);

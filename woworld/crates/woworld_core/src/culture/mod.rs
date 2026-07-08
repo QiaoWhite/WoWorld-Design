@@ -300,9 +300,7 @@ pub trait CultureQuery: Send + Sync {
 
     /// 查询荣誉权重（便捷方法，委托给 honor_weight()）
     fn honor_weight(&self, id: CultureId) -> f32 {
-        self.core_params(id)
-            .map(honor_weight)
-            .unwrap_or(0.5)
+        self.core_params(id).map(honor_weight).unwrap_or(0.5)
     }
 
     /// 列出所有已注册文化
@@ -355,7 +353,10 @@ mod tests {
     fn test_default_midpoints() {
         let p = CultureCoreParams::default();
         for i in 0..CultureCoreParams::DIM_COUNT {
-            assert!((p.dim(i) - 0.5).abs() < f32::EPSILON, "dim {i} not at midpoint");
+            assert!(
+                (p.dim(i) - 0.5).abs() < f32::EPSILON,
+                "dim {i} not at midpoint"
+            );
         }
     }
 
@@ -396,8 +397,12 @@ mod tests {
         let a = CultureCoreParams::from_seed(42);
         let b = CultureCoreParams::from_seed(42);
         for i in 0..CultureCoreParams::DIM_COUNT {
-            assert!((a.dim(i) - b.dim(i)).abs() < f32::EPSILON,
-                "dim {i}: {} vs {}", a.dim(i), b.dim(i));
+            assert!(
+                (a.dim(i) - b.dim(i)).abs() < f32::EPSILON,
+                "dim {i}: {} vs {}",
+                a.dim(i),
+                b.dim(i)
+            );
         }
     }
 
@@ -407,8 +412,10 @@ mod tests {
             let p = CultureCoreParams::from_seed(seed);
             for i in 0..CultureCoreParams::DIM_COUNT {
                 let v = p.dim(i);
-                assert!((0.0..=1.0).contains(&v),
-                    "seed {seed} dim {i}: {v} not in [0,1]");
+                assert!(
+                    (0.0..=1.0).contains(&v),
+                    "seed {seed} dim {i}: {v} not in [0,1]"
+                );
             }
         }
     }
@@ -419,9 +426,14 @@ mod tests {
         let b = CultureCoreParams::from_seed(1);
         let c = CultureCoreParams::from_seed(2);
         // 3 个种子至少产出 2 组不同参数
-        let same_ab = (0..CultureCoreParams::DIM_COUNT).all(|i| (a.dim(i) - b.dim(i)).abs() < f32::EPSILON);
-        let same_bc = (0..CultureCoreParams::DIM_COUNT).all(|i| (b.dim(i) - c.dim(i)).abs() < f32::EPSILON);
-        assert!(!same_ab || !same_bc, "different seeds should produce diverse params");
+        let same_ab =
+            (0..CultureCoreParams::DIM_COUNT).all(|i| (a.dim(i) - b.dim(i)).abs() < f32::EPSILON);
+        let same_bc =
+            (0..CultureCoreParams::DIM_COUNT).all(|i| (b.dim(i) - c.dim(i)).abs() < f32::EPSILON);
+        assert!(
+            !same_ab || !same_bc,
+            "different seeds should produce diverse params"
+        );
     }
 
     #[test]
@@ -432,8 +444,10 @@ mod tests {
             let deviant_count = (0..CultureCoreParams::DIM_COUNT)
                 .filter(|&i| (p.dim(i) - 0.5).abs() >= 0.1)
                 .count();
-            assert!(deviant_count >= 2,
-                "seed {seed}: only {deviant_count} deviant dims (need ≥2)");
+            assert!(
+                deviant_count >= 2,
+                "seed {seed}: only {deviant_count} deviant dims (need ≥2)"
+            );
         }
     }
 
@@ -485,8 +499,10 @@ mod tests {
         for seed in 0..100 {
             let core = CultureCoreParams::from_seed(seed);
             let hw = honor_weight(&core);
-            assert!((0.0..=1.0).contains(&hw),
-                "seed {seed}: honor_weight {hw} not in [0,1]");
+            assert!(
+                (0.0..=1.0).contains(&hw),
+                "seed {seed}: honor_weight {hw} not in [0,1]"
+            );
         }
     }
 
@@ -511,8 +527,10 @@ mod tests {
         for seed in 0..100 {
             for salt in 0..15 {
                 let v = culture_hash(seed, salt);
-                assert!((0.0..=1.0).contains(&v),
-                    "seed {seed} salt {salt}: {v} not in [0,1]");
+                assert!(
+                    (0.0..=1.0).contains(&v),
+                    "seed {seed} salt {salt}: {v} not in [0,1]"
+                );
             }
         }
     }

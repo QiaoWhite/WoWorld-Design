@@ -146,7 +146,12 @@ mod tests {
 
     #[test]
     fn test_urgency_discriminants_unique() {
-        let variants = [Urgency::Critical, Urgency::High, Urgency::Normal, Urgency::Low];
+        let variants = [
+            Urgency::Critical,
+            Urgency::High,
+            Urgency::Normal,
+            Urgency::Low,
+        ];
         let mut seen = std::collections::HashSet::new();
         for v in variants {
             assert!(seen.insert(v as u8));
@@ -159,7 +164,10 @@ mod tests {
     fn test_critical_maps_to_urgent() {
         let lt = urgency_to_listing_type(Urgency::Critical);
         match lt {
-            ListingType::Urgent { premium_pct, auto_accept } => {
+            ListingType::Urgent {
+                premium_pct,
+                auto_accept,
+            } => {
                 assert_eq!(premium_pct, 50);
                 assert!(auto_accept);
             }
@@ -171,7 +179,10 @@ mod tests {
     fn test_high_maps_to_urgent_no_auto() {
         let lt = urgency_to_listing_type(Urgency::High);
         match lt {
-            ListingType::Urgent { premium_pct, auto_accept } => {
+            ListingType::Urgent {
+                premium_pct,
+                auto_accept,
+            } => {
                 assert_eq!(premium_pct, 20);
                 assert!(!auto_accept);
             }

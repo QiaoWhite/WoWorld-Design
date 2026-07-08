@@ -42,9 +42,7 @@ pub struct DensityStack {
 
 impl DensityStack {
     pub fn new() -> Self {
-        Self {
-            layers: Vec::new(),
-        }
+        Self { layers: Vec::new() }
     }
 
     /// 插入层并保持 priority 升序
@@ -87,14 +85,7 @@ impl DensityStack {
     /// 步长 `step` 控制精度 vs 性能（建议 0.5m）。
     ///
     /// ★ 当前未被调用——保留作为 EditHeightfield 更新的工具方法。
-    pub fn find_surface_y(
-        &self,
-        x: f64,
-        z: f64,
-        y_min: f64,
-        y_max: f64,
-        step: f64,
-    ) -> Option<f64> {
+    pub fn find_surface_y(&self, x: f64, z: f64, y_min: f64, y_max: f64, step: f64) -> Option<f64> {
         // 防御：y_min 必须 ≤ y_max
         if y_min > y_max || step <= 0.0 {
             return None;

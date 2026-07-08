@@ -81,11 +81,7 @@ impl Default for DietaryBasePreferences {
 
 impl DietaryBasePreferences {
     /// 从 CultureCoreParams 和环境标志派生饮食偏好
-    pub fn derive_from(
-        core: &CultureCoreParams,
-        is_grassland: bool,
-        is_tropical: bool,
-    ) -> Self {
+    pub fn derive_from(core: &CultureCoreParams, is_grassland: bool, is_tropical: bool) -> Self {
         // ── staple ──
         // 气候主导，文化调节
         let staple = if is_grassland {
@@ -159,7 +155,9 @@ mod tests {
     fn test_derive_all_fields_in_range() {
         for seed in 0..100 {
             let core = CultureCoreParams::from_seed(seed);
-            for (grassland, tropical) in &[(false, false), (true, false), (false, true), (true, true)] {
+            for (grassland, tropical) in
+                &[(false, false), (true, false), (false, true), (true, true)]
+            {
                 let diet = DietaryBasePreferences::derive_from(&core, *grassland, *tropical);
                 assert!((0.0..=1.0).contains(&diet.spice_preference));
             }

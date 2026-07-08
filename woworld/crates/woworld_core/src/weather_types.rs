@@ -90,7 +90,11 @@ impl WeatherParams {
     /// RGB 三元插值
     #[inline]
     pub fn lerp3(a: [f32; 3], b: [f32; 3], t: f32) -> [f32; 3] {
-        [Self::lerp(a[0], b[0], t), Self::lerp(a[1], b[1], t), Self::lerp(a[2], b[2], t)]
+        [
+            Self::lerp(a[0], b[0], t),
+            Self::lerp(a[1], b[1], t),
+            Self::lerp(a[2], b[2], t),
+        ]
     }
 
     /// 连续参数 → 离散 WeatherState（调试快捷键兼容）
@@ -117,28 +121,52 @@ impl WeatherParams {
     pub fn from_weather_state(state: WeatherState) -> Self {
         match state {
             WeatherState::Clear => Self {
-                cloud_cover: 0.0, precipitation: 0.0, wind_speed: 0.5,
-                humidity: 0.3, temperature: 20.0, pressure: 1015.0,
+                cloud_cover: 0.0,
+                precipitation: 0.0,
+                wind_speed: 0.5,
+                humidity: 0.3,
+                temperature: 20.0,
+                pressure: 1015.0,
             },
             WeatherState::PartlyCloudy => Self {
-                cloud_cover: 0.35, precipitation: 0.0, wind_speed: 2.0,
-                humidity: 0.4, temperature: 19.0, pressure: 1013.0,
+                cloud_cover: 0.35,
+                precipitation: 0.0,
+                wind_speed: 2.0,
+                humidity: 0.4,
+                temperature: 19.0,
+                pressure: 1013.0,
             },
             WeatherState::Overcast => Self {
-                cloud_cover: 0.75, precipitation: 0.02, wind_speed: 5.0,
-                humidity: 0.6, temperature: 17.0, pressure: 1010.0,
+                cloud_cover: 0.75,
+                precipitation: 0.02,
+                wind_speed: 5.0,
+                humidity: 0.6,
+                temperature: 17.0,
+                pressure: 1010.0,
             },
             WeatherState::LightPrecip => Self {
-                cloud_cover: 0.85, precipitation: 0.15, wind_speed: 8.0,
-                humidity: 0.75, temperature: 15.0, pressure: 1008.0,
+                cloud_cover: 0.85,
+                precipitation: 0.15,
+                wind_speed: 8.0,
+                humidity: 0.75,
+                temperature: 15.0,
+                pressure: 1008.0,
             },
             WeatherState::ModeratePrecip => Self {
-                cloud_cover: 0.93, precipitation: 0.40, wind_speed: 12.0,
-                humidity: 0.85, temperature: 12.0, pressure: 1004.0,
+                cloud_cover: 0.93,
+                precipitation: 0.40,
+                wind_speed: 12.0,
+                humidity: 0.85,
+                temperature: 12.0,
+                pressure: 1004.0,
             },
             WeatherState::HeavyStorm => Self {
-                cloud_cover: 0.98, precipitation: 0.80, wind_speed: 20.0,
-                humidity: 0.95, temperature: 8.0, pressure: 998.0,
+                cloud_cover: 0.98,
+                precipitation: 0.80,
+                wind_speed: 20.0,
+                humidity: 0.95,
+                temperature: 8.0,
+                pressure: 998.0,
             },
         }
     }

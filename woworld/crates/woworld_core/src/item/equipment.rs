@@ -251,7 +251,12 @@ impl CharacterEquipment {
     /// 返回被替换的旧装备（如有）。
     /// 调用方负责：① 从库存消费物品 ② 将旧装备返回库存。
     /// 对齐设计 004 §四——装备物品同时也是库存物品。
-    pub fn set_slot(&mut self, slot: SlotId, mode: OutfitMode, item: Option<ItemDefId>) -> Option<ItemDefId> {
+    pub fn set_slot(
+        &mut self,
+        slot: SlotId,
+        mode: OutfitMode,
+        item: Option<ItemDefId>,
+    ) -> Option<ItemDefId> {
         match slot {
             SlotId::Head => self.set_outfit_field(mode, |o| &mut o.head, item),
             SlotId::Torso => self.set_outfit_field(mode, |o| &mut o.torso, item),
@@ -535,6 +540,8 @@ mod tests {
         let mut eq = CharacterEquipment::default();
         eq.combat.mainhand = Some(sword_id());
         // Civilian 模式下查 Mainhand → civilian Outfit，应该是 None
-        assert!(eq.get_slot(SlotId::Mainhand, OutfitMode::Civilian).is_none());
+        assert!(eq
+            .get_slot(SlotId::Mainhand, OutfitMode::Civilian)
+            .is_none());
     }
 }

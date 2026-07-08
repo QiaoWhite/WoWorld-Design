@@ -78,21 +78,27 @@ impl EditDensitySnapshot {
         let min = IVec3::new(min_x, i32::MIN, min_z);
         let max = IVec3::new(min_x + vpc, i32::MAX, min_z + vpc);
 
-        self.edits.keys().any(|k| {
-            k.x >= min.x && k.x < max.x && k.z >= min.z && k.z < max.z
-        })
+        self.edits
+            .keys()
+            .any(|k| k.x >= min.x && k.x < max.x && k.z >= min.z && k.z < max.z)
     }
 
     /// 该 Chunk 内的修改数量（用于调试）
-    pub fn edit_count_in_chunk(&self, cc: ChunkCoord, voxels_per_chunk: u32, voxel_size: f64) -> usize {
+    pub fn edit_count_in_chunk(
+        &self,
+        cc: ChunkCoord,
+        voxels_per_chunk: u32,
+        voxel_size: f64,
+    ) -> usize {
         let vs = voxel_size;
         let vpc = voxels_per_chunk as i32;
         let min_x = (cc.x as f64 * vpc as f64 * vs / vs) as i32;
         let min_z = (cc.z as f64 * vpc as f64 * vs / vs) as i32;
 
-        self.edits.keys().filter(|k| {
-            k.x >= min_x && k.x < min_x + vpc && k.z >= min_z && k.z < min_z + vpc
-        }).count()
+        self.edits
+            .keys()
+            .filter(|k| k.x >= min_x && k.x < min_x + vpc && k.z >= min_z && k.z < min_z + vpc)
+            .count()
     }
 
     /// 总修改数（用于内存估算）
@@ -109,7 +115,9 @@ pub struct EditDensityBuilder {
 
 impl EditDensityBuilder {
     pub fn new() -> Self {
-        Self { edits: HashMap::new() }
+        Self {
+            edits: HashMap::new(),
+        }
     }
 
     /// 设置单个体素的密度和材质
@@ -123,7 +131,13 @@ impl EditDensityBuilder {
     }
 
     /// 从球形体素集批量设置（用于爆炸等）
-    pub fn set_sphere(&mut self, center: IVec3, radius_voxels: i32, density_delta: f32, material: u8) {
+    pub fn set_sphere(
+        &mut self,
+        center: IVec3,
+        radius_voxels: i32,
+        density_delta: f32,
+        material: u8,
+    ) {
         let r2 = radius_voxels * radius_voxels;
         for dx in -radius_voxels..=radius_voxels {
             for dy in -radius_voxels..=radius_voxels {
@@ -131,7 +145,10 @@ impl EditDensityBuilder {
                     let offset = IVec3::new(dx, dy, dz);
                     if offset.x * offset.x + offset.y * offset.y + offset.z * offset.z <= r2 {
                         // 球面衰减
-                        let dist = ((offset.x * offset.x + offset.y * offset.y + offset.z * offset.z) as f32).sqrt();
+                        let dist = ((offset.x * offset.x
+                            + offset.y * offset.y
+                            + offset.z * offset.z) as f32)
+                            .sqrt();
                         let falloff = 1.0 - (dist / radius_voxels as f32).clamp(0.0, 1.0);
                         let d = density_delta * falloff;
                         self.set(center + offset, d, material);
@@ -143,7 +160,9 @@ impl EditDensityBuilder {
 
     /// 冻结为不可变快照
     pub fn freeze(self) -> EditDensitySnapshot {
-        EditDensitySnapshot { edits: Arc::new(self.edits) }
+        EditDensitySnapshot {
+            edits: Arc::new(self.edits),
+        }
     }
 
     /// 从现有快照初始化（用于增量修改）
@@ -200,7 +219,9 @@ pub struct EditHeightfieldBuilder {
 
 impl EditHeightfieldBuilder {
     pub fn new() -> Self {
-        Self { heights: HashMap::new() }
+        Self {
+            heights: HashMap::new(),
+        }
     }
 
     /// 设置 (x,z) 处的新表面高度
@@ -218,7 +239,9 @@ impl EditHeightfieldBuilder {
     }
 
     pub fn freeze(self) -> EditHeightfieldSnapshot {
-        EditHeightfieldSnapshot { heights: Arc::new(self.heights) }
+        EditHeightfieldSnapshot {
+            heights: Arc::new(self.heights),
+        }
     }
 
     pub fn from_snapshot(snapshot: &EditHeightfieldSnapshot) -> Self {
@@ -282,7 +305,9 @@ pub struct ModificationBatch {
 
 impl ModificationBatch {
     pub fn new() -> Self {
-        Self { requests: Vec::new() }
+        Self {
+            requests: Vec::new(),
+        }
     }
 
     pub fn push(&mut self, request: ModificationRequest) {
@@ -325,7 +350,9 @@ pub struct DirtyChunkQueue {
 
 impl DirtyChunkQueue {
     pub fn new() -> Self {
-        Self { chunks: HashMap::new() }
+        Self {
+            chunks: HashMap::new(),
+        }
     }
 
     /// 标记一个 Chunk 为脏（含受影响体素局部坐标）
@@ -352,7 +379,8 @@ impl DirtyChunkQueue {
 
     /// 是否需要全量重提取（含 -1 标记）
     pub fn needs_full_reextract(&self, cc: ChunkCoord) -> bool {
-        self.chunks.get(&cc)
+        self.chunks
+            .get(&cc)
             .map(|set| set.contains(&(-1, -1, -1)))
             .unwrap_or(false)
     }
@@ -394,7 +422,10 @@ pub struct EditDensityLayer {
 
 impl EditDensityLayer {
     pub fn new(snapshot: EditDensitySnapshot, voxel_size: f64) -> Self {
-        Self { snapshot, voxel_size }
+        Self {
+            snapshot,
+            voxel_size,
+        }
     }
 
     /// 更新快照（WorldDriver 每帧调用——原子交换引用）
@@ -443,7 +474,7 @@ mod tests {
     fn test_edit_density_cow_basic() {
         let mut builder = EditDensityBuilder::new();
         builder.set(IVec3::new(1, 2, 3), -1.0, 3); // dig out stone
-        builder.set(IVec3::new(4, 5, 6), 1.0, 5);  // fill with wood
+        builder.set(IVec3::new(4, 5, 6), 1.0, 5); // fill with wood
 
         let snapshot = builder.freeze();
         assert_eq!(snapshot.density_delta_at(IVec3::new(1, 2, 3)), Some(-1.0));

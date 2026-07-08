@@ -79,7 +79,11 @@ pub struct DebugField {
 
 impl DebugSection {
     /// 便捷构造：单字段 section
-    pub fn single(title: impl Into<String>, label: impl Into<String>, value: impl Into<String>) -> Self {
+    pub fn single(
+        title: impl Into<String>,
+        label: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
         Self {
             title: title.into(),
             fields: vec![DebugField {

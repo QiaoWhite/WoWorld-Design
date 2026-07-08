@@ -31,9 +31,8 @@ fn aabb_to_cells(aabb: &Aabb) -> impl Iterator<Item = CellKey> {
     let max_cell = pos_to_cell(&aabb.max);
     let cells: Vec<CellKey> = (min_cell.0..=max_cell.0)
         .flat_map(move |cx| {
-            (min_cell.1..=max_cell.1).flat_map(move |cy| {
-                (min_cell.2..=max_cell.2).map(move |cz| (cx, cy, cz))
-            })
+            (min_cell.1..=max_cell.1)
+                .flat_map(move |cy| (min_cell.2..=max_cell.2).map(move |cz| (cx, cy, cz)))
         })
         .collect();
     cells.into_iter()
@@ -85,13 +84,7 @@ impl EntityIndex for SpatialGrid {
         }
     }
 
-    fn update_transform(
-        &mut self,
-        entity_id: EntityId,
-        pos: WorldPos,
-        rot: Quat,
-        velocity: Vec3,
-    ) {
+    fn update_transform(&mut self, entity_id: EntityId, pos: WorldPos, rot: Quat, velocity: Vec3) {
         let new_cell = pos_to_cell(&pos);
 
         // 从旧 cell 移除
@@ -102,10 +95,22 @@ impl EntityIndex for SpatialGrid {
                     e.pos = pos;
                     e.rot = rot;
                     e.velocity = velocity;
-                    let half = WorldPos { x: 1.0, y: 1.0, z: 1.0 };
+                    let half = WorldPos {
+                        x: 1.0,
+                        y: 1.0,
+                        z: 1.0,
+                    };
                     e.aabb = Aabb {
-                        min: WorldPos { x: pos.x - half.x, y: pos.y - half.y, z: pos.z - half.z },
-                        max: WorldPos { x: pos.x + half.x, y: pos.y + half.y, z: pos.z + half.z },
+                        min: WorldPos {
+                            x: pos.x - half.x,
+                            y: pos.y - half.y,
+                            z: pos.z - half.z,
+                        },
+                        max: WorldPos {
+                            x: pos.x + half.x,
+                            y: pos.y + half.y,
+                            z: pos.z + half.z,
+                        },
                     };
                     self.cells.entry(new_cell).or_default().push(e);
                     self.entity_cell.insert(entity_id, new_cell);
@@ -136,7 +141,10 @@ impl EntityIndex for SpatialGrid {
 
     fn acoustic_tag_at(&self, pos: WorldPos) -> AcousticTag {
         let cell = pos_to_cell(&pos);
-        self.acoustic_tags.get(&cell).copied().unwrap_or(AcousticTag(0))
+        self.acoustic_tags
+            .get(&cell)
+            .copied()
+            .unwrap_or(AcousticTag(0))
     }
 }
 
@@ -157,15 +165,27 @@ mod tests {
 
     fn make_entity(id: u64, x: f64, y: f64, z: f64) -> SpatialEntity {
         let pos = WorldPos { x, y, z };
-        let half = WorldPos { x: 1.0, y: 1.0, z: 1.0 };
+        let half = WorldPos {
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+        };
         SpatialEntity {
             id: EntityId(id),
             pos,
             rot: Quat::IDENTITY,
             velocity: Vec3::ZERO,
             aabb: Aabb {
-                min: WorldPos { x: pos.x - half.x, y: pos.y - half.y, z: pos.z - half.z },
-                max: WorldPos { x: pos.x + half.x, y: pos.y + half.y, z: pos.z + half.z },
+                min: WorldPos {
+                    x: pos.x - half.x,
+                    y: pos.y - half.y,
+                    z: pos.z - half.z,
+                },
+                max: WorldPos {
+                    x: pos.x + half.x,
+                    y: pos.y + half.y,
+                    z: pos.z + half.z,
+                },
             },
             entity_kind: EntityKind::Creature,
             layer_mask: 1,
@@ -179,8 +199,16 @@ mod tests {
         grid.register(e);
 
         let aabb = Aabb {
-            min: WorldPos { x: 0.0, y: -5.0, z: 0.0 },
-            max: WorldPos { x: 20.0, y: 5.0, z: 20.0 },
+            min: WorldPos {
+                x: 0.0,
+                y: -5.0,
+                z: 0.0,
+            },
+            max: WorldPos {
+                x: 20.0,
+                y: 5.0,
+                z: 20.0,
+            },
         };
         let found = grid.entities_in_aabb(&aabb, 1);
         assert_eq!(found.len(), 1);
@@ -193,8 +221,16 @@ mod tests {
         grid.register(make_entity(1, 10.0, 0.0, 10.0));
 
         let far_aabb = Aabb {
-            min: WorldPos { x: 100.0, y: -5.0, z: 100.0 },
-            max: WorldPos { x: 120.0, y: 5.0, z: 120.0 },
+            min: WorldPos {
+                x: 100.0,
+                y: -5.0,
+                z: 100.0,
+            },
+            max: WorldPos {
+                x: 120.0,
+                y: 5.0,
+                z: 120.0,
+            },
         };
         assert!(grid.entities_in_aabb(&far_aabb, 1).is_empty());
     }
@@ -209,8 +245,16 @@ mod tests {
         assert_eq!(grid.entity_count(), 0);
 
         let aabb = Aabb {
-            min: WorldPos { x: 0.0, y: -50.0, z: 0.0 },
-            max: WorldPos { x: 100.0, y: 50.0, z: 100.0 },
+            min: WorldPos {
+                x: 0.0,
+                y: -50.0,
+                z: 0.0,
+            },
+            max: WorldPos {
+                x: 100.0,
+                y: 50.0,
+                z: 100.0,
+            },
         };
         assert!(grid.entities_in_aabb(&aabb, 1).is_empty());
     }
@@ -224,20 +268,40 @@ mod tests {
         // 移动到远处
         grid.update_transform(
             EntityId(1),
-            WorldPos { x: 500.0, y: 0.0, z: 500.0 },
+            WorldPos {
+                x: 500.0,
+                y: 0.0,
+                z: 500.0,
+            },
             Quat::IDENTITY,
             Vec3::ZERO,
         );
 
         let near = Aabb {
-            min: WorldPos { x: 0.0, y: -5.0, z: 0.0 },
-            max: WorldPos { x: 20.0, y: 5.0, z: 20.0 },
+            min: WorldPos {
+                x: 0.0,
+                y: -5.0,
+                z: 0.0,
+            },
+            max: WorldPos {
+                x: 20.0,
+                y: 5.0,
+                z: 20.0,
+            },
         };
         assert!(grid.entities_in_aabb(&near, 1).is_empty());
 
         let far = Aabb {
-            min: WorldPos { x: 490.0, y: -5.0, z: 490.0 },
-            max: WorldPos { x: 510.0, y: 5.0, z: 510.0 },
+            min: WorldPos {
+                x: 490.0,
+                y: -5.0,
+                z: 490.0,
+            },
+            max: WorldPos {
+                x: 510.0,
+                y: 5.0,
+                z: 510.0,
+            },
         };
         assert_eq!(grid.entities_in_aabb(&far, 1).len(), 1);
     }
@@ -255,8 +319,16 @@ mod tests {
         grid.register(e2);
 
         let aabb = Aabb {
-            min: WorldPos { x: 0.0, y: -5.0, z: 0.0 },
-            max: WorldPos { x: 20.0, y: 5.0, z: 20.0 },
+            min: WorldPos {
+                x: 0.0,
+                y: -5.0,
+                z: 0.0,
+            },
+            max: WorldPos {
+                x: 20.0,
+                y: 5.0,
+                z: 20.0,
+            },
         };
 
         assert_eq!(grid.entities_in_aabb(&aabb, 0b001).len(), 1);
@@ -268,8 +340,16 @@ mod tests {
     fn test_empty_grid_does_not_panic() {
         let grid = SpatialGrid::new();
         let aabb = Aabb {
-            min: WorldPos { x: 0.0, y: 0.0, z: 0.0 },
-            max: WorldPos { x: 10.0, y: 10.0, z: 10.0 },
+            min: WorldPos {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            max: WorldPos {
+                x: 10.0,
+                y: 10.0,
+                z: 10.0,
+            },
         };
         assert!(grid.entities_in_aabb(&aabb, 1).is_empty());
         assert!(grid.entity_aabb(EntityId(99)).is_none());

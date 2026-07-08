@@ -28,7 +28,11 @@ impl Wallet {
         let remainder = total % 400;
         let silver = remainder / 20;
         let copper = remainder % 20;
-        Self { copper, silver, gold }
+        Self {
+            copper,
+            silver,
+            gold,
+        }
     }
 
     /// 从种子生成初始钱包（Pareto 分布）
@@ -41,7 +45,9 @@ impl Wallet {
     /// 结果：50% 人口 <79 copper，90% <232 copper，99% <1077 copper。
     pub fn from_seed(seed: u64) -> Self {
         // 确定性 hash seed → uniform [0, 1)
-        let hash = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(0xDA3C_BF47);
+        let hash = seed
+            .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+            .wrapping_add(0xDA3C_BF47);
         let u = ((hash >> 32) as f64) / (u32::MAX as f64 + 1.0);
         // 避免 u=1.0（导致除零）
         let u = if u >= 0.999999 { 0.999999 } else { u };
@@ -58,7 +64,13 @@ impl Wallet {
 }
 
 impl From<Wallet> for woworld_core::economy::WalletSnapshot {
-    fn from(w: Wallet) -> Self { Self { copper: w.copper, silver: w.silver, gold: w.gold } }
+    fn from(w: Wallet) -> Self {
+        Self {
+            copper: w.copper,
+            silver: w.silver,
+            gold: w.gold,
+        }
+    }
 }
 
 /// 经济认知 — 6 维经济决策缓存
@@ -116,23 +128,23 @@ impl EconomicCognition {
     ) -> Self {
         let intel = intelligence_proxy.unwrap_or((conscientiousness + openness) / 2.0);
 
-        let financial_literacy = (conscientiousness * 0.4 + openness * 0.3 + intel * 0.3)
-            .clamp(0.0, 1.0);
+        let financial_literacy =
+            (conscientiousness * 0.4 + openness * 0.3 + intel * 0.3).clamp(0.0, 1.0);
 
-        let market_understanding = (openness * 0.5 + extraversion * 0.2 + intel * 0.3)
-            .clamp(0.0, 1.0);
+        let market_understanding =
+            (openness * 0.5 + extraversion * 0.2 + intel * 0.3).clamp(0.0, 1.0);
 
-        let price_memory_accuracy = (conscientiousness * 0.5 + (1.0 - neuroticism) * 0.5)
-            .clamp(0.0, 1.0);
+        let price_memory_accuracy =
+            (conscientiousness * 0.5 + (1.0 - neuroticism) * 0.5).clamp(0.0, 1.0);
 
-        let time_preference_rate = ((1.0 - conscientiousness) * 0.3 + neuroticism * 0.15 + 0.05)
-            .clamp(0.05, 0.50);
+        let time_preference_rate =
+            ((1.0 - conscientiousness) * 0.3 + neuroticism * 0.15 + 0.05).clamp(0.05, 0.50);
 
         let market_search_breadth_raw = 1.0 + openness * 3.0 + extraversion * 1.5;
         let market_search_breadth = (market_search_breadth_raw.round() as u8).clamp(1, 5);
 
-        let satisficing_threshold = (0.5 + (1.0 - conscientiousness) * 0.3 + neuroticism * 0.2)
-            .clamp(0.1, 1.0);
+        let satisficing_threshold =
+            (0.5 + (1.0 - conscientiousness) * 0.3 + neuroticism * 0.2).clamp(0.1, 1.0);
 
         Self {
             financial_literacy,
@@ -161,7 +173,11 @@ mod tests {
 
     #[test]
     fn test_wallet_total_copper() {
-        let w = Wallet { copper: 15, silver: 3, gold: 1 };
+        let w = Wallet {
+            copper: 15,
+            silver: 3,
+            gold: 1,
+        };
         assert_eq!(w.total_copper(), 475);
     }
 
@@ -186,8 +202,10 @@ mod tests {
         for seed in 0..1000 {
             let w = Wallet::from_seed(seed);
             let total = w.total_copper();
-            assert!((50..=5000).contains(&total),
-                "seed {seed}: {total} not in [50,5000]");
+            assert!(
+                (50..=5000).contains(&total),
+                "seed {seed}: {total} not in [50,5000]"
+            );
             values.push(total);
         }
         values.sort();
@@ -195,14 +213,18 @@ mod tests {
         // Pareto 特征：中位数 < 均值（右偏）
         let median = values[values.len() / 2];
         let mean = values.iter().sum::<u64>() / values.len() as u64;
-        assert!(median < mean,
-            "Pareto: median {median} should be < mean {mean}");
+        assert!(
+            median < mean,
+            "Pareto: median {median} should be < mean {mean}"
+        );
 
         // 至少 50% 人口 < 150 copper（设计目标：50% < 79）
         let below_150 = values.iter().filter(|&&v| v < 150).count();
-        assert!(below_150 > values.len() / 2,
+        assert!(
+            below_150 > values.len() / 2,
             "50%+ should be <150 copper, got {below_150}/{len}",
-            len = values.len());
+            len = values.len()
+        );
 
         // 存在富 NPC（>1000 copper）
         let rich = values.iter().filter(|&&v| v > 1000).count();
@@ -245,20 +267,36 @@ mod tests {
         let c = EconomicCognition::derive_from_bigfive(0.5, 1.0, 0.5, 0.5, 0.0, None);
         assert!(c.financial_literacy > 0.7);
         assert!(c.price_memory_accuracy > 0.8);
-        assert!(c.time_preference_rate < 0.15, "conscientious → patient: {}", c.time_preference_rate);
+        assert!(
+            c.time_preference_rate < 0.15,
+            "conscientious → patient: {}",
+            c.time_preference_rate
+        );
     }
 
     #[test]
     fn test_derive_low_conscientiousness_neurotic() {
         let c = EconomicCognition::derive_from_bigfive(0.5, 0.0, 0.5, 0.5, 1.0, None);
-        assert!(c.time_preference_rate > 0.25, "low C + high N → myopic: {}", c.time_preference_rate);
-        assert!(c.satisficing_threshold > 0.5, "low C → high satisficing: {}", c.satisficing_threshold);
+        assert!(
+            c.time_preference_rate > 0.25,
+            "low C + high N → myopic: {}",
+            c.time_preference_rate
+        );
+        assert!(
+            c.satisficing_threshold > 0.5,
+            "low C → high satisficing: {}",
+            c.satisficing_threshold
+        );
     }
 
     #[test]
     fn test_derive_high_openness_extraversion() {
         let c = EconomicCognition::derive_from_bigfive(1.0, 0.5, 1.0, 0.5, 0.5, None);
-        assert!(c.market_search_breadth >= 4, "high O+E → wide search: {}", c.market_search_breadth);
+        assert!(
+            c.market_search_breadth >= 4,
+            "high O+E → wide search: {}",
+            c.market_search_breadth
+        );
         assert!(c.market_understanding > 0.6);
     }
 

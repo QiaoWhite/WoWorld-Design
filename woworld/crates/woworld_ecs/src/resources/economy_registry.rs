@@ -9,9 +9,9 @@ use std::collections::HashMap;
 
 use woworld_core::economy::behavioral::EconBehaviorParams;
 use woworld_core::economy::{
-    EconomicHealthIndex, EconomyId, EconomyQuery, LaborMarketSnapshot, ListingStatus,
-    Market, MarketId, Order, OrderSide, PriceSnapshot, TradeRecord, TradeRouteInfo,
-    WalletSnapshot, WealthDistribution, MARKET_ID_NONE,
+    EconomicHealthIndex, EconomyId, EconomyQuery, LaborMarketSnapshot, ListingStatus, Market,
+    MarketId, Order, OrderSide, PriceSnapshot, TradeRecord, TradeRouteInfo, WalletSnapshot,
+    WealthDistribution, MARKET_ID_NONE,
 };
 use woworld_core::id::ItemDefId;
 use woworld_core::types::EntityId;
@@ -108,11 +108,13 @@ impl EconomyRegistry {
     }
 
     pub fn get_wallet(&self, entity_id: EntityId) -> Option<WalletSnapshot> {
-        self.wallet_index.get(&entity_id).map(|&idx| WalletSnapshot {
-            copper: self.wallet_copper[idx],
-            silver: self.wallet_silver[idx],
-            gold: self.wallet_gold[idx],
-        })
+        self.wallet_index
+            .get(&entity_id)
+            .map(|&idx| WalletSnapshot {
+                copper: self.wallet_copper[idx],
+                silver: self.wallet_silver[idx],
+                gold: self.wallet_gold[idx],
+            })
     }
 
     /// 获取可变钱包引用（用于交易执行）
@@ -194,7 +196,8 @@ impl EconomyRegistry {
             match order.side {
                 OrderSide::Bid => {
                     book.bids.push(order);
-                    book.bids.sort_by_key(|b| std::cmp::Reverse(b.limit_price_copper));
+                    book.bids
+                        .sort_by_key(|b| std::cmp::Reverse(b.limit_price_copper));
                 }
                 OrderSide::Ask => {
                     book.asks.push(order);
@@ -214,7 +217,12 @@ impl EconomyRegistry {
     /// 算法：最高买价 ≥ 最低卖价 → 撮合。成交价 = (bid + ask) / 2。
     /// 往返匹配直到不再满足条件。
     /// Phase 2 简化：全部成交或全不成交（不做部分成交）。
-    pub fn match_orders(&mut self, market_id: MarketId, item_id: ItemDefId, tick: u64) -> Vec<TradeRecord> {
+    pub fn match_orders(
+        &mut self,
+        market_id: MarketId,
+        item_id: ItemDefId,
+        tick: u64,
+    ) -> Vec<TradeRecord> {
         // 阶段 0：预取所有订单簿参与者的钱包余额（避免双重借用）
         let mut wallet_cache: HashMap<EntityId, u64> = HashMap::new();
         {
@@ -454,10 +462,7 @@ impl EconomyRegistry {
     ///
     /// 返回 true 表示转账成功。
     fn transfer_copper(&mut self, from: EntityId, to: EntityId, amount_copper: u64) -> bool {
-        let from_total = self
-            .get_wallet(from)
-            .map(|w| w.total_copper())
-            .unwrap_or(0);
+        let from_total = self.get_wallet(from).map(|w| w.total_copper()).unwrap_or(0);
         if from_total < amount_copper {
             return false;
         }
@@ -529,8 +534,8 @@ impl EconomyRegistry {
         if history.len() >= 2 {
             let prices: Vec<f32> = history.iter().map(|t| t.price_copper as f32).collect();
             let mean = prices.iter().sum::<f32>() / prices.len() as f32;
-            let variance = prices.iter().map(|p| (p - mean) * (p - mean)).sum::<f32>()
-                / prices.len() as f32;
+            let variance =
+                prices.iter().map(|p| (p - mean) * (p - mean)).sum::<f32>() / prices.len() as f32;
             let std_dev = variance.sqrt();
             if mean > 0.0 {
                 snapshot.volatility = (std_dev / mean).min(1.0);
@@ -577,24 +582,14 @@ impl WalletMut<'_> {
 // ── EconomyQuery impl (Phase 2 升级) ──────────────────
 
 impl EconomyQuery for EconomyRegistry {
-    fn query_price(
-        &self,
-        market_id: MarketId,
-        item_id: ItemDefId,
-    ) -> Option<PriceSnapshot> {
+    fn query_price(&self, market_id: MarketId, item_id: ItemDefId) -> Option<PriceSnapshot> {
         self.get_price_snapshot(market_id, item_id)
     }
 
-    fn query_market_volume(
-        &self,
-        market_id: MarketId,
-        item_id: ItemDefId,
-    ) -> Option<u64> {
+    fn query_market_volume(&self, market_id: MarketId, item_id: ItemDefId) -> Option<u64> {
         self.trade_histories
             .get(&(market_id, item_id))
-            .map(|trades| {
-                trades.iter().map(|t| t.quantity as u64).sum()
-            })
+            .map(|trades| trades.iter().map(|t| t.quantity as u64).sum())
     }
 
     fn query_wallet(&self, entity_id: EntityId) -> Option<WalletSnapshot> {
@@ -613,11 +608,7 @@ impl EconomyQuery for EconomyRegistry {
         None
     }
 
-    fn query_consumption_demand(
-        &self,
-        _economy_id: EconomyId,
-        _item_id: ItemDefId,
-    ) -> Option<u64> {
+    fn query_consumption_demand(&self, _economy_id: EconomyId, _item_id: ItemDefId) -> Option<u64> {
         None
     }
 
@@ -904,10 +895,7 @@ mod tests {
             market_id,
             Order::new(alice, item, 1, 200, OrderSide::Bid, 0),
         );
-        reg.submit_order(
-            market_id,
-            Order::new(bob, item, 1, 150, OrderSide::Ask, 0),
-        );
+        reg.submit_order(market_id, Order::new(bob, item, 1, 150, OrderSide::Ask, 0));
 
         let trades = reg.match_orders(market_id, item, 1);
         assert_eq!(trades.len(), 1);
@@ -936,7 +924,12 @@ mod tests {
                 tick: 0,
             },
         );
-        assert_eq!(reg.get_price_snapshot(market_id, item).unwrap().ema_price_copper, 100);
+        assert_eq!(
+            reg.get_price_snapshot(market_id, item)
+                .unwrap()
+                .ema_price_copper,
+            100
+        );
 
         // 第二笔交易：价格 200，EMA = 0.3*200 + 0.7*100 = 130
         reg.record_trade(

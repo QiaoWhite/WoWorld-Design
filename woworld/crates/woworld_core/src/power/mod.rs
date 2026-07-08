@@ -71,13 +71,22 @@ impl PowerAtom {
     /// 原子所属类别
     pub fn category(&self) -> AtomCategory {
         match self {
-            PowerAtom::Constitute | PowerAtom::DefineMembership | PowerAtom::Delegate
-            | PowerAtom::Relinquish | PowerAtom::Contract => AtomCategory::Structure,
+            PowerAtom::Constitute
+            | PowerAtom::DefineMembership
+            | PowerAtom::Delegate
+            | PowerAtom::Relinquish
+            | PowerAtom::Contract => AtomCategory::Structure,
             PowerAtom::Pledge => AtomCategory::SelfReferential,
-            PowerAtom::Constrain | PowerAtom::Compel | PowerAtom::Extract | PowerAtom::Access
-            | PowerAtom::ConferRank | PowerAtom::Represent => AtomCategory::Relational,
+            PowerAtom::Constrain
+            | PowerAtom::Compel
+            | PowerAtom::Extract
+            | PowerAtom::Access
+            | PowerAtom::ConferRank
+            | PowerAtom::Represent => AtomCategory::Relational,
             PowerAtom::PrescribeRule | PowerAtom::Derogate => AtomCategory::Normative,
-            PowerAtom::Adjudicate | PowerAtom::Sanction | PowerAtom::Remit => AtomCategory::Adjudicative,
+            PowerAtom::Adjudicate | PowerAtom::Sanction | PowerAtom::Remit => {
+                AtomCategory::Adjudicative
+            }
         }
     }
 }
@@ -270,13 +279,21 @@ pub fn compute_legitimacy(params: &LegitimacyParams) -> f32 {
     let inertia = (params.age_years * 0.04).min(0.3);
 
     // Ritual boost
-    let ritual = if params.days_since_ritual < 30.0 { 0.15 }
-        else if params.days_since_ritual < 365.0 { 0.08 }
-        else if params.days_since_ritual < 3650.0 { 0.03 }
-        else { 0.0 };
+    let ritual = if params.days_since_ritual < 30.0 {
+        0.15
+    } else if params.days_since_ritual < 365.0 {
+        0.08
+    } else if params.days_since_ritual < 3650.0 {
+        0.03
+    } else {
+        0.0
+    };
 
-    (procedural * 0.35 + outcome * 0.20 + params.cultural_fit * 0.20
-        + inertia * 0.15 + ritual * 0.10)
+    (procedural * 0.35
+        + outcome * 0.20
+        + params.cultural_fit * 0.20
+        + inertia * 0.15
+        + ritual * 0.10)
         .clamp(0.0, 1.0)
 }
 
@@ -345,12 +362,23 @@ mod tests {
     fn test_all_atoms_unique_discriminant() {
         let mut seen = [false; 17];
         let atoms = [
-            PowerAtom::Constitute, PowerAtom::DefineMembership, PowerAtom::Delegate,
-            PowerAtom::Relinquish, PowerAtom::Contract, PowerAtom::Pledge,
-            PowerAtom::Constrain, PowerAtom::Compel, PowerAtom::Extract,
-            PowerAtom::Access, PowerAtom::ConferRank, PowerAtom::Represent,
-            PowerAtom::PrescribeRule, PowerAtom::Derogate,
-            PowerAtom::Adjudicate, PowerAtom::Sanction, PowerAtom::Remit,
+            PowerAtom::Constitute,
+            PowerAtom::DefineMembership,
+            PowerAtom::Delegate,
+            PowerAtom::Relinquish,
+            PowerAtom::Contract,
+            PowerAtom::Pledge,
+            PowerAtom::Constrain,
+            PowerAtom::Compel,
+            PowerAtom::Extract,
+            PowerAtom::Access,
+            PowerAtom::ConferRank,
+            PowerAtom::Represent,
+            PowerAtom::PrescribeRule,
+            PowerAtom::Derogate,
+            PowerAtom::Adjudicate,
+            PowerAtom::Sanction,
+            PowerAtom::Remit,
         ];
         for atom in atoms {
             let d = atom as u8;
@@ -362,9 +390,14 @@ mod tests {
     #[test]
     fn test_initial_legitimacy_in_range() {
         let sources = [
-            PowerSource::Inherited, PowerSource::Appointed, PowerSource::Elected,
-            PowerSource::Purchased, PowerSource::Conquered, PowerSource::Divine,
-            PowerSource::Emergent, PowerSource::Contractual,
+            PowerSource::Inherited,
+            PowerSource::Appointed,
+            PowerSource::Elected,
+            PowerSource::Purchased,
+            PowerSource::Conquered,
+            PowerSource::Divine,
+            PowerSource::Emergent,
+            PowerSource::Contractual,
         ];
         for s in sources {
             let l = s.initial_legitimacy();
@@ -374,8 +407,13 @@ mod tests {
 
     #[test]
     fn test_initial_legitimacy_ranking() {
-        assert!(PowerSource::Divine.initial_legitimacy() > PowerSource::Purchased.initial_legitimacy());
-        assert!(PowerSource::Inherited.initial_legitimacy() > PowerSource::Conquered.initial_legitimacy());
+        assert!(
+            PowerSource::Divine.initial_legitimacy() > PowerSource::Purchased.initial_legitimacy()
+        );
+        assert!(
+            PowerSource::Inherited.initial_legitimacy()
+                > PowerSource::Conquered.initial_legitimacy()
+        );
     }
 
     #[test]

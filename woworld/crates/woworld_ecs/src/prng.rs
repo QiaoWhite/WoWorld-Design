@@ -54,7 +54,10 @@ mod tests {
     fn test_salted_different_salt_different_output() {
         let a = pseudo_random_f32_salted(42, 0);
         let b = pseudo_random_f32_salted(42, 1);
-        assert!((a - b).abs() > 0.001, "different salts should yield different values");
+        assert!(
+            (a - b).abs() > 0.001,
+            "different salts should yield different values"
+        );
     }
 
     #[test]
@@ -70,7 +73,10 @@ mod tests {
         for seed in 0..50 {
             for salt in 0..10 {
                 let v = pseudo_random_f32_salted(seed, salt);
-                assert!((0.0..1.0).contains(&v), "seed {seed} salt {salt}: {v} not in [0,1)");
+                assert!(
+                    (0.0..1.0).contains(&v),
+                    "seed {seed} salt {salt}: {v} not in [0,1)"
+                );
             }
         }
     }
@@ -79,7 +85,10 @@ mod tests {
     fn test_range_in_bounds() {
         for seed in 0..30 {
             let v = pseudo_random_f32_range(seed, 0, -0.12, 0.12);
-            assert!(v >= -0.12 && v <= 0.12, "seed {seed}: {v} out of [-0.12, 0.12]");
+            assert!(
+                v >= -0.12 && v <= 0.12,
+                "seed {seed}: {v} out of [-0.12, 0.12]"
+            );
         }
     }
 }

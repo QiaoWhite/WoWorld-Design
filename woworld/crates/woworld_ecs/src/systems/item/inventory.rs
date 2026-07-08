@@ -32,7 +32,11 @@ pub fn inventory_init_system(
     let mut entities: Vec<hecs::Entity> = Vec::new();
 
     // 有 BigFive 的实体 → NPC
-    for (entity, ()) in world.query::<()>().with::<&crate::components::bigfive::BigFive>().iter() {
+    for (entity, ()) in world
+        .query::<()>()
+        .with::<&crate::components::bigfive::BigFive>()
+        .iter()
+    {
         entities.push(entity);
     }
 

@@ -352,7 +352,6 @@ pub struct ItemProperties {
     pub mod_tags: BTreeMap<String, String>,
 
     // ── 以下字段 Phase 1 为 None / 默认值 ──
-
     /// 需求最低技能等级（Phase 2+：SkillId 类型就位后填充）
     pub min_skill: Option<(SkillId, f32)>,
     /// 需求最低力量（如重型武器）

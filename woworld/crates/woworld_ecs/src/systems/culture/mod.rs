@@ -44,17 +44,29 @@ pub fn culture_seed_system_with_biome(
     is_arid: bool,
     is_arctic: bool,
     is_forested: bool,
-    is_desert: bool, _is_cold: bool, _is_warm: bool,
+    is_desert: bool,
+    _is_cold: bool,
+    _is_warm: bool,
     is_grassland: bool,
     is_tropical: bool,
 ) {
-    for (entity, _bigfive) in world.query::<&BigFive>().iter().filter(|(e, _)| {
-        world.get::<&Culture>(*e).is_err()
-    }) {
+    for (entity, _bigfive) in world
+        .query::<&BigFive>()
+        .iter()
+        .filter(|(e, _)| world.get::<&Culture>(*e).is_err())
+    {
         let seed = entity.to_bits().get();
         let params = CultureCoreParams::from_seed(seed);
         let culture_id = registry.register_with_biome(
-            params, is_arid, is_arctic, is_forested, is_desert, false, false, is_grassland, is_tropical,
+            params,
+            is_arid,
+            is_arctic,
+            is_forested,
+            is_desert,
+            false,
+            false,
+            is_grassland,
+            is_tropical,
         );
         cmd.insert_one(entity, Culture { culture_id });
     }
@@ -111,8 +123,12 @@ mod tests {
         let p1 = reg1.core_params(CultureId(0)).unwrap();
         let p2 = reg2.core_params(CultureId(0)).unwrap();
         for i in 0..CultureCoreParams::DIM_COUNT {
-            assert!((p1.dim(i) - p2.dim(i)).abs() < f32::EPSILON,
-                "dim {i}: {} vs {}", p1.dim(i), p2.dim(i));
+            assert!(
+                (p1.dim(i) - p2.dim(i)).abs() < f32::EPSILON,
+                "dim {i}: {} vs {}",
+                p1.dim(i),
+                p2.dim(i)
+            );
         }
     }
 
@@ -126,7 +142,12 @@ mod tests {
         let existing_id = registry.register(CultureCoreParams::from_seed(99));
 
         // NPC with existing Culture
-        let e = world.spawn((BigFive::from_seed(42), Culture { culture_id: existing_id }));
+        let e = world.spawn((
+            BigFive::from_seed(42),
+            Culture {
+                culture_id: existing_id,
+            },
+        ));
 
         let initial_count = registry.culture_count();
 
@@ -176,8 +197,17 @@ mod tests {
         world.spawn((BigFive::from_seed(42),));
 
         culture_seed_system_with_biome(
-            &world, &mut cmd, &mut registry,
-            true, false, true, false, false, true, true, true,
+            &world,
+            &mut cmd,
+            &mut registry,
+            true,
+            false,
+            true,
+            false,
+            false,
+            true,
+            true,
+            true,
         );
         cmd.run_on(&mut world);
 

@@ -24,7 +24,9 @@ pub struct PowerRegistry {
 }
 
 impl PowerRegistry {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// 创建权力边
     pub fn create_edge(&mut self, edge: PowerEdge) {
@@ -44,7 +46,9 @@ impl PowerRegistry {
 
     /// 获取权力边（按索引）
     fn edge_at(&self, idx: usize) -> Option<PowerEdge> {
-        if idx >= self.holders.len() { return None; }
+        if idx >= self.holders.len() {
+            return None;
+        }
         Some(PowerEdge {
             holder: self.holders[idx],
             subject: self.subjects[idx],
@@ -61,42 +65,59 @@ impl PowerRegistry {
         })
     }
 
-    pub fn len(&self) -> usize { self.holders.len() }
-    pub fn is_empty(&self) -> bool { self.holders.is_empty() }
+    pub fn len(&self) -> usize {
+        self.holders.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.holders.is_empty()
+    }
 }
 
 impl PowerQuery for PowerRegistry {
     fn powers_of(&self, holder: EntityId) -> Vec<PowerEdge> {
-        self.holders.iter().enumerate()
+        self.holders
+            .iter()
+            .enumerate()
             .filter(|(i, &h)| h == holder && self.actives[*i])
             .filter_map(|(i, _)| self.edge_at(i))
             .collect()
     }
 
     fn constraints_on(&self, subject: EntityId) -> Vec<PowerEdge> {
-        self.subjects.iter().enumerate()
+        self.subjects
+            .iter()
+            .enumerate()
             .filter(|(i, &s)| s == subject && self.actives[*i])
             .filter_map(|(i, _)| self.edge_at(i))
             .collect()
     }
 
     fn powers_by_atom(&self, holder: EntityId, atom: PowerAtom) -> Vec<PowerEdge> {
-        self.holders.iter().enumerate()
+        self.holders
+            .iter()
+            .enumerate()
             .filter(|(i, &h)| h == holder && self.atoms[*i] == atom && self.actives[*i])
             .filter_map(|(i, _)| self.edge_at(i))
             .collect()
     }
 
     fn perceived_legitimacy(&self, subject: EntityId, holder: EntityId) -> f32 {
-        let edges: Vec<f32> = self.subjects.iter().enumerate()
+        let edges: Vec<f32> = self
+            .subjects
+            .iter()
+            .enumerate()
             .filter(|(i, &s)| s == subject && self.holders[*i] == holder && self.actives[*i])
             .map(|(i, _)| self.legitimacies[i])
             .collect();
-        if edges.is_empty() { return 0.5; }
+        if edges.is_empty() {
+            return 0.5;
+        }
         edges.iter().sum::<f32>() / edges.len() as f32
     }
 
-    fn edge_count(&self) -> usize { self.holders.len() }
+    fn edge_count(&self) -> usize {
+        self.holders.len()
+    }
 }
 
 #[cfg(test)]
@@ -104,7 +125,12 @@ mod tests {
     use super::*;
 
     fn make_edge(holder: u64, subject: u64, atom: PowerAtom) -> PowerEdge {
-        PowerEdge { holder: EntityId(holder), subject: EntityId(subject), atom, ..Default::default() }
+        PowerEdge {
+            holder: EntityId(holder),
+            subject: EntityId(subject),
+            atom,
+            ..Default::default()
+        }
     }
 
     #[test]

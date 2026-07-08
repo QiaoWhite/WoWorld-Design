@@ -5,9 +5,7 @@
 //!
 //! 参见: `开发阶段/模型动作与物理系统/007-调试可视化与EntityRenderer架构.md` §三
 
-use godot::classes::{
-    Camera3D, CanvasLayer, Label, LineEdit, RichTextLabel, Node3D,
-};
+use godot::classes::{Camera3D, CanvasLayer, Label, LineEdit, Node3D, RichTextLabel};
 use godot::prelude::*;
 use std::collections::HashMap;
 
@@ -59,6 +57,8 @@ pub struct ConsoleState {
     pub history_cursor: usize,
     /// 玩家位置（用于 listnpc 距离排序，每帧由 WorldDriver 更新）
     pub player_pos: glam::Vec3,
+    /// Sprint-060: possess 命令设定的目标实体（WorldDriver 下帧处理并清零）
+    pub pending_possess_request: Option<hecs::Entity>,
 }
 
 impl Default for ConsoleState {
@@ -71,6 +71,7 @@ impl Default for ConsoleState {
             command_history: Vec::new(),
             history_cursor: 0,
             player_pos: glam::Vec3::ZERO,
+            pending_possess_request: None,
         }
     }
 }
@@ -140,7 +141,9 @@ impl DebugConsole {
         self.canvas_layer.set_visible(self.visible);
         if self.visible {
             // 读取 viewport 尺寸，按比例布局
-            let vp_size = self.canvas_layer.get_viewport()
+            let vp_size = self
+                .canvas_layer
+                .get_viewport()
                 .map(|vp| vp.get_visible_rect().size)
                 .unwrap_or(Vector2::new(1920.0, 1080.0));
             let w = vp_size.x;
@@ -154,12 +157,17 @@ impl DebugConsole {
             self.bg.set_size(Vector2::new(w, bot - top));
             // output: bg 内部
             self.output_label.set_position(Vector2::new(8.0, top + 4.0));
-            self.output_label.set_size(Vector2::new(w - 16.0, bot - top - input_h - 8.0));
+            self.output_label
+                .set_size(Vector2::new(w - 16.0, bot - top - input_h - 8.0));
             // prompt + input: 底行
-            self.prompt_label.set_position(Vector2::new(8.0, bot - input_h + 4.0));
-            self.prompt_label.set_size(Vector2::new(24.0, input_h - 8.0));
-            self.input_line.set_position(Vector2::new(32.0, bot - input_h + 4.0));
-            self.input_line.set_size(Vector2::new(w - 40.0, input_h - 8.0));
+            self.prompt_label
+                .set_position(Vector2::new(8.0, bot - input_h + 4.0));
+            self.prompt_label
+                .set_size(Vector2::new(24.0, input_h - 8.0));
+            self.input_line
+                .set_position(Vector2::new(32.0, bot - input_h + 4.0));
+            self.input_line
+                .set_size(Vector2::new(w - 40.0, input_h - 8.0));
 
             self.input_line.grab_focus();
         }
@@ -237,14 +245,69 @@ impl DebugConsole {
     // ── 内部 ────────────────────────────
 
     fn register_commands(&mut self) {
-        self.commands.insert("help".into(), CommandEntry { func: cmd_help, help: "列出所有命令及帮助" });
-        self.commands.insert("nameshow".into(), CommandEntry { func: cmd_nameshow, help: "切换头顶名字显示（关闭控制台后保持）" });
-        self.commands.insert("debugcolor".into(), CommandEntry { func: cmd_debugcolor, help: "切换情绪→颜色映射" });
-        self.commands.insert("info".into(), CommandEntry { func: cmd_info, help: "打印选中实体的所有 Component 数据" });
-        self.commands.insert("listnpc".into(), CommandEntry { func: cmd_listnpc, help: "listnpc [count] — 列出最近的 N 个 Creature" });
-        self.commands.insert("select".into(), CommandEntry { func: cmd_select, help: "select <id> — 按 hecs entity bits 选中实体" });
-        self.commands.insert("clear".into(), CommandEntry { func: cmd_clear, help: "清空控制台输出缓冲" });
-        self.commands.insert("entitycount".into(), CommandEntry { func: cmd_entitycount, help: "按 EntityKind 分组统计实体数量" });
+        self.commands.insert(
+            "help".into(),
+            CommandEntry {
+                func: cmd_help,
+                help: "列出所有命令及帮助",
+            },
+        );
+        self.commands.insert(
+            "nameshow".into(),
+            CommandEntry {
+                func: cmd_nameshow,
+                help: "切换头顶名字显示（关闭控制台后保持）",
+            },
+        );
+        self.commands.insert(
+            "debugcolor".into(),
+            CommandEntry {
+                func: cmd_debugcolor,
+                help: "切换情绪→颜色映射",
+            },
+        );
+        self.commands.insert(
+            "info".into(),
+            CommandEntry {
+                func: cmd_info,
+                help: "打印选中实体的所有 Component 数据",
+            },
+        );
+        self.commands.insert(
+            "listnpc".into(),
+            CommandEntry {
+                func: cmd_listnpc,
+                help: "listnpc [count] — 列出最近的 N 个 Creature",
+            },
+        );
+        self.commands.insert(
+            "select".into(),
+            CommandEntry {
+                func: cmd_select,
+                help: "select <id> — 按 hecs entity bits 选中实体",
+            },
+        );
+        self.commands.insert(
+            "clear".into(),
+            CommandEntry {
+                func: cmd_clear,
+                help: "清空控制台输出缓冲",
+            },
+        );
+        self.commands.insert(
+            "entitycount".into(),
+            CommandEntry {
+                func: cmd_entitycount,
+                help: "按 EntityKind 分组统计实体数量",
+            },
+        );
+        self.commands.insert(
+            "possess".into(),
+            CommandEntry {
+                func: cmd_possess,
+                help: "possess <entity_id> — 夺舍指定实体（按 hecs entity bits）",
+            },
+        );
     }
 }
 
@@ -267,13 +330,18 @@ fn cmd_debugcolor(_args: &[&str], state: &mut ConsoleState, _world: &hecs::World
     state.color_enhanced = !state.color_enhanced;
     format!(
         "[color=#88ff88][Console] Emotion color mapping: {}[/color]",
-        if state.color_enhanced { "ON" } else { "OFF (hash colors)" }
+        if state.color_enhanced {
+            "ON"
+        } else {
+            "OFF (hash colors)"
+        }
     )
 }
 
 fn cmd_info(_args: &[&str], state: &mut ConsoleState, world: &hecs::World) -> String {
     let Some(entity) = state.selected_entity else {
-        return "[color=#ff8888]No entity selected. Click an entity or use 'select <id>'.[/color]".into();
+        return "[color=#ff8888]No entity selected. Click an entity or use 'select <id>'.[/color]"
+            .into();
     };
 
     match entity_debug_system(world, entity) {
@@ -290,7 +358,10 @@ fn cmd_listnpc(args: &[&str], state: &mut ConsoleState, world: &hecs::World) -> 
     use woworld_ecs::components::goal::Goal;
     use woworld_ecs::components::transform::Position;
 
-    let count = args.first().and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
+    let count = args
+        .first()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(10);
     let player_pos = state.player_pos;
 
     let mut npcs: Vec<(u64, String, f32, String)> = Vec::new();
@@ -300,7 +371,12 @@ fn cmd_listnpc(args: &[&str], state: &mut ConsoleState, world: &hecs::World) -> 
         }
         let dist = pos.0.distance(player_pos);
         let goal_str = format!("{:?} ({:.2})", goal.goal_type, goal.urgency);
-        npcs.push((entity.to_bits().get(), format!("NPC_{}", entity.to_bits().get()), dist, goal_str));
+        npcs.push((
+            entity.to_bits().get(),
+            format!("NPC_{}", entity.to_bits().get()),
+            dist,
+            goal_str,
+        ));
     }
 
     npcs.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
@@ -312,7 +388,8 @@ fn cmd_listnpc(args: &[&str], state: &mut ConsoleState, world: &hecs::World) -> 
     let mut out = format!("[color=#88ffff]NPCs (nearest {}):[/color]\n", shown.len());
     for (id, _name, dist, goal) in shown {
         out.push_str(&format!(
-            "  [color=#ffffff]{id}[/color] — {:.1}m — {goal}\n", dist
+            "  [color=#ffffff]{id}[/color] — {:.1}m — {goal}\n",
+            dist
         ));
     }
     out
@@ -329,7 +406,9 @@ fn cmd_select(args: &[&str], state: &mut ConsoleState, _world: &hecs::World) -> 
                 state.selected_entity = Some(entity);
                 format!("[color=#88ff88]Selected entity: {bits}[/color]")
             }
-            None => format!("[color=#ff8888]Invalid entity bits: {bits} (no entity with that ID)[/color]"),
+            None => format!(
+                "[color=#ff8888]Invalid entity bits: {bits} (no entity with that ID)[/color]"
+            ),
         },
         Err(_) => format!("[color=#ff8888]Invalid ID: '{id_str}'. Must be an integer.[/color]"),
     }
@@ -358,6 +437,37 @@ fn cmd_entitycount(_args: &[&str], _state: &mut ConsoleState, world: &hecs::Worl
         out.push_str("  (no entities)\n");
     }
     out
+}
+
+/// Sprint-060: `possess <entity_id>` — 夺舍指定实体
+fn cmd_possess(args: &[&str], state: &mut ConsoleState, _world: &hecs::World) -> String {
+    if args.is_empty() {
+        return "[color=#ff8888]Usage: possess <entity_id>[/color]".into();
+    }
+    let Ok(bits) = args[0].parse::<u64>() else {
+        return format!(
+            "[color=#ff8888]Invalid entity_id: '{}'. Must be a number.[/color]",
+            args[0]
+        );
+    };
+
+    // hecs::Entity::from_bits returns Option<Entity>
+    let Some(entity) = hecs::Entity::from_bits(bits) else {
+        return format!(
+            "[color=#ff8888]Invalid entity_id: {bits}. Could not construct Entity.[/color]"
+        );
+    };
+
+    // 验证实体存在
+    if _world
+        .get::<&woworld_ecs::components::transform::Position>(entity)
+        .is_err()
+    {
+        return format!("[color=#ff8888]Entity {bits} not found in ECS.[/color]");
+    }
+    // 设置请求——WorldDriver 下帧处理
+    state.pending_possess_request = Some(entity);
+    format!("[color=#88ff88]Possess request queued for entity {bits}. Teleporting next frame...[/color]")
 }
 
 // ── 格式化 ──────────────────────────────

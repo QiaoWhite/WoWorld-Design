@@ -31,14 +31,54 @@ pub struct LodLevel {
 
 /// 8 级 LOD 层级配置（公开只读）
 pub const LEVELS: [LodLevel; 8] = [
-    LodLevel { index: 0, min_range: 0.0,     max_range: 30.0,    algorithm: MeshAlgorithm::Transvoxel { voxel_size: 0.5 } },
-    LodLevel { index: 1, min_range: 30.0,    max_range: 80.0,    algorithm: MeshAlgorithm::Transvoxel { voxel_size: 1.0 } },
-    LodLevel { index: 2, min_range: 80.0,    max_range: 200.0,   algorithm: MeshAlgorithm::Transvoxel { voxel_size: 2.0 } },
-    LodLevel { index: 3, min_range: 200.0,   max_range: 500.0,   algorithm: MeshAlgorithm::Transvoxel { voxel_size: 4.0 } },
-    LodLevel { index: 4, min_range: 500.0,   max_range: 1500.0,  algorithm: MeshAlgorithm::Transvoxel { voxel_size: 8.0 } },
-    LodLevel { index: 5, min_range: 1500.0,  max_range: 4000.0,  algorithm: MeshAlgorithm::SignedHeightfield { spacing: 16.0 } },
-    LodLevel { index: 6, min_range: 4000.0,  max_range: 10000.0, algorithm: MeshAlgorithm::SignedHeightfield { spacing: 32.0 } },
-    LodLevel { index: 7, min_range: 10000.0, max_range: 15000.0, algorithm: MeshAlgorithm::SignedHeightfield { spacing: 64.0 } },
+    LodLevel {
+        index: 0,
+        min_range: 0.0,
+        max_range: 30.0,
+        algorithm: MeshAlgorithm::Transvoxel { voxel_size: 0.5 },
+    },
+    LodLevel {
+        index: 1,
+        min_range: 30.0,
+        max_range: 80.0,
+        algorithm: MeshAlgorithm::Transvoxel { voxel_size: 1.0 },
+    },
+    LodLevel {
+        index: 2,
+        min_range: 80.0,
+        max_range: 200.0,
+        algorithm: MeshAlgorithm::Transvoxel { voxel_size: 2.0 },
+    },
+    LodLevel {
+        index: 3,
+        min_range: 200.0,
+        max_range: 500.0,
+        algorithm: MeshAlgorithm::Transvoxel { voxel_size: 4.0 },
+    },
+    LodLevel {
+        index: 4,
+        min_range: 500.0,
+        max_range: 1500.0,
+        algorithm: MeshAlgorithm::Transvoxel { voxel_size: 8.0 },
+    },
+    LodLevel {
+        index: 5,
+        min_range: 1500.0,
+        max_range: 4000.0,
+        algorithm: MeshAlgorithm::SignedHeightfield { spacing: 16.0 },
+    },
+    LodLevel {
+        index: 6,
+        min_range: 4000.0,
+        max_range: 10000.0,
+        algorithm: MeshAlgorithm::SignedHeightfield { spacing: 32.0 },
+    },
+    LodLevel {
+        index: 7,
+        min_range: 10000.0,
+        max_range: 15000.0,
+        algorithm: MeshAlgorithm::SignedHeightfield { spacing: 64.0 },
+    },
 ];
 
 // ── 按层高度图纹理配置 ──────────────────
@@ -59,10 +99,10 @@ pub struct LayerTexConfig {
 pub fn layer_tex_config(level: &LodLevel) -> LayerTexConfig {
     let spacing = level_spacing(level);
     let (hm_size, hm_extent) = match level.index {
-        0 => (256u32, 128.0),   // 0.5m/texel, 覆盖 128m
-        1 => (256u32, 256.0),   // 1.0m/texel, 覆盖 256m
-        2 => (256u32, 512.0),   // 2.0m/texel, 覆盖 512m
-        3 => (512u32, 2048.0),  // 4.0m/texel, 覆盖 2048m, margin=520m
+        0 => (256u32, 128.0),           // 0.5m/texel, 覆盖 128m
+        1 => (256u32, 256.0),           // 1.0m/texel, 覆盖 256m
+        2 => (256u32, 512.0),           // 2.0m/texel, 覆盖 512m
+        3 => (512u32, 2048.0),          // 4.0m/texel, 覆盖 2048m, margin=520m
         _ => (512u32, 512.0 * spacing), // L4-L7: 保持 512²
     };
     LayerTexConfig { hm_size, hm_extent }
@@ -184,7 +224,11 @@ pub fn generate_heightmap(
         let wz = oz + iz as f64 * spacing;
         for ix in 0..texture_size {
             let wx = ox + ix as f64 * spacing;
-            let h = terrain.height_at(WorldPos { x: wx, y: 0.0, z: wz });
+            let h = terrain.height_at(WorldPos {
+                x: wx,
+                y: 0.0,
+                z: wz,
+            });
             data.push(h);
         }
     }
@@ -210,7 +254,11 @@ pub fn generate_heightmap_data(
         let wz = oz + iz as f64 * spacing;
         for ix in 0..texture_size {
             let wx = ox + ix as f64 * spacing;
-            let pos = WorldPos { x: wx, y: 0.0, z: wz };
+            let pos = WorldPos {
+                x: wx,
+                y: 0.0,
+                z: wz,
+            };
             let (h, _normal, material) = terrain.sample_vertex(pos.x, pos.z);
             heights.push(h);
             let color = material_colors
@@ -220,14 +268,16 @@ pub fn generate_heightmap_data(
             material_colors_out.push(color);
         }
     }
-    HeightmapData { heights, material_colors: material_colors_out }
+    HeightmapData {
+        heights,
+        material_colors: material_colors_out,
+    }
 }
 
 /// 从 TOML 字符串加载 SurfaceMaterial → RGBA 色表
 pub fn load_material_colors(
     toml_str: &str,
-) -> Result<std::collections::HashMap<woworld_core::material::SurfaceMaterial, [f32; 4]>, String>
-{
+) -> Result<std::collections::HashMap<woworld_core::material::SurfaceMaterial, [f32; 4]>, String> {
     use serde::Deserialize;
     use std::collections::HashMap;
     use woworld_core::material::SurfaceMaterial;
@@ -289,7 +339,15 @@ fn bilinear_sample(src: &[f32], src_size: u32, fx: f64, fz: f64) -> f32 {
     (1.0 - tx) * (1.0 - tz) * s00 + tx * (1.0 - tz) * s10 + (1.0 - tx) * tz * s01 + tx * tz * s11
 }
 
-pub fn sample_heightmap_from(src: &[f32], src_size: u32, src_extent: f64, dst_size: u32, dst_spacing: f64, grid_origin_x: f64, grid_origin_z: f64) -> Vec<f32> {
+pub fn sample_heightmap_from(
+    src: &[f32],
+    src_size: u32,
+    src_extent: f64,
+    dst_size: u32,
+    dst_spacing: f64,
+    grid_origin_x: f64,
+    grid_origin_z: f64,
+) -> Vec<f32> {
     let mut dst = Vec::with_capacity((dst_size * dst_size) as usize);
     for iz in 0..dst_size {
         let wz = grid_origin_z + iz as f64 * dst_spacing;
@@ -303,7 +361,15 @@ pub fn sample_heightmap_from(src: &[f32], src_size: u32, src_extent: f64, dst_si
     dst
 }
 
-pub fn sample_colors_from(src: &[[f32; 4]], src_size: u32, src_extent: f64, dst_size: u32, dst_spacing: f64, grid_origin_x: f64, grid_origin_z: f64) -> Vec<[f32; 4]> {
+pub fn sample_colors_from(
+    src: &[[f32; 4]],
+    src_size: u32,
+    src_extent: f64,
+    dst_size: u32,
+    dst_spacing: f64,
+    grid_origin_x: f64,
+    grid_origin_z: f64,
+) -> Vec<[f32; 4]> {
     let mut dst = Vec::with_capacity((dst_size * dst_size) as usize);
     for iz in 0..dst_size {
         let wz = grid_origin_z + iz as f64 * dst_spacing;
@@ -320,10 +386,22 @@ pub fn sample_colors_from(src: &[[f32; 4]], src_size: u32, src_extent: f64, dst_
             let s01 = src[((z + 1) * src_size + x) as usize];
             let s11 = src[((z + 1) * src_size + x + 1) as usize];
             dst.push([
-                (1.0-tx)*(1.0-tz)*s00[0] + tx*(1.0-tz)*s10[0] + (1.0-tx)*tz*s01[0] + tx*tz*s11[0],
-                (1.0-tx)*(1.0-tz)*s00[1] + tx*(1.0-tz)*s10[1] + (1.0-tx)*tz*s01[1] + tx*tz*s11[1],
-                (1.0-tx)*(1.0-tz)*s00[2] + tx*(1.0-tz)*s10[2] + (1.0-tx)*tz*s01[2] + tx*tz*s11[2],
-                (1.0-tx)*(1.0-tz)*s00[3] + tx*(1.0-tz)*s10[3] + (1.0-tx)*tz*s01[3] + tx*tz*s11[3],
+                (1.0 - tx) * (1.0 - tz) * s00[0]
+                    + tx * (1.0 - tz) * s10[0]
+                    + (1.0 - tx) * tz * s01[0]
+                    + tx * tz * s11[0],
+                (1.0 - tx) * (1.0 - tz) * s00[1]
+                    + tx * (1.0 - tz) * s10[1]
+                    + (1.0 - tx) * tz * s01[1]
+                    + tx * tz * s11[1],
+                (1.0 - tx) * (1.0 - tz) * s00[2]
+                    + tx * (1.0 - tz) * s10[2]
+                    + (1.0 - tx) * tz * s01[2]
+                    + tx * tz * s11[2],
+                (1.0 - tx) * (1.0 - tz) * s00[3]
+                    + tx * (1.0 - tz) * s10[3]
+                    + (1.0 - tx) * tz * s01[3]
+                    + tx * tz * s11[3],
             ]);
         }
     }
@@ -342,7 +420,11 @@ mod tests {
         for v in &grid.vertices {
             let is_surface = v.y.abs() < 0.001;
             let is_skirt = (v.y + 400.0).abs() < 0.001;
-            assert!(is_surface || is_skirt, "vertex y={} is neither surface nor skirt", v.y);
+            assert!(
+                is_surface || is_skirt,
+                "vertex y={} is neither surface nor skirt",
+                v.y
+            );
             assert!(v.x >= -30.1 && v.x <= 30.1);
         }
         assert!(grid.indices.len() % 3 == 0);
@@ -361,7 +443,9 @@ mod tests {
             assert!(
                 cheb >= 192.0 && cheb <= 508.0,
                 "vertex ({},{}) cheb={} out of ring range",
-                v.x, v.z, cheb
+                v.x,
+                v.z,
+                cheb
             );
         }
     }

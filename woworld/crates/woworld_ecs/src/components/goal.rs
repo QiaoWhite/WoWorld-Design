@@ -30,7 +30,11 @@ pub struct Goal {
 
 impl Default for Goal {
     fn default() -> Self {
-        Self { goal_type: GoalType::Idle, urgency: 0.0, target_pos: None }
+        Self {
+            goal_type: GoalType::Idle,
+            urgency: 0.0,
+            target_pos: None,
+        }
     }
 }
 

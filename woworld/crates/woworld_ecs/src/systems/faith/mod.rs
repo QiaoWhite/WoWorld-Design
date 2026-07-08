@@ -5,9 +5,9 @@
 //! Phase 2+: FaithPracticeSystem, FaithPropagationSystem（需 NPC 交互系统）
 
 use hecs::{CommandBuffer, World};
-use woworld_core::faith::{FaithTheology, ReligiousMotivation, ReligiousPracticeProfile};
-use woworld_core::faith::FaithQuery;
 use woworld_core::culture::CultureQuery;
+use woworld_core::faith::FaithQuery;
+use woworld_core::faith::{FaithTheology, ReligiousMotivation, ReligiousPracticeProfile};
 use woworld_core::types::EntityId;
 
 use crate::components::bigfive::BigFive;
@@ -29,19 +29,23 @@ pub fn faith_seed_system(
     culture_registry: &CultureRegistry,
 ) {
     // 确定该世界有信仰需要创建
-    for (entity, _bigfive) in world.query::<&BigFive>().iter().filter(|(e, _)| {
-        world.get::<&Faith>(*e).is_err()
-    }) {
+    for (entity, _bigfive) in world
+        .query::<&BigFive>()
+        .iter()
+        .filter(|(e, _)| world.get::<&Faith>(*e).is_err())
+    {
         let seed = entity.to_bits().get();
 
         // 从 NPC 的文化归属获取 religiosity
-        let religiosity = if let Ok(culture) = world.get::<&crate::components::culture::Culture>(entity) {
-            culture_registry.core_params(culture.culture_id)
-                .map(|p| p.religiosity)
-                .unwrap_or(0.5)
-        } else {
-            0.5 // 无文化 → 默认中等 religiosity
-        };
+        let religiosity =
+            if let Ok(culture) = world.get::<&crate::components::culture::Culture>(entity) {
+                culture_registry
+                    .core_params(culture.culture_id)
+                    .map(|p| p.religiosity)
+                    .unwrap_or(0.5)
+            } else {
+                0.5 // 无文化 → 默认中等 religiosity
+            };
 
         // religiosity < 0.1 → 世俗，不分配信仰
         if religiosity < 0.1 {
@@ -52,7 +56,11 @@ pub fn faith_seed_system(
 
         // 为此 NPC 分配 1-3 个信仰
         let base_count = (religiosity * 2.5).floor() as usize; // 0, 1, or 2
-        let extra = if culture_hash_ext(seed, 100) < (religiosity - 0.5).max(0.0) * 2.0 { 1 } else { 0 };
+        let extra = if culture_hash_ext(seed, 100) < (religiosity - 0.5).max(0.0) * 2.0 {
+            1
+        } else {
+            0
+        };
         let total_faiths = (base_count + extra).clamp(1, 3);
 
         let mut participation = Vec::with_capacity(total_faiths);
@@ -74,7 +82,12 @@ pub fn faith_seed_system(
 
         // 主要信仰 → Faith Component
         let primary_id = faith_registry.all_faiths()[faith_registry.faith_count() - total_faiths];
-        cmd.insert_one(entity, Faith { faith_id: primary_id });
+        cmd.insert_one(
+            entity,
+            Faith {
+                faith_id: primary_id,
+            },
+        );
     }
 }
 
@@ -113,10 +126,7 @@ mod tests {
             ..CultureCoreParams::default()
         });
 
-        world.spawn((
-            BigFive::from_seed(42),
-            Culture { culture_id },
-        ));
+        world.spawn((BigFive::from_seed(42), Culture { culture_id }));
 
         faith_seed_system(&world, &mut cmd, &mut faith_reg, &culture_reg);
         cmd.run_on(&mut world);
@@ -141,10 +151,7 @@ mod tests {
             ..CultureCoreParams::default()
         });
 
-        world.spawn((
-            BigFive::from_seed(42),
-            Culture { culture_id },
-        ));
+        world.spawn((BigFive::from_seed(42), Culture { culture_id }));
 
         faith_seed_system(&world, &mut cmd, &mut faith_reg, &culture_reg);
         cmd.run_on(&mut world);
@@ -172,7 +179,9 @@ mod tests {
         world.spawn((
             BigFive::from_seed(42),
             Culture { culture_id },
-            Faith { faith_id: existing_faith },
+            Faith {
+                faith_id: existing_faith,
+            },
         ));
 
         let initial_count = faith_reg.faith_count();
@@ -206,11 +215,27 @@ mod tests {
         let mut f2 = FaithRegistry::new();
         let mut cr2 = CultureRegistry::new();
 
-        let culture_id1 = cr1.register(CultureCoreParams { religiosity: 0.8, ..Default::default() });
-        let culture_id2 = cr2.register(CultureCoreParams { religiosity: 0.8, ..Default::default() });
+        let culture_id1 = cr1.register(CultureCoreParams {
+            religiosity: 0.8,
+            ..Default::default()
+        });
+        let culture_id2 = cr2.register(CultureCoreParams {
+            religiosity: 0.8,
+            ..Default::default()
+        });
 
-        w1.spawn((BigFive::from_seed(42), Culture { culture_id: culture_id1 }));
-        w2.spawn((BigFive::from_seed(42), Culture { culture_id: culture_id2 }));
+        w1.spawn((
+            BigFive::from_seed(42),
+            Culture {
+                culture_id: culture_id1,
+            },
+        ));
+        w2.spawn((
+            BigFive::from_seed(42),
+            Culture {
+                culture_id: culture_id2,
+            },
+        ));
 
         faith_seed_system(&w1, &mut c1, &mut f1, &cr1);
         c1.run_on(&mut w1);

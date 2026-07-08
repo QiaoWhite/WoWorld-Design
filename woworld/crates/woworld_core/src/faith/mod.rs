@@ -145,10 +145,18 @@ pub enum FaithLabel {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MonotheismFlavor { Exclusive, Mystical, Standard }
+pub enum MonotheismFlavor {
+    Exclusive,
+    Mystical,
+    Standard,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PolytheismFlavor { Pantheon, NatureForces, Functional }
+pub enum PolytheismFlavor {
+    Pantheon,
+    NatureForces,
+    Functional,
+}
 
 /// 从 FaithTheology 派生标签（对齐设计文档 002 §2.2）
 pub fn derive_faith_label(t: &FaithTheology) -> FaithLabel {
@@ -159,16 +167,24 @@ pub fn derive_faith_label(t: &FaithTheology) -> FaithLabel {
     }
     // Monotheism: dc ∈ [0.8, 1.2]
     if (0.8..=1.2).contains(&dc) {
-        let flavor = if t.exclusivity > 0.7 { MonotheismFlavor::Exclusive }
-            else if t.mysticism > 0.6 { MonotheismFlavor::Mystical }
-            else { MonotheismFlavor::Standard };
+        let flavor = if t.exclusivity > 0.7 {
+            MonotheismFlavor::Exclusive
+        } else if t.mysticism > 0.6 {
+            MonotheismFlavor::Mystical
+        } else {
+            MonotheismFlavor::Standard
+        };
         return FaithLabel::Monotheism(flavor);
     }
     // Polytheism: dc > 1.2
     if dc > 1.2 {
-        let flavor = if t.nature_sacredness > 0.6 { PolytheismFlavor::NatureForces }
-            else if t.hierarchy_degree > 0.5 { PolytheismFlavor::Pantheon }
-            else { PolytheismFlavor::Functional };
+        let flavor = if t.nature_sacredness > 0.6 {
+            PolytheismFlavor::NatureForces
+        } else if t.hierarchy_degree > 0.5 {
+            PolytheismFlavor::Pantheon
+        } else {
+            PolytheismFlavor::Functional
+        };
         return FaithLabel::Polytheism(flavor);
     }
     // dc ∈ [0.05, 0.8): Shamanism / Animism / Other
@@ -227,12 +243,20 @@ pub struct ReligiousPracticeProfile {
 impl ReligiousPracticeProfile {
     /// 总参与强度——所有信仰权重之和，上限 1.0
     pub fn total_participation(&self) -> f32 {
-        self.participation.iter().map(|(_, w)| w).sum::<f32>().min(1.0)
+        self.participation
+            .iter()
+            .map(|(_, w)| w)
+            .sum::<f32>()
+            .min(1.0)
     }
 
     /// 新建——从默认动机开始
     pub fn new(motivation: ReligiousMotivation) -> Self {
-        Self { participation: Vec::new(), theological_depth: 0.0, motivation }
+        Self {
+            participation: Vec::new(),
+            theological_depth: 0.0,
+            motivation,
+        }
     }
 }
 
@@ -280,7 +304,9 @@ pub fn theology_distance(a: &FaithTheology, b: &FaithTheology) -> f32 {
             diff * diff
         })
         .sum();
-    (sum_sq / FaithTheology::DIM_COUNT as f32).sqrt().clamp(0.0, 1.0)
+    (sum_sq / FaithTheology::DIM_COUNT as f32)
+        .sqrt()
+        .clamp(0.0, 1.0)
 }
 
 /// A 对 B 的宽容度
@@ -377,8 +403,12 @@ mod tests {
         let a = FaithTheology::from_seed(42, 0.8);
         let b = FaithTheology::from_seed(42, 0.8);
         for i in 0..FaithTheology::DIM_COUNT {
-            assert!((a.dim(i) - b.dim(i)).abs() < 0.001,
-                "dim {i}: {} vs {}", a.dim(i), b.dim(i));
+            assert!(
+                (a.dim(i) - b.dim(i)).abs() < 0.001,
+                "dim {i}: {} vs {}",
+                a.dim(i),
+                b.dim(i)
+            );
         }
     }
 
@@ -401,7 +431,12 @@ mod tests {
 
     #[test]
     fn test_proselytizing_high_exclusive() {
-        let t = FaithTheology { exclusivity: 1.0, orthodoxy_vs_orthopraxy: 1.0, faith_as_identity: 1.0, ..FaithTheology::default() };
+        let t = FaithTheology {
+            exclusivity: 1.0,
+            orthodoxy_vs_orthopraxy: 1.0,
+            faith_as_identity: 1.0,
+            ..FaithTheology::default()
+        };
         assert!(t.proselytizing() > 0.8);
     }
 
@@ -409,27 +444,53 @@ mod tests {
 
     #[test]
     fn test_label_nontheistic() {
-        let t = FaithTheology { deity_count: 0.02, ancestor_importance: 0.1, nature_sacredness: 0.05, ..FaithTheology::default() };
+        let t = FaithTheology {
+            deity_count: 0.02,
+            ancestor_importance: 0.1,
+            nature_sacredness: 0.05,
+            ..FaithTheology::default()
+        };
         assert_eq!(derive_faith_label(&t), FaithLabel::NonTheistic);
     }
 
     #[test]
     fn test_label_shamanism() {
         // dc < 0.5, mysticism > 0.5, hierarchy < 0.3
-        let t = FaithTheology { deity_count: 0.3, mysticism: 0.8, hierarchy_degree: 0.1, ..FaithTheology::default() };
+        let t = FaithTheology {
+            deity_count: 0.3,
+            mysticism: 0.8,
+            hierarchy_degree: 0.1,
+            ..FaithTheology::default()
+        };
         assert_eq!(derive_faith_label(&t), FaithLabel::Shamanism);
     }
 
     #[test]
     fn test_label_monotheism_exclusive() {
-        let t = FaithTheology { deity_count: 1.0, exclusivity: 0.9, mysticism: 0.3, ..FaithTheology::default() };
-        assert_eq!(derive_faith_label(&t), FaithLabel::Monotheism(MonotheismFlavor::Exclusive));
+        let t = FaithTheology {
+            deity_count: 1.0,
+            exclusivity: 0.9,
+            mysticism: 0.3,
+            ..FaithTheology::default()
+        };
+        assert_eq!(
+            derive_faith_label(&t),
+            FaithLabel::Monotheism(MonotheismFlavor::Exclusive)
+        );
     }
 
     #[test]
     fn test_label_polytheism() {
-        let t = FaithTheology { deity_count: 4.0, nature_sacredness: 0.3, hierarchy_degree: 0.7, ..FaithTheology::default() };
-        assert_eq!(derive_faith_label(&t), FaithLabel::Polytheism(PolytheismFlavor::Pantheon));
+        let t = FaithTheology {
+            deity_count: 4.0,
+            nature_sacredness: 0.3,
+            hierarchy_degree: 0.7,
+            ..FaithTheology::default()
+        };
+        assert_eq!(
+            derive_faith_label(&t),
+            FaithLabel::Polytheism(PolytheismFlavor::Pantheon)
+        );
     }
 
     // ── tolerance / hostility ──
@@ -442,7 +503,10 @@ mod tests {
 
     #[test]
     fn test_high_exclusivity_low_tolerance() {
-        let a = FaithTheology { exclusivity: 0.9, ..FaithTheology::default() };
+        let a = FaithTheology {
+            exclusivity: 0.9,
+            ..FaithTheology::default()
+        };
         let b = FaithTheology::default();
         assert!(tolerance(&a, &b) < 0.3);
     }
@@ -458,7 +522,9 @@ mod tests {
     fn test_tolerance_hostility_in_range() {
         for s1 in 0..30 {
             for s2 in 0..30 {
-                if s1 == s2 { continue; }
+                if s1 == s2 {
+                    continue;
+                }
                 let a = FaithTheology::from_seed(s1, 0.7);
                 let b = FaithTheology::from_seed(s2, 0.7);
                 assert!((0.0..=1.0).contains(&tolerance(&a, &b)));
@@ -506,7 +572,10 @@ mod tests {
 
     #[test]
     fn test_faith_affinity_bonus() {
-        let t = FaithTheology { exclusivity: 0.8, ..FaithTheology::default() };
+        let t = FaithTheology {
+            exclusivity: 0.8,
+            ..FaithTheology::default()
+        };
         let bonus = faith_affinity_bonus(0.7, 0.7, &t);
         assert!(bonus > 0.15);
     }

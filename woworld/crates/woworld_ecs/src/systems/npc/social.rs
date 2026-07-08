@@ -165,16 +165,21 @@ pub fn social_system(
 
             // ── 情绪传染（8 因子，15m 范围）──
             let (pd_a, ad_a, cd_a, pd_b, ad_b, cd_b) = if in_contagion_range {
-                let intimacy_ab = storage
-                    .get(id_a, id_b)
-                    .map(|r| r.affection)
-                    .unwrap_or(0.0);
+                let intimacy_ab = storage.get(id_a, id_b).map(|r| r.affection).unwrap_or(0.0);
 
                 let contagion_a = calculate_emotional_contagion(
-                    &b.emotion, &a.emotion, &a.bigfive, intimacy_ab, dist,
+                    &b.emotion,
+                    &a.emotion,
+                    &a.bigfive,
+                    intimacy_ab,
+                    dist,
                 );
                 let contagion_b = calculate_emotional_contagion(
-                    &a.emotion, &b.emotion, &b.bigfive, intimacy_ab, dist,
+                    &a.emotion,
+                    &b.emotion,
+                    &b.bigfive,
+                    intimacy_ab,
+                    dist,
                 );
 
                 let contagion_rate = 0.05 * dt;
@@ -395,7 +400,10 @@ mod tests {
         };
         let bf = BigFive::default();
         let s = calculate_emotional_contagion(&em, &em, &bf, 1.0, 0.1);
-        assert!(s >= 0.0 && s <= 1.0, "contagion should be clamped to [0, 1]");
+        assert!(
+            s >= 0.0 && s <= 1.0,
+            "contagion should be clamped to [0, 1]"
+        );
     }
 
     // ── 社交需求恢复 ──

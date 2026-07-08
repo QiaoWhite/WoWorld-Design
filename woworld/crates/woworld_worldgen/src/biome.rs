@@ -102,7 +102,6 @@ impl BiomeClassifier {
     pub fn precipitation_at(&self, pos: WorldPos) -> f64 {
         self.noise.sample_precipitation(pos.x, pos.z)
     }
-
 }
 
 // ── 测试 ────────────────────────────────────────

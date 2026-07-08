@@ -46,9 +46,7 @@ pub enum StatusRelation {
         power_differential: f32,
     },
     /// 服从方——接受对方主导
-    Submissive {
-        power_differential: f32,
-    },
+    Submissive { power_differential: f32 },
     /// 平等——双向自主
     #[default]
     Equal,
@@ -215,7 +213,10 @@ mod tests {
         let mut rel = Relationship::default();
         rel.affection = 0.3;
         rel.grow_trust_over_time(60.0);
-        assert!(rel.trust > 0.0, "trust should grow with time and positive affection");
+        assert!(
+            rel.trust > 0.0,
+            "trust should grow with time and positive affection"
+        );
     }
 
     #[test]

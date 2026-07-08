@@ -134,7 +134,8 @@ fn personality_modifier(category: ActionCategory, bf: &BigFive) -> f32 {
 ///
 /// 设计文档: `NPC活人感开发文档ver2.0.md` lines 1660-1673
 fn survival_suppression(goal: &GoalType, needs: &Needs) -> f32 {
-    let max_urgency = needs.hunger
+    let max_urgency = needs
+        .hunger
         .max(needs.thirst)
         .max(needs.fatigue)
         .max(1.0 - needs.safety); // safety=0 最危险
@@ -177,8 +178,16 @@ fn lifestage_restriction(category: ActionCategory, stage: &LifeStage) -> f32 {
 ///
 /// 调用者负责 `cmd.run_on(&mut world)`
 pub fn action_weight_system(world: &hecs::World, cmd: &mut CommandBuffer) {
-    for (_entity, (goal, needs, sens, emotion, bf, stage)) in
-        world.query::<(&Goal, &Needs, &NeedSensitivity, &Emotion, &BigFive, &LifeStage)>().iter()
+    for (_entity, (goal, needs, sens, emotion, bf, stage)) in world
+        .query::<(
+            &Goal,
+            &Needs,
+            &NeedSensitivity,
+            &Emotion,
+            &BigFive,
+            &LifeStage,
+        )>()
+        .iter()
     {
         let category = goal_to_action(&goal.goal_type);
 
@@ -205,7 +214,11 @@ mod tests {
     use super::*;
     fn default_components() -> (Goal, Needs, NeedSensitivity, Emotion, BigFive, LifeStage) {
         (
-            Goal { goal_type: GoalType::Idle, urgency: 0.5, target_pos: None },
+            Goal {
+                goal_type: GoalType::Idle,
+                urgency: 0.5,
+                target_pos: None,
+            },
             Needs::default(),
             NeedSensitivity::default(),
             Emotion::default(),
@@ -218,14 +231,24 @@ mod tests {
     fn test_goal_to_action_eat() {
         assert_eq!(goal_to_action(&GoalType::FindFood), ActionCategory::Eat);
         assert_eq!(goal_to_action(&GoalType::FindRest), ActionCategory::Rest);
-        assert_eq!(goal_to_action(&GoalType::FindSafePlace), ActionCategory::SeekSafety);
+        assert_eq!(
+            goal_to_action(&GoalType::FindSafePlace),
+            ActionCategory::SeekSafety
+        );
     }
 
     #[test]
     fn test_need_match_hungry_eat_high() {
         let (_, needs, sens, ..) = default_components();
-        let goal = Goal { goal_type: GoalType::FindFood, urgency: 0.9, target_pos: None };
-        let needs = Needs { hunger: 0.9, ..needs };
+        let goal = Goal {
+            goal_type: GoalType::FindFood,
+            urgency: 0.9,
+            target_pos: None,
+        };
+        let needs = Needs {
+            hunger: 0.9,
+            ..needs
+        };
         let w = need_action_match(&goal.goal_type, &needs, &sens);
         assert!(w > 1.5, "hungry NPC → eat weight high, got {w}");
     }
@@ -233,15 +256,27 @@ mod tests {
     #[test]
     fn test_need_match_full_eat_low() {
         let (_goal, needs, sens, ..) = default_components();
-        let goal = Goal { goal_type: GoalType::FindFood, urgency: 0.9, target_pos: None };
+        let goal = Goal {
+            goal_type: GoalType::FindFood,
+            urgency: 0.9,
+            target_pos: None,
+        };
         let w = need_action_match(&goal.goal_type, &needs, &sens);
         assert!(w < 1.1, "full NPC → eat weight near 1.0, got {w}");
     }
 
     #[test]
     fn test_emotion_fear_favors_flee() {
-        let fear = Emotion { pleasure: -0.5, arousal: 0.7, control: -0.5 };
-        let happy = Emotion { pleasure: 0.5, arousal: 0.5, control: 0.3 };
+        let fear = Emotion {
+            pleasure: -0.5,
+            arousal: 0.7,
+            control: -0.5,
+        };
+        let happy = Emotion {
+            pleasure: 0.5,
+            arousal: 0.5,
+            control: 0.3,
+        };
         let w_fear = emotion_modifier(ActionCategory::Flee, &fear);
         let w_happy = emotion_modifier(ActionCategory::Flee, &happy);
         assert!(w_fear > w_happy, "fear → flee weight higher");
@@ -249,40 +284,81 @@ mod tests {
 
     #[test]
     fn test_personality_extravert_social() {
-        let ext = BigFive { extraversion: 1.0, ..BigFive::default() };
-        let intro = BigFive { extraversion: 0.0, ..BigFive::default() };
-        assert!(personality_modifier(ActionCategory::Socialize, &ext)
-            > personality_modifier(ActionCategory::Socialize, &intro));
+        let ext = BigFive {
+            extraversion: 1.0,
+            ..BigFive::default()
+        };
+        let intro = BigFive {
+            extraversion: 0.0,
+            ..BigFive::default()
+        };
+        assert!(
+            personality_modifier(ActionCategory::Socialize, &ext)
+                > personality_modifier(ActionCategory::Socialize, &intro)
+        );
     }
 
     #[test]
     fn test_personality_neurotic_safety() {
-        let high_n = BigFive { neuroticism: 1.0, ..BigFive::default() };
-        let low_n = BigFive { neuroticism: 0.0, ..BigFive::default() };
-        assert!(personality_modifier(ActionCategory::SeekSafety, &high_n)
-            > personality_modifier(ActionCategory::SeekSafety, &low_n));
+        let high_n = BigFive {
+            neuroticism: 1.0,
+            ..BigFive::default()
+        };
+        let low_n = BigFive {
+            neuroticism: 0.0,
+            ..BigFive::default()
+        };
+        assert!(
+            personality_modifier(ActionCategory::SeekSafety, &high_n)
+                > personality_modifier(ActionCategory::SeekSafety, &low_n)
+        );
     }
 
     #[test]
     fn test_survival_suppression_near_death() {
-        let goal = Goal { goal_type: GoalType::FindSocialContact, urgency: 0.5, target_pos: None };
-        let needs = Needs { hunger: 0.95, thirst: 0.9, fatigue: 0.8, ..Needs::default() };
+        let goal = Goal {
+            goal_type: GoalType::FindSocialContact,
+            urgency: 0.5,
+            target_pos: None,
+        };
+        let needs = Needs {
+            hunger: 0.95,
+            thirst: 0.9,
+            fatigue: 0.8,
+            ..Needs::default()
+        };
         let s = survival_suppression(&goal.goal_type, &needs);
         assert!(s < 0.3, "near death → non-survival suppressed, got {s}");
     }
 
     #[test]
     fn test_survival_behavior_not_suppressed() {
-        let goal = Goal { goal_type: GoalType::FindFood, urgency: 0.9, target_pos: None };
-        let needs = Needs { hunger: 0.95, ..Needs::default() };
+        let goal = Goal {
+            goal_type: GoalType::FindFood,
+            urgency: 0.9,
+            target_pos: None,
+        };
+        let needs = Needs {
+            hunger: 0.95,
+            ..Needs::default()
+        };
         let s = survival_suppression(&goal.goal_type, &needs);
-        assert!(s > 0.8, "survival behavior should not be suppressed, got {s}");
+        assert!(
+            s > 0.8,
+            "survival behavior should not be suppressed, got {s}"
+        );
     }
 
     #[test]
     fn test_lifestage_infant_cannot_fight() {
-        assert_eq!(lifestage_restriction(ActionCategory::Fight, &LifeStage::Infant), 0.0);
-        assert_eq!(lifestage_restriction(ActionCategory::Work, &LifeStage::Infant), 0.0);
+        assert_eq!(
+            lifestage_restriction(ActionCategory::Fight, &LifeStage::Infant),
+            0.0
+        );
+        assert_eq!(
+            lifestage_restriction(ActionCategory::Work, &LifeStage::Infant),
+            0.0
+        );
     }
 
     #[test]
@@ -298,8 +374,15 @@ mod tests {
         for seed in 0..5 {
             let bf = BigFive::from_seed(seed);
             world.spawn((
-                Goal { goal_type: GoalType::FindFood, urgency: 0.7, target_pos: None },
-                Needs { hunger: 0.6, ..Needs::default() },
+                Goal {
+                    goal_type: GoalType::FindFood,
+                    urgency: 0.7,
+                    target_pos: None,
+                },
+                Needs {
+                    hunger: 0.6,
+                    ..Needs::default()
+                },
                 NeedSensitivity::default(),
                 Emotion::default(),
                 bf,
@@ -311,8 +394,11 @@ mod tests {
         cmd.run_on(&mut world);
 
         for (_, intent) in world.query::<&ActionIntent>().iter() {
-            assert!((0.0..=10.0).contains(&intent.weight),
-                "weight {} out of range", intent.weight);
+            assert!(
+                (0.0..=10.0).contains(&intent.weight),
+                "weight {} out of range",
+                intent.weight
+            );
         }
     }
 

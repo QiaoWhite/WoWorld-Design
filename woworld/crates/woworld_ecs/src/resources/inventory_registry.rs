@@ -135,7 +135,9 @@ impl InventoryRegistry {
         for i in 0..count {
             let item_hash = seed.wrapping_mul(7).wrapping_add(i as u64).wrapping_mul(11);
             let item_idx = (item_hash as usize) % item_pool.len();
-            let qty_hash = seed.wrapping_mul(13).wrapping_add((i as u64).wrapping_mul(17));
+            let qty_hash = seed
+                .wrapping_mul(13)
+                .wrapping_add((i as u64).wrapping_mul(17));
             let quantity = ((qty_hash % 5) + 1) as u32; // 1-5 个
 
             let _ = self.add_item(entity, item_pool[item_idx], quantity, item_registry);
@@ -187,11 +189,7 @@ impl InventoryRegistry {
     /// 从装备槽位卸下物品（返回库存）。
     ///
     /// 返回被卸下的物品。
-    pub fn unequip_from_slot(
-        &mut self,
-        entity: EntityId,
-        slot: SlotId,
-    ) -> Option<ItemDefId> {
+    pub fn unequip_from_slot(&mut self, entity: EntityId, slot: SlotId) -> Option<ItemDefId> {
         let eq = self.equipment.get_mut(&entity)?;
         let mode = eq.mode;
         eq.set_slot(slot, mode, None)
@@ -248,11 +246,16 @@ impl InventoryRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use woworld_core::item::equipment::OutfitMode;
     use woworld_core::item::inventory_tuning;
     use woworld_core::item::ItemProperties;
-    use woworld_core::item::equipment::OutfitMode;
 
-    fn item_reg_with_props(def_id: ItemDefId, weight_grams: u32, bulk_factor: f32, stack_size: u32) -> impl ItemQuery {
+    fn item_reg_with_props(
+        def_id: ItemDefId,
+        weight_grams: u32,
+        bulk_factor: f32,
+        stack_size: u32,
+    ) -> impl ItemQuery {
         use woworld_core::item::{ItemCategory, Quality, Rarity};
         struct StubQuery {
             props: ItemProperties,
@@ -457,10 +460,7 @@ mod tests {
         let sword = ItemDefId(100);
         let old = reg.equip_to_slot(e, SlotId::Mainhand, sword).unwrap();
         assert!(old.is_none());
-        assert_eq!(
-            reg.get_equipment(e).unwrap().combat.mainhand,
-            Some(sword)
-        );
+        assert_eq!(reg.get_equipment(e).unwrap().combat.mainhand, Some(sword));
     }
 
     #[test]
@@ -474,10 +474,7 @@ mod tests {
         reg.equip_to_slot(e, SlotId::Mainhand, sword).unwrap();
         let old = reg.equip_to_slot(e, SlotId::Mainhand, axe).unwrap();
         assert_eq!(old, Some(sword));
-        assert_eq!(
-            reg.get_equipment(e).unwrap().combat.mainhand,
-            Some(axe)
-        );
+        assert_eq!(reg.get_equipment(e).unwrap().combat.mainhand, Some(axe));
     }
 
     #[test]
@@ -495,7 +492,9 @@ mod tests {
     #[test]
     fn test_unequip_unknown_entity() {
         let mut reg = InventoryRegistry::new();
-        assert!(reg.unequip_from_slot(EntityId(999), SlotId::Mainhand).is_none());
+        assert!(reg
+            .unequip_from_slot(EntityId(999), SlotId::Mainhand)
+            .is_none());
     }
 
     // ── Container bonuses ──────────────────────────────
@@ -524,10 +523,14 @@ mod tests {
         reg.register_container_bonus(backpack_id, inventory_tuning::SMALL_BACKPACK);
         reg.init_inventory(e, inventory_tuning::BASE_SLOTS);
         reg.init_equipment(e);
-        reg.equip_to_slot(e, SlotId::ContainerBack, backpack_id).unwrap();
+        reg.equip_to_slot(e, SlotId::ContainerBack, backpack_id)
+            .unwrap();
 
         let cap = reg.recalculate_capacity(e);
-        assert_eq!(cap, inventory_tuning::BASE_SLOTS + inventory_tuning::SMALL_BACKPACK);
+        assert_eq!(
+            cap,
+            inventory_tuning::BASE_SLOTS + inventory_tuning::SMALL_BACKPACK
+        );
     }
 
     #[test]

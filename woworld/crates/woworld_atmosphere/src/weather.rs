@@ -104,15 +104,27 @@ impl WeatherAtmosQuery for WeatherDriver {
     }
 
     fn fog_density(&self) -> f32 {
-        WeatherParams::lerp(0.0, 0.40, self.params.cloud_cover.max(self.params.precipitation))
+        WeatherParams::lerp(
+            0.0,
+            0.40,
+            self.params.cloud_cover.max(self.params.precipitation),
+        )
     }
 
     fn exposure_mult(&self) -> f32 {
-        WeatherParams::lerp(1.0, 0.30, self.params.cloud_cover.max(self.params.precipitation))
+        WeatherParams::lerp(
+            1.0,
+            0.30,
+            self.params.cloud_cover.max(self.params.precipitation),
+        )
     }
 
     fn saturation_mult(&self) -> f32 {
-        WeatherParams::lerp(1.0, 0.35, self.params.cloud_cover.max(self.params.precipitation))
+        WeatherParams::lerp(
+            1.0,
+            0.35,
+            self.params.cloud_cover.max(self.params.precipitation),
+        )
     }
 }
 
@@ -130,7 +142,11 @@ impl SimpleWeatherDriver {
     pub fn new(seed: u64) -> Self {
         let seed_f = (seed as f64).sin().abs();
         let interval = 300.0 + seed_f * 600.0;
-        Self { state: WeatherState::Clear, tick_remaining: interval, tick_interval: interval }
+        Self {
+            state: WeatherState::Clear,
+            tick_remaining: interval,
+            tick_interval: interval,
+        }
     }
 
     pub fn tick(&mut self, delta: f64) {
@@ -142,7 +158,9 @@ impl SimpleWeatherDriver {
         }
     }
 
-    pub fn current_state(&self) -> WeatherState { self.state }
+    pub fn current_state(&self) -> WeatherState {
+        self.state
+    }
 
     pub fn debug_set_state(&mut self, state: WeatherState) {
         self.state = state;
@@ -171,11 +189,22 @@ impl SimpleWeatherDriver {
             WeatherState::ModeratePrecip => 0.65,
             WeatherState::HeavyStorm => 0.55,
         };
-        if r < stability { return; }
+        if r < stability {
+            return;
+        }
         let r2 = self.pseudo_random() + r;
-        let go_clearward = if idx == 0 { false } else if idx == 5 { true }
-            else { r2 < (0.5 + idx as f64 * 0.08) };
-        let new_idx = if go_clearward { idx.saturating_sub(1) } else { (idx + 1).min(5) };
+        let go_clearward = if idx == 0 {
+            false
+        } else if idx == 5 {
+            true
+        } else {
+            r2 < (0.5 + idx as f64 * 0.08)
+        };
+        let new_idx = if go_clearward {
+            idx.saturating_sub(1)
+        } else {
+            (idx + 1).min(5)
+        };
         self.state = WeatherState::from_index(new_idx);
     }
 }
@@ -233,7 +262,9 @@ pub struct SimpleSeasonProvider {
 impl SimpleSeasonProvider {
     /// 从总游戏天数创建
     pub fn new(total_days: u64) -> Self {
-        Self { season: Season::from_total_days(total_days) }
+        Self {
+            season: Season::from_total_days(total_days),
+        }
     }
 
     /// 更新季节（每日调用一次即可）

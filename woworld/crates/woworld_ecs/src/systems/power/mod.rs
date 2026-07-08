@@ -28,7 +28,8 @@ pub fn power_seed_system(
 
         // 从文化获取 power_distance 作为自我约束强度
         let power_distance = if let Ok(culture) = world.get::<&Culture>(entity) {
-            culture_registry.core_params(culture.culture_id)
+            culture_registry
+                .core_params(culture.culture_id)
                 .map(|p| p.power_distance)
                 .unwrap_or(0.5)
         } else {
@@ -36,8 +37,8 @@ pub fn power_seed_system(
         };
 
         // Pledge: 自我约束——尽责性高→自我约束强
-        let self_constraint_strength = (bigfive.conscientiousness * 0.6 + power_distance * 0.4)
-            .clamp(0.1, 1.0);
+        let self_constraint_strength =
+            (bigfive.conscientiousness * 0.6 + power_distance * 0.4).clamp(0.1, 1.0);
 
         let entity_id = EntityId(seed);
 
@@ -76,10 +77,7 @@ mod tests {
         let mut culture_reg = CultureRegistry::new();
 
         let culture_id = culture_reg.register(CultureCoreParams::default());
-        world.spawn((
-            BigFive::from_seed(42),
-            Culture { culture_id },
-        ));
+        world.spawn((BigFive::from_seed(42), Culture { culture_id }));
 
         power_seed_system(&world, &mut cmd, &mut power_reg, &culture_reg);
 

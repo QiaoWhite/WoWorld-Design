@@ -96,7 +96,10 @@ mod tests {
         // 高神经质 → baseline_pleasure ≈ -0.2
         let e = spawn_with_bigfive(
             &mut world,
-            BigFive { neuroticism: 1.0, ..BigFive::default() },
+            BigFive {
+                neuroticism: 1.0,
+                ..BigFive::default()
+            },
         );
 
         // 初始 pleasure=0，应漂向 -0.2
@@ -111,12 +114,19 @@ mod tests {
         let (bp, ba, bc) = Emotion::baseline_from_bigfive(&BigFive::default());
         let e = world.spawn((
             BigFive::default(),
-            Emotion { pleasure: bp, arousal: ba, control: bc },
+            Emotion {
+                pleasure: bp,
+                arousal: ba,
+                control: bc,
+            },
         ));
 
         emotion_drift_system(&mut world, 86400.0);
         let em = world.get::<&Emotion>(e).unwrap();
-        assert!((em.pleasure - bp).abs() < 0.01, "at baseline, should not move");
+        assert!(
+            (em.pleasure - bp).abs() < 0.01,
+            "at baseline, should not move"
+        );
         assert!((em.arousal - ba).abs() < 0.01);
         assert!((em.control - bc).abs() < 0.01);
     }
@@ -126,7 +136,10 @@ mod tests {
         let mut world = hecs::World::new();
         let e = spawn_with_bigfive(
             &mut world,
-            BigFive { neuroticism: 1.0, ..BigFive::default() },
+            BigFive {
+                neuroticism: 1.0,
+                ..BigFive::default()
+            },
         );
 
         emotion_drift_system(&mut world, 43200.0); // 半天
@@ -138,34 +151,54 @@ mod tests {
         let full_pleasure = world.get::<&Emotion>(e).unwrap().pleasure;
 
         // 半天漂移量 < 全天漂移量（绝对值）
-        assert!(half_pleasure.abs() < full_pleasure.abs(),
-            "half={half_pleasure} full={full_pleasure}");
+        assert!(
+            half_pleasure.abs() < full_pleasure.abs(),
+            "half={half_pleasure} full={full_pleasure}"
+        );
     }
 
     #[test]
     fn test_physiological_hunger_reduces_pleasure() {
         let mut world = hecs::World::new();
         let e = world.spawn((
-            Needs { hunger: 0.9, ..Needs::default() },
+            Needs {
+                hunger: 0.9,
+                ..Needs::default()
+            },
             Emotion::default(),
         ));
 
         physiological_pull_system(&mut world);
         let em = world.get::<&Emotion>(e).unwrap();
-        assert!(em.pleasure < 0.0, "hunger should reduce pleasure, got {}", em.pleasure);
+        assert!(
+            em.pleasure < 0.0,
+            "hunger should reduce pleasure, got {}",
+            em.pleasure
+        );
     }
 
     #[test]
     fn test_physiological_libido_raises_arousal() {
         let mut world = hecs::World::new();
         let e = world.spawn((
-            Needs { libido: 0.9, ..Needs::default() },
-            Emotion { pleasure: 0.0, arousal: 0.5, control: 0.0 },
+            Needs {
+                libido: 0.9,
+                ..Needs::default()
+            },
+            Emotion {
+                pleasure: 0.0,
+                arousal: 0.5,
+                control: 0.0,
+            },
         ));
 
         physiological_pull_system(&mut world);
         let em = world.get::<&Emotion>(e).unwrap();
-        assert!(em.arousal > 0.5, "libido should raise arousal, got {}", em.arousal);
+        assert!(
+            em.arousal > 0.5,
+            "libido should raise arousal, got {}",
+            em.arousal
+        );
     }
 
     #[test]
@@ -187,9 +220,20 @@ mod tests {
         let mut world = hecs::World::new();
         // 极端：反复压低 pleasure
         let e = world.spawn((
-            BigFive { neuroticism: 1.0, ..BigFive::default() },
-            Needs { hunger: 0.9, social: 0.9, ..Needs::default() },
-            Emotion { pleasure: -0.99, arousal: 0.5, control: 0.0 },
+            BigFive {
+                neuroticism: 1.0,
+                ..BigFive::default()
+            },
+            Needs {
+                hunger: 0.9,
+                social: 0.9,
+                ..Needs::default()
+            },
+            Emotion {
+                pleasure: -0.99,
+                arousal: 0.5,
+                control: 0.0,
+            },
         ));
 
         // 漂移 + 生理拉动

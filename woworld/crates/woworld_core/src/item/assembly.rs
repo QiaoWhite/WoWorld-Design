@@ -229,7 +229,10 @@ mod tests {
             limits_deg: (-90.0, 90.0),
         };
         match &j {
-            JointType::Hinge { axis: a, limits_deg: (min, max) } => {
+            JointType::Hinge {
+                axis: a,
+                limits_deg: (min, max),
+            } => {
                 assert!((a.x - 0.0).abs() < f32::EPSILON);
                 assert!((a.y - 1.0).abs() < f32::EPSILON);
                 assert!((*min + 90.0).abs() < f32::EPSILON);
@@ -246,7 +249,10 @@ mod tests {
             link_length_mm: 12.0,
         };
         match j {
-            JointType::Chain { links, link_length_mm } => {
+            JointType::Chain {
+                links,
+                link_length_mm,
+            } => {
                 assert_eq!(links, 8);
                 assert!((link_length_mm - 12.0).abs() < f32::EPSILON);
             }
@@ -261,7 +267,10 @@ mod tests {
             taper_ratio: 0.05,
         };
         match j {
-            JointType::Flexible { stiffness, taper_ratio } => {
+            JointType::Flexible {
+                stiffness,
+                taper_ratio,
+            } => {
                 assert!((stiffness - 0.1).abs() < f32::EPSILON);
                 assert!((taper_ratio - 0.05).abs() < f32::EPSILON);
             }

@@ -38,7 +38,10 @@ pub struct LodPrescription {
 impl LodPrescription {
     /// Phase 1 便捷构造：仅设 `scene_lod`，其余维度保持最高细节。
     pub fn new(scene_lod: u8) -> Self {
-        Self { scene_lod, ..Self::default() }
+        Self {
+            scene_lod,
+            ..Self::default()
+        }
     }
 
     /// 将所有维度 clamp 到各自合法范围。
@@ -685,8 +688,16 @@ mod tests {
 
     #[test]
     fn test_upgrade_to_only_upgrades() {
-        let mut p = LodPrescription { scene_lod: 5, skeleton_lod: 3, ..Default::default() };
-        let target = LodPrescription { scene_lod: 2, skeleton_lod: 0, ..Default::default() };
+        let mut p = LodPrescription {
+            scene_lod: 5,
+            skeleton_lod: 3,
+            ..Default::default()
+        };
+        let target = LodPrescription {
+            scene_lod: 2,
+            skeleton_lod: 0,
+            ..Default::default()
+        };
         p.upgrade_to(&target);
         assert_eq!(p.scene_lod, 2); // upgraded
         assert_eq!(p.skeleton_lod, 0); // upgraded
@@ -695,8 +706,14 @@ mod tests {
 
     #[test]
     fn test_upgrade_to_does_not_downgrade() {
-        let mut p = LodPrescription { scene_lod: 1, ..Default::default() };
-        let target = LodPrescription { scene_lod: 5, ..Default::default() };
+        let mut p = LodPrescription {
+            scene_lod: 1,
+            ..Default::default()
+        };
+        let target = LodPrescription {
+            scene_lod: 5,
+            ..Default::default()
+        };
         p.upgrade_to(&target);
         assert_eq!(p.scene_lod, 1); // NOT upgraded to 5
     }
@@ -726,7 +743,9 @@ mod tests {
 
     #[test]
     fn test_required_lod_combat_is_full() {
-        let intent = InteractionIntent::Combat { target: EntityId(42) };
+        let intent = InteractionIntent::Combat {
+            target: EntityId(42),
+        };
         let required = intent.required_lod().unwrap();
         assert_eq!(required.ai_lod, 0);
         assert_eq!(required.physics_lod, 0);
@@ -735,13 +754,17 @@ mod tests {
 
     #[test]
     fn test_required_lod_casual_is_none() {
-        let intent = InteractionIntent::CasualAcknowledgment { target: EntityId(42) };
+        let intent = InteractionIntent::CasualAcknowledgment {
+            target: EntityId(42),
+        };
         assert!(intent.required_lod().is_none());
     }
 
     #[test]
     fn test_required_lod_conversation() {
-        let intent = InteractionIntent::Conversation { target: EntityId(42) };
+        let intent = InteractionIntent::Conversation {
+            target: EntityId(42),
+        };
         let required = intent.required_lod().unwrap();
         assert_eq!(required.skeleton_lod, 2);
         assert_eq!(required.animation_lod, 2);
@@ -752,9 +775,15 @@ mod tests {
 
     #[test]
     fn test_cascade_priority_ordering() {
-        let combat = cascade_priority(&InteractionIntent::Combat { target: EntityId(0) });
-        let conv = cascade_priority(&InteractionIntent::Conversation { target: EntityId(0) });
-        let casual = cascade_priority(&InteractionIntent::CasualAcknowledgment { target: EntityId(0) });
+        let combat = cascade_priority(&InteractionIntent::Combat {
+            target: EntityId(0),
+        });
+        let conv = cascade_priority(&InteractionIntent::Conversation {
+            target: EntityId(0),
+        });
+        let casual = cascade_priority(&InteractionIntent::CasualAcknowledgment {
+            target: EntityId(0),
+        });
         assert!(combat > conv);
         assert!(conv > casual);
         assert_eq!(casual, 0.0);
@@ -801,7 +830,10 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure::default(),
             entities: vec![
                 make_entity(1, 0.0, 10.0),   // 10m → scene_lod 0
@@ -823,7 +855,10 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure::default(),
             entities: vec![
                 make_player(0.0, 50000.0), // very far away
@@ -847,7 +882,10 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure::default(),
             entities: vec![entity],
             broadcasts: vec![],
@@ -867,11 +905,16 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure::default(),
             entities: vec![target],
             broadcasts: vec![],
-            interactions: vec![InteractionIntent::Combat { target: EntityId(2) }],
+            interactions: vec![InteractionIntent::Combat {
+                target: EntityId(2),
+            }],
         };
 
         let result = TestCoordinator::compute_lod(&input, &HashMap::new(), &mut HashMap::new());
@@ -888,11 +931,16 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure::default(),
             entities: vec![target],
             broadcasts: vec![],
-            interactions: vec![InteractionIntent::CasualAcknowledgment { target: EntityId(2) }],
+            interactions: vec![InteractionIntent::CasualAcknowledgment {
+                target: EntityId(2),
+            }],
         };
 
         let result = TestCoordinator::compute_lod(&input, &HashMap::new(), &mut HashMap::new());
@@ -908,7 +956,10 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO), // looking at -Z
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure::default(),
             entities: vec![entity],
             broadcasts: vec![],
@@ -928,7 +979,10 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure::default(),
             entities: vec![entity],
             broadcasts: vec![],
@@ -947,7 +1001,10 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure {
                 current_ratio: 0.88,
                 predicted_ratio_10fr: 0.90,
@@ -971,7 +1028,10 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 0.3, last_frame_ms: 16.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 0.3,
+                last_frame_ms: 16.0,
+            },
             vram: VramPressure::default(),
             entities: vec![entity],
             broadcasts: vec![],
@@ -988,11 +1048,14 @@ mod tests {
     #[test]
     fn test_step7_skeleton_4_forces_anim_render_physics_4() {
         let entity = make_entity(1, 0.0, 1000.0); // far → skeleton_lod=4
-        // VRAM pressure to trigger render_lod being lower than skeleton
+                                                  // VRAM pressure to trigger render_lod being lower than skeleton
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure {
                 current_ratio: 0.96,
                 predicted_ratio_10fr: 0.97,
@@ -1018,7 +1081,10 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure::default(),
             entities: vec![entity],
             broadcasts: vec![],
@@ -1036,7 +1102,10 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure::default(),
             entities: vec![entity],
             broadcasts: vec![],
@@ -1062,7 +1131,10 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure::default(),
             entities: vec![entity],
             broadcasts: vec![],
@@ -1080,7 +1152,10 @@ mod tests {
         let input = LodCoordinatorInput {
             camera: make_camera(DVec3::ZERO),
             attention: PlayerAttention::default(),
-            frame_budget: FrameBudget { remaining_ms: 10.0, last_frame_ms: 5.0 },
+            frame_budget: FrameBudget {
+                remaining_ms: 10.0,
+                last_frame_ms: 5.0,
+            },
             vram: VramPressure::default(),
             entities: vec![],
             broadcasts: vec![],

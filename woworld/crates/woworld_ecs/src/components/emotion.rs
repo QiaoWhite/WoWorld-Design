@@ -58,42 +58,60 @@ mod tests {
 
     #[test]
     fn test_baseline_neurotic_low_pleasure() {
-        let b = BigFive { neuroticism: 1.0, ..BigFive::default() };
+        let b = BigFive {
+            neuroticism: 1.0,
+            ..BigFive::default()
+        };
         let (bp, _, _) = Emotion::baseline_from_bigfive(&b);
         assert!((bp + 0.2).abs() < 0.01); // ≈ -0.2
     }
 
     #[test]
     fn test_baseline_stable_high_pleasure() {
-        let b = BigFive { neuroticism: 0.0, ..BigFive::default() };
+        let b = BigFive {
+            neuroticism: 0.0,
+            ..BigFive::default()
+        };
         let (bp, _, _) = Emotion::baseline_from_bigfive(&b);
         assert!((bp - 0.2).abs() < 0.01); // ≈ 0.2
     }
 
     #[test]
     fn test_baseline_extravert_high_arousal() {
-        let b = BigFive { extraversion: 1.0, ..BigFive::default() };
+        let b = BigFive {
+            extraversion: 1.0,
+            ..BigFive::default()
+        };
         let (_, ba, _) = Emotion::baseline_from_bigfive(&b);
         assert!((ba - 0.6).abs() < 0.01);
     }
 
     #[test]
     fn test_baseline_introvert_low_arousal() {
-        let b = BigFive { extraversion: 0.0, ..BigFive::default() };
+        let b = BigFive {
+            extraversion: 0.0,
+            ..BigFive::default()
+        };
         let (_, ba, _) = Emotion::baseline_from_bigfive(&b);
         assert!((ba - 0.3).abs() < 0.01);
     }
 
     #[test]
     fn test_baseline_conscientious_high_control() {
-        let b = BigFive { conscientiousness: 1.0, ..BigFive::default() };
+        let b = BigFive {
+            conscientiousness: 1.0,
+            ..BigFive::default()
+        };
         let (_, _, bc) = Emotion::baseline_from_bigfive(&b);
         assert!((bc - 0.5).abs() < 0.01);
     }
 
     #[test]
     fn test_baseline_casual_low_control() {
-        let b = BigFive { conscientiousness: 0.0, ..BigFive::default() };
+        let b = BigFive {
+            conscientiousness: 0.0,
+            ..BigFive::default()
+        };
         let (_, _, bc) = Emotion::baseline_from_bigfive(&b);
         assert!((bc + 0.1).abs() < 0.01); // ≈ -0.1
     }

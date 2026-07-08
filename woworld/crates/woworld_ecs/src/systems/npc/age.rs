@@ -57,8 +57,7 @@ pub fn age_system(world: &mut hecs::World, _cmd: &mut CommandBuffer, dt_days: f3
         }
 
         // 计算此时间段开始时的 age_pct
-        let age_pct_start =
-            (gmort.last_check_age_days / age.max_lifespan_days).max(0.0);
+        let age_pct_start = (gmort.last_check_age_days / age.max_lifespan_days).max(0.0);
         let delta_pct = days_since_check / age.max_lifespan_days;
 
         let survival = senescence_survival(
@@ -79,10 +78,8 @@ pub fn age_system(world: &mut hecs::World, _cmd: &mut CommandBuffer, dt_days: f3
             // Gompertz 衰老死亡——hp 归零 + 插入精确死因
             vitals.hp = 0.0;
             // 第二个随机值用于抽样具体死因（与死亡判定独立）
-            let cause_random = pseudo_random_for_gompertz(
-                age.age_days + 1.0,
-                age.max_lifespan_days,
-            );
+            let cause_random =
+                pseudo_random_for_gompertz(age.age_days + 1.0, age.max_lifespan_days);
             let specific = sample_senescence_cause(age.age_ratio(), cause_random);
             _cmd.insert_one(
                 _entity,
@@ -105,7 +102,9 @@ fn pseudo_random_for_gompertz(age_days: f32, max_lifespan_days: f32) -> f32 {
     let a = age_days.to_bits();
     let b = max_lifespan_days.to_bits();
     // splitmix64 单步——全部在 u64 空间操作
-    let mut x = (a as u64).wrapping_mul(0x9E3779B97F4A7C15).wrapping_add(b as u64);
+    let mut x = (a as u64)
+        .wrapping_mul(0x9E3779B97F4A7C15)
+        .wrapping_add(b as u64);
     x = (x ^ (x >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
     x = (x ^ (x >> 27)).wrapping_mul(0x94D049BB133111EB);
     x = x ^ (x >> 31);
@@ -163,7 +162,11 @@ mod tests {
         cmd.run_on(&mut world);
 
         let new_stage = world.get::<&LifeStage>(e).unwrap();
-        assert_eq!(*new_stage, LifeStage::YoungAdult, "should still be YoungAdult");
+        assert_eq!(
+            *new_stage,
+            LifeStage::YoungAdult,
+            "should still be YoungAdult"
+        );
     }
 
     #[test]
@@ -200,12 +203,7 @@ mod tests {
         let age = Age::new(80.0, 30.0);
         let stage = LifeStage::from_age_ratio(age.age_ratio());
         let age_days_start = age.age_days;
-        let e = world.spawn((
-            age,
-            stage,
-            Vitals::default(),
-            GompertzMortality::default(),
-        ));
+        let e = world.spawn((age, stage, Vitals::default(), GompertzMortality::default()));
 
         // 推进 1 年（365 天 > 30 天检查间隔）
         age_system(&mut world, &mut cmd, 365.0);
@@ -273,7 +271,7 @@ mod tests {
         let stage = LifeStage::from_age_ratio(age.age_ratio());
         let gmort = GompertzMortality {
             last_check_age_days: age.age_days,
-            constitution: 0.3, // 低体质
+            constitution: 0.3,   // 低体质
             health_history: 3.0, // 重病史
             ..GompertzMortality::default()
         };
@@ -310,7 +308,10 @@ mod tests {
             gmort,
         ));
 
-        let gmort_before = world.get::<&GompertzMortality>(e).unwrap().last_check_age_days;
+        let gmort_before = world
+            .get::<&GompertzMortality>(e)
+            .unwrap()
+            .last_check_age_days;
 
         age_system(&mut world, &mut cmd, 30.0);
         cmd.run_on(&mut world);

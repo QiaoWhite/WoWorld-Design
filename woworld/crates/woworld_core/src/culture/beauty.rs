@@ -46,7 +46,7 @@ pub struct CulturalBeautyStandard {
     /// 身高偏好: -1=极矮, 0=中性, 1=极高
     pub height_preference: f32,
     /// 肤色理想 (Phase 1: None——等 EliteAppearance)
-    pub skin_tone_ideal: Option<()>,  // placeholder: 等 NPC 模块提供 SkinToneRange
+    pub skin_tone_ideal: Option<()>, // placeholder: 等 NPC 模块提供 SkinToneRange
     /// 仪容打理重要性 [0,1]
     pub grooming_importance: f32,
     /// 疤痕态度
@@ -95,10 +95,8 @@ impl CulturalBeautyStandard {
 
         // ── height_preference ──
         // power_distance 推向上, individualism 偏好个体差异
-        let height_preference = (core.power_distance * 0.7
-            + core.competition_orientation * 0.3
-            - 0.5)
-            .clamp(-1.0, 1.0);
+        let height_preference =
+            (core.power_distance * 0.7 + core.competition_orientation * 0.3 - 0.5).clamp(-1.0, 1.0);
 
         // ── grooming_importance ──
         let grooming_importance = (core.artistry * 0.40
@@ -116,17 +114,16 @@ impl CulturalBeautyStandard {
 
         // ── ideal_age_range ──
         // base: 18-35. power_distance 倾向于更年轻, long_term 延迟
-        let min_age = (18.0 - core.power_distance * 5.0 + core.long_term_orientation * 3.0)
-            .clamp(14.0, 28.0);
-        let max_age = (35.0 - core.power_distance * 8.0 + core.long_term_orientation * 5.0)
-            .clamp(25.0, 50.0);
+        let min_age =
+            (18.0 - core.power_distance * 5.0 + core.long_term_orientation * 3.0).clamp(14.0, 28.0);
+        let max_age =
+            (35.0 - core.power_distance * 8.0 + core.long_term_orientation * 5.0).clamp(25.0, 50.0);
         let ideal_age_range = (min_age, max_age.max(min_age + 5.0));
 
         // ── appearance_weight_in_mating ──
-        let appearance_weight_in_mating = (core.indulgence * 0.40
-            + core.competition_orientation * 0.30
-            + core.artistry * 0.30)
-            .clamp(0.0, 1.0);
+        let appearance_weight_in_mating =
+            (core.indulgence * 0.40 + core.competition_orientation * 0.30 + core.artistry * 0.30)
+                .clamp(0.0, 1.0);
 
         // ── aesthetic_confidence ──
         // Phase 1: 核心参数纯派生（无精英基准）

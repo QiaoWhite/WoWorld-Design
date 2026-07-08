@@ -144,10 +144,9 @@ impl CommunicationNorms {
             .clamp(0.0, 1.0);
 
         // emotional_expressiveness = indulgence×0.50 + individualism×0.25 + artistry×0.25
-        let emotional_expressiveness = (core.indulgence * 0.50
-            + core.individualism * 0.25
-            + core.artistry * 0.25)
-            .clamp(0.0, 1.0);
+        let emotional_expressiveness =
+            (core.indulgence * 0.50 + core.individualism * 0.25 + core.artistry * 0.25)
+                .clamp(0.0, 1.0);
 
         // honorifics
         let honorifics = HonorificSystem {
@@ -167,8 +166,11 @@ impl CommunicationNorms {
         let touch_norms = TouchNorms {
             handshake: (touch_acceptance * 1.2).clamp(0.0, 1.0),
             hug: ((touch_acceptance - 0.3) * 1.5).clamp(0.0, 1.0),
-            opposite_gender: if core.power_distance > 0.7 { 0.1 }
-                else { touch_acceptance.clamp(0.0, 1.0) },
+            opposite_gender: if core.power_distance > 0.7 {
+                0.1
+            } else {
+                touch_acceptance.clamp(0.0, 1.0)
+            },
             public: touch_acceptance.clamp(0.0, 1.0),
             dominance: if core.power_distance > 0.5 { 0.6 } else { 0.2 },
         };

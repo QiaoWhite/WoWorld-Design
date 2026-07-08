@@ -26,9 +26,9 @@ pub struct Vitals {
     pub max_hp: f32,
     pub stamina: f32,
     pub max_stamina: f32,
-    pub spirit: f32,     // 0-1, 精神完整度。0=精神崩溃 → DeathCategory::SpiritExhaustion
-    pub body_temp: f32,  // 摄氏度, 37.0 正常
-    pub oxygen: f32,     // 0=窒息, 100=正常
+    pub spirit: f32, // 0-1, 精神完整度。0=精神崩溃 → DeathCategory::SpiritExhaustion
+    pub body_temp: f32, // 摄氏度, 37.0 正常
+    pub oxygen: f32, // 0=窒息, 100=正常
 }
 
 impl Default for Vitals {
@@ -167,7 +167,9 @@ pub struct DecayingRemains {
 
 impl Default for DecayingRemains {
     fn default() -> Self {
-        Self { decay_progress: 0.0 }
+        Self {
+            decay_progress: 0.0,
+        }
     }
 }
 
@@ -197,8 +199,8 @@ pub struct RegenState {
 impl Default for RegenState {
     fn default() -> Self {
         Self {
-            hp_regen_rate: 0.1,       // 0.1 HP/s, 10s 回 1 点
-            stamina_regen_rate: 1.0,  // 1.0 stamina/s
+            hp_regen_rate: 0.1,      // 0.1 HP/s, 10s 回 1 点
+            stamina_regen_rate: 1.0, // 1.0 stamina/s
         }
     }
 }

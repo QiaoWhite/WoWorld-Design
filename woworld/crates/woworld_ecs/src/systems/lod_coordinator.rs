@@ -9,8 +9,8 @@
 use std::collections::HashMap;
 
 use woworld_core::lod::{
-    CameraState, EntityLodInput, FrameBudget, LodCoordinator, LodCoordinatorInput,
-    LodPrescription, PlayerAttention, VramPressure,
+    CameraState, EntityLodInput, FrameBudget, LodCoordinator, LodCoordinatorInput, LodPrescription,
+    PlayerAttention, VramPressure,
 };
 use woworld_core::types::EntityId;
 
@@ -32,14 +32,17 @@ pub fn lod_coordinator_system(
     let mut entity_inputs: Vec<(hecs::Entity, EntityLodInput)> = Vec::new();
     for (entity, pos) in ecs.query::<&Position>().iter() {
         let eid = entity_id_from_hecs(entity);
-        entity_inputs.push((entity, EntityLodInput {
-            id: eid,
-            position: glam::DVec3::new(pos.0.x as f64, pos.0.y as f64, pos.0.z as f64),
-            is_player: eid.0 == 0,
-            is_in_combat: false,
-            is_landmark: false,
-            relation_importance: 0.0,
-        }));
+        entity_inputs.push((
+            entity,
+            EntityLodInput {
+                id: eid,
+                position: glam::DVec3::new(pos.0.x as f64, pos.0.y as f64, pos.0.z as f64),
+                is_player: eid.0 == 0,
+                is_in_combat: false,
+                is_landmark: false,
+                relation_importance: 0.0,
+            },
+        ));
     }
 
     // 2. 构造输入
@@ -119,12 +122,18 @@ mod tests {
 
         // 验证 Player LOD
         let player_lod = ecs.get::<&LodLevel>(player).expect("player has LodLevel");
-        assert_eq!(player_lod.scene_lod, 0, "player at origin should be scene LOD 0");
+        assert_eq!(
+            player_lod.scene_lod, 0,
+            "player at origin should be scene LOD 0"
+        );
         assert_eq!(player_lod.skeleton_lod, 0);
 
         // 验证 NPC LOD（距离 1000m）
         let npc_lod = ecs.get::<&LodLevel>(npc).expect("npc has LodLevel");
-        assert!(npc_lod.scene_lod > 0, "npc at 1000m should have scene_lod > 0");
+        assert!(
+            npc_lod.scene_lod > 0,
+            "npc at 1000m should have scene_lod > 0"
+        );
 
         // 验证 lod_prev 已更新
         let player_eid = entity_id_from_hecs(player);

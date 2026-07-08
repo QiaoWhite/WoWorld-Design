@@ -131,7 +131,8 @@ impl WorldNoise {
 
             let base_height = land_factor * 280.0; // 海岸→内陆基准上升 (~280m 内陆平原)
             let detail_height = land_factor * detail_val * p.height_amplitude * 0.6;
-            let mountain_height = land_factor * mountain_val * mountain_factor * p.height_amplitude * 0.4;
+            let mountain_height =
+                land_factor * mountain_val * mountain_factor * p.height_amplitude * 0.4;
 
             base_height + detail_height + mountain_height
         } else {
@@ -140,7 +141,9 @@ impl WorldNoise {
             let ocean_depth = sea_factor.powf(0.4) * p.sea_depth;
 
             // 海床细部起伏——detail noise 加权，近岸更明显
-            let ocean_detail = self.detail.get([x * p.detail_scale * 0.5, z * p.detail_scale * 0.5]);
+            let ocean_detail = self
+                .detail
+                .get([x * p.detail_scale * 0.5, z * p.detail_scale * 0.5]);
             -ocean_depth + ocean_detail * sea_factor * 50.0
         }
     }
@@ -261,7 +264,11 @@ fn get_vec3(index: usize) -> [f64; 3] {
 ///
 /// 基于 `noise::core::worley::worley_3d` 算法结构，扩展为双距离追踪。
 pub fn worley_3d_f2f1(hasher: &PermutationTable, frequency: f64, point: [f64; 3]) -> f64 {
-    let [px, py, pz] = [point[0] * frequency, point[1] * frequency, point[2] * frequency];
+    let [px, py, pz] = [
+        point[0] * frequency,
+        point[1] * frequency,
+        point[2] * frequency,
+    ];
 
     let cx = px.floor() as isize;
     let cy = py.floor() as isize;

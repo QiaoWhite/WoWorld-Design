@@ -163,7 +163,12 @@ mod tests {
     #[test]
     fn test_inject_generates_valid_spread() {
         let ids = vec![ItemDefId(1), ItemDefId(2)];
-        let result = inject_liquidity(&ids, &|id| if id.0 == 1 { Some(100) } else { None }, 1.0, 42);
+        let result = inject_liquidity(
+            &ids,
+            &|id| if id.0 == 1 { Some(100) } else { None },
+            1.0,
+            42,
+        );
         // 只有 id=1 有 base_value，id=2 返回 None 被过滤
         assert_eq!(result.len(), 1);
         assert!(result[0].bid_price > 0);
@@ -185,9 +190,13 @@ mod tests {
         let a = inject_liquidity(&ids, &|_| Some(100), 1.0, 42);
         let b = inject_liquidity(&ids, &|_| Some(100), 1.0, 999);
         // 不同 seed，多物品时至少有一个价格不同
-        let any_diff = a.iter().zip(b.iter()).any(|(ai, bi)| {
-            ai.bid_price != bi.bid_price || ai.ask_price != bi.ask_price
-        });
-        assert!(any_diff, "different seeds should produce different noise for at least one item");
+        let any_diff = a
+            .iter()
+            .zip(b.iter())
+            .any(|(ai, bi)| ai.bid_price != bi.bid_price || ai.ask_price != bi.ask_price);
+        assert!(
+            any_diff,
+            "different seeds should produce different noise for at least one item"
+        );
     }
 }

@@ -1,6 +1,6 @@
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-06-28
+> **最后更新**: 2026-06-28（★ 2026-07-09 追加：CHG-067 运动学地基待实现冲刺，见 §二/§三。其余条目仍为 06-28 状态，与实际进度[Sprint-061/807 tests]有滞后，待整体刷新）
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `DEPENDENCY_GRAPH.md` · `../CLAUDE-INTERFACES.md`
 > **审计基准**: `audit-reports/20250625-code-vs-design/README.md`
@@ -165,7 +165,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 | 物品系统 | 🟡 就绪 | — | ItemDefId/Assembly/Enchantment/CraftingRecipe |
 | 技能系统 | 🟡 就绪 | — | SkillId(5分类)/XP公式/天赋三层/教学四路径 |
 | 语言表达 | 🟡 就绪 | — | ExpressionRef/Conversation/信息传播 5 通道 |
-| 模型动作与物理 | 🟡 就绪 | — | 9 层动画栈/四 trait/5 子模块 |
+| 模型动作与物理 | 🟡 就绪 | — | 9 层动画栈/四 trait/5 子模块。★ **CHG-067 运动学地基**（质量/冲量/COM/投射物/挂载/攀爬）设计完成，**待实现冲刺** → `sprint-proposals/BACKLOG-物理运动学地基-实现-20260709.md` |
 | 音频系统 | 🟡 就绪 | — | SoundFootprint/AudioQuery(30 methods) |
 | 感官与知觉系统 | 🟡 就绪 | — | PerceptBatch/4 查询 trait/PerceptualCache |
 | 建筑模块 | 🟡 就绪 | — | ComponentFamily/WFC 2.5D/BuildingGenerator |
@@ -203,6 +203,12 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 ## 三、当前冲刺
 
 **下一个冲刺**: 多层密度 L0-L10 — 最后一个架构偏离（🔴5），解锁洞穴/矿脉/地基/NPC 编辑/玩家 SDF。详见最新交接摘要 `handoff/handoff-20260701-019.md`。
+
+**待触发冲刺队列（防遗漏 backlog）**：
+
+| 冲刺 | 状态 | 暂缓依据 | 提案 |
+|------|------|---------|------|
+| ★ 物理运动学地基·实现 | 🟡 待触发 | CHG-067 Q-A2（设计已定，只留文档） | `sprint-proposals/BACKLOG-物理运动学地基-实现-20260709.md` |
 
 **本次会话冲刺历史**：
 

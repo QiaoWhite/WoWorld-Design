@@ -22,7 +22,7 @@
 | ECS 架构 | **Phase 0/1/2/3 ✅** — 44 Components + 30 Systems + 807 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + **对话气泡 MVP** 就位。 |
 | Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + **★NPC对话气泡** |
 | 当前冲刺 | **Sprint-061 完成** — 对话雏形 MVP: BubbleType + speech_bubble_system + 夺舍NPC自言自语气泡（807 tests）→ 下一步：NPC-NPC双向对话 / 物品 Phase 3 / 经济 Phase 4 / 玩家 Phase 2 |
-| 最新 CHG | CHG-066（2026-07-08）— 对话气泡术语消歧 + Bark MVP 实现 · SpeechBubble/BubbleType 与音频 Bark 分离 |
+| 最新 CHG | **CHG-067**（2026-07-09·仅设计无代码）— 物理运动学地基（质量→冲量→单体COM涌现·不引擎）。前: CHG-066 对话气泡术语消歧 + Bark MVP |
 | 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260708-sprint061]]（2026-07-08·Sprint-061 对话气泡MVP·807 tests） |
 
 ---
@@ -217,7 +217,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 | 物品系统 | P1 | 🟢 Phase 1 | ItemCategory(44)+ItemProperties(28)+ItemRegistry+TOML+ItemQuery trait | v1.0。Phase 1 完成（+33 tests）。延后: Assembly/装备/背包/附魔 |
 | 技能系统 | P1 | 🟡 就绪 | — | SkillId(5分类)/XP公式/天赋三层/教学四路径 |
 | 语言表达 | P4 | 🟡 就绪 | 对话气泡 MVP (BubbleType + speech_bubble_system, 桩化文本) | ExpressionRef/Conversation/信息传播 5 通道。★ Sprint-061 气泡渲染就位(CHG-066)，桩化文本待接入 TextGenerator |
-| 模型动作与物理 | P4 | 🟡 就绪 | — | 9 层动画栈/四 trait/5 子模块 |
+| 模型动作与物理 | P4 | 🟡 就绪 | — | 9 层动画栈/四 trait/5 子模块。★ **CHG-067 运动学地基**（质量/冲量/COM/投射物/挂载/攀爬）设计完成，**待实现冲刺** → `sprint-proposals/BACKLOG-物理运动学地基-实现-20260709.md`（暂缓 per Q-A2） |
 | 音频系统 | P4 | 🟡 就绪 | — | SoundFootprint/AudioQuery(30 methods) |
 | 感官与知觉系统 | P3 | 🟡 就绪 | — | PerceptBatch/4 查询 trait/PerceptualCache |
 | 建筑模块 | P4 | 🟡 就绪 | — | ComponentFamily/WFC 2.5D/BuildingGenerator |
@@ -243,6 +243,12 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 ## 三、近期冲刺
 
 **下一个冲刺**: 待定——CHG-065 ECS Systems 实现 / Clipmap 重生成 / SpatialEventBus / 保存接口。详见最新交接摘要 `01-核心基础/handoff/handoff-20260706-031.md`。
+
+**待触发冲刺队列（防遗漏 backlog）**：
+
+| 冲刺 | 状态 | 暂缓依据 | 提案 |
+|------|------|---------|------|
+| ★ 物理运动学地基·实现 | 🟡 待触发 | CHG-067 Q-A2（设计已定，只留文档） | `sprint-proposals/BACKLOG-物理运动学地基-实现-20260709.md` |
 
 **冲刺历史**：
 

@@ -1,5 +1,6 @@
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
+本文件已经陈旧，迁移至 [[附录E-开发状态]]
 > **最后更新**: 2026-06-28（★ 2026-07-09 追加：CHG-067 运动学地基待实现冲刺，见 §二/§三。其余条目仍为 06-28 状态，与实际进度[Sprint-061/807 tests]有滞后，待整体刷新）
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `DEPENDENCY_GRAPH.md` · `../CLAUDE-INTERFACES.md`

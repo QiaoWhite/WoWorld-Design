@@ -82,9 +82,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### `WoWorld-Design/Change/` — 设计变更追踪
 
-> ⚠️ **Change 文件夹约定**：编号大的覆盖编号小的。以 `开发阶段/` 实际内容为权威。最新 CHG 序列（053-063）详见 `WoWorld-Design/Change/README.md`。
+> ⚠️ **Change 文件夹约定**：编号大的覆盖编号小的。以 `开发阶段/` 实际内容为权威。最新 CHG 序列（053-067）详见 `WoWorld-Design/Change/README.md`。
 
-近期关键变更：**CHG-053**（Godot 4.7·12子系统）→ **CHG-054**（世界生成 v2.1）→ **CHG-055/056**（存档系统 v1.0→v2.0）→ **CHG-057**（NPC认知 v1.1·PatternExpression数学地基）→ **CHG-058**（NPC认知系统自审修正）→ **CHG-059**（NPC认知v1.1全模块传播审计）→ **CHG-060**（开发路线图优化·四轨重定义·孤儿接口修复）→ **CHG-061**（轨C孤儿接口修复·CHG-063前置）→ **CHG-062**（UI与UX系统创建）→ **CHG-063**（玩家系统新建·6篇~1,448行·28-玩家系统登记）→ **CHG-065**（地形修改编排层·~800行代码+50测试·内核不转ECS编排层入ECS）。
+近期关键变更：**CHG-053**（Godot 4.7·12子系统）→ **CHG-054**（世界生成 v2.1）→ **CHG-055/056**（存档系统 v1.0→v2.0）→ **CHG-057**（NPC认知 v1.1·PatternExpression数学地基）→ **CHG-058**（NPC认知系统自审修正）→ **CHG-059**（NPC认知v1.1全模块传播审计）→ **CHG-060**（开发路线图优化·四轨重定义·孤儿接口修复）→ **CHG-061**（轨C孤儿接口修复·CHG-063前置）→ **CHG-062**（UI与UX系统创建）→ **CHG-063**（玩家系统新建·6篇~1,448行·28-玩家系统登记）→ **CHG-065**（地形修改编排层·~800行代码+50测试·内核不转ECS编排层入ECS）→ **CHG-066**（对话气泡术语消歧+Bark MVP·807 tests）→ **CHG-067**（物理运动学地基·质量→冲量→单体COM涌现·不引擎·仅文档）。
 
 近期冲刺：**Sprint 031-033**（性能优化+LOD+天气+PBR法线）→ **Sprint 035-057**（ECS Phase 0-2·生命·NPC人格·BigFive·行为链·Godot可视化·21 NPC）→ **Sprint 058**（Gompertz死亡·社交深度·地形移动·审计修复·381 tests）→ **物品 Phase 1 + 经济 Phase 2**（ItemCategory/Registry/TOML + Market/OrderBook撮合/Pareto钱包/需求驱动订单·624 tests）→ **物品 Phase 2**（PersonalInventory/装备/Assembly stub·705 tests）→ **经济 Phase 3**（NeedCategory/Urgency/ListingType/Partial fill/Scarcity bonus/Needs连接·737 tests）。
 

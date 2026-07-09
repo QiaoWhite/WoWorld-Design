@@ -987,3 +987,33 @@ CHG-057/058 在 06-认知与智慧系统中引入根本性架构变更后，CHG-
 | 技能系统 | MentalAccess/PhysicalAccess 均 1.0 确认 |
 | 小精灵系统 | 引导体系主入口——被 004 消费 |
 | 模块接头总览 | 新建 28-玩家系统 |
+
+---
+
+## CHG-067 — 物理运动学地基（2026-07-09·仅文档）
+
+在 COM 抛物体（CHG-033）之上补"质量→冲量→单体运动学"涌现地基。不引入通用物理引擎，扩展 Rust 空间查询。详见 `模型动作与物理系统/运动学地基/001`。
+
+### 契约
+
+| 契约 | Owner | Consumer | 说明 |
+|------|-------|----------|------|
+| **Mass(kg)** | 运动学地基 (woworld_ecs) | 生命/物品/载具(spawn填) · 战斗/魔法(读) | 击退/碰撞分母。生物 size×密度涌现 / 物品 weight_grams |
+| **ImpulseQueue** | 运动学地基 | 战斗/魔法(push定向冲量) | 定向一次性冲量, 确定性 drain。**非 SpatialEventBus**——后者只承载 WeaponImpact/Explosion 感知通知(标量力+位置, 无目标无向量) |
+| **冲量分流** | 运动学地基 (woworld_core) | 战斗(系数) | momentum → 穿透/击退双系数(TOML)。一次读数喂伤害+击退 |
+| **LocomotionMode 三态机** | 运动学地基 | — | Grounded / PhysicsBody / Attached |
+| **SurfaceAnchor** trait | woworld_core | 载具(船)/生命(坐骑·巨兽)实现 | 移动锚。AttachedTo/WalkableAnchor 组件。不触"载具≠坐骑"意志分界 |
+| **投射物内核** | 运动学地基 | 战斗/魔法(payload) | Projectile SoA + CCD。填投射物/火球AOE/掉落物三空白 |
+| **Climbing 能力** | 运动学地基 | 魔法/战斗(临时改写) · 导航/NPC行动(可攀爬边·待立项) | movement_system 泛化到任意法线。max_grip_angle/gravity_frame |
+| **着地阈值速度制** | 运动学地基 (Q-A1) | 战斗/009 | 坠落伤害以速度制为单一真相源, 战斗009距离阈值降级为涌现推导 |
+
+### 跨模块影响
+
+| 受影响模块 | 影响 |
+|-----------|------|
+| 战斗系统 (005/009) | launch_power 重解释为传递系数; 009 坠落阈值降级(Q-A1); 消费 ImpulseQueue/分流 |
+| 魔法系统 | 火球→ImpulseQueue AOE击退; 攀爬buff(provisional·未成熟) |
+| 载具系统 (001) | 实现 SurfaceAnchor(world_transform/walkable_area 已在) |
+| 生命系统 (005) | 实现 SurfaceAnchor(坐骑/巨兽); 填 Mass |
+| 物品系统 | 填 Mass(weight_grams); DroppedItem = 会静止的投射物 |
+| 导航/NPC行动系统 | 可攀爬边 + A* 握力掩码(待立项·Q-A4) |

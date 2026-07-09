@@ -23,8 +23,8 @@
 |------|------|
 | **引擎** | Godot 4.7（从 4.6 升级——CHG-053） |
 | **模拟** | Rust stable 1.80+ (GDExtension) |
-| **世界** | 25 万 km² 初步（≈英国），Minecraft 级最终 |
-| **海陆** | 7:3，Gerstner 波 |
+| **世界** | ~1000 万 km²（≈欧洲），Minecraft 级最终 |
+| **海陆** | 6:4，双 Tier Gerstner 涌浪 |
 | **地形** | 700m+ 山，~1500m 垂直范围，垂直稀疏 Chunk + Clipmap LOD |
 | **战斗** | 半自动——玩家 AI = NPC AI = 同一套 Rust 代码 |
 | **NPC** | GOAP (~9%) + 概率行为树 (~90%) + LLM增强(~1%)，L1/L2/L3/L4 分层模拟 |

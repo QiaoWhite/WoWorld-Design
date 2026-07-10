@@ -441,6 +441,10 @@ pub struct MovementProfile {
 
     // 跳跃
     pub jump_horizontal_speed: f32,
+    /// 重力加速度 (m/s²)——腾空态垂直积分。Provisional（游戏化，非真实 9.8）。
+    pub gravity: f32,
+    /// 跳跃起跳垂直速度 (m/s)。Provisional。跳高 = jump_speed²/(2·gravity)。
+    pub jump_speed: f32,
 
     // 挂载
     pub mounted_speed: f32,
@@ -485,6 +489,8 @@ impl Default for MovementProfile {
             glide_accel: 4.0,
             glide_stamina_rate: 3.0,
             jump_horizontal_speed: 3.0,
+            gravity: 20.0,
+            jump_speed: 7.0,
             mounted_speed: 7.0,
             mounted_accel: 5.0,
             mounted_friction: 4.0,

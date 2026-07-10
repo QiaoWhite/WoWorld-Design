@@ -85,6 +85,8 @@ static DEFAULT_PROFILE: MovementProfile = MovementProfile {
     glide_accel: 4.0,
     glide_stamina_rate: 3.0,
     jump_horizontal_speed: 3.0,
+    gravity: 20.0,
+    jump_speed: 7.0,
     mounted_speed: 7.0,
     mounted_accel: 5.0,
     mounted_friction: 4.0,

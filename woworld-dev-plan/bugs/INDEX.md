@@ -27,6 +27,7 @@
 | WG-003 | perlin,原点,origin,ocean,海洋,全种子,sea threshold,grid point | Perlin(0,0)=0 全种子原点永远海洋 | 世界生成 | 🟡反直觉陷阱 | ✅已修复 | [WG-003](世界生成/WG-003-perlin-origin-always-ocean.md) |
 | TOOL-001 | cargo test,build,dll,不更新,cdylib,动态库,godot加载,extension | cargo test ≠ cargo build .dll 不更新 | 工具链 | 🟡反直觉陷阱 | ✅已修复 | [TOOL-001](工具链/TOOL-001-cargo-test-not-build-dll.md) |
 | GD-001 | floating origin,浮点原点,camera relative,vertex shader,AABB,double offset,frustum culling | Floating Origin v1-v5 实现全失败 | Godot桥接 | 🟡反直觉陷阱 | ✅已修复 | [GD-001](Godot桥接/GD-001-floating-origin-v1-v5-failures.md) |
+| GD-002 | camera_pos,浮点原点,floating origin,透明,transparent,看穿,see-through,背面,backface,cull_back,LOD0,VoxelChunk,眼高,eye height,body vs camera,相机高度,地形偏高 | 浮点原点 camera_pos 用 body 非相机位置 → 低眼高看穿地形 | Godot桥接 | 🟡反直觉陷阱 | ✅已修复 | [GD-002](Godot桥接/GD-002-camera-pos-uses-body-not-camera.md) |
 | RENDER-001 | pbr,normal,法线,插值漂移,perspective interpolation,大三角形,dot(N,L),clipmap | PBR 法线透视插值漂移（大三角形） | 渲染 | 🔴回归 | ✅已修复 | [RENDER-001](渲染/RENDER-001-pbr-normal-perspective-drift.md) |
 | RENDER-002 | LOD0,VoxelChunk,光照异常,正方形区域,全黑,锯齿亮斑,shadow,shadow acne,阴影贴图,shadows_disabled,自阴影 | VoxelChunk 阴影贴图深度不连续 → LOD0 视角依赖光照异常 | 渲染 | 🔴回归 | ✅已修复 | [RENDER-002](渲染/RENDER-002-voxel-shadow-depth-discontinuity.md) |
 | TOOL-002 | canvas,obsidian,二进制,损坏,corrupt,json,文本编辑,画布 | .canvas 文件被 LLM 文本编辑损坏 | 工具链 | 🟡反直觉陷阱 | ✅已修复 | [TOOL-002](工具链/TOOL-002-canvas-binary-corruption.md) |

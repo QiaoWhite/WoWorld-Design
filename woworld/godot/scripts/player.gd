@@ -40,11 +40,20 @@ func _input(event):
 				_mouse_captured = true
 		if event.keycode == KEY_G:
 			_flying = not _flying
+			# Sprint-063: 飞行 = Block A0 让权（Godot 节点权威旁路）；落地 = 交回 Block A0
+			if driver and driver.has_method("set_block_a0_driving"):
+				driver.set_block_a0_driving(not _flying)
 
 func _physics_process(delta):
 	# Sprint-059: 控制台开启时跳过所有玩家移动
 	var driver = get_node_or_null("../WorldDriver")
 	if driver and driver.has_method("is_console_open") and driver.is_console_open():
+		return
+
+	# Sprint-063: Block A0 行使渲染权威时（自由裸玩家 + 非飞行），
+	#   Rust 角色控制器驱动位移，player.gd 退为纯相机骨架（鼠标环顾仍在 _input 处理）。
+	#   夺舍 NPC / G 飞行时 is_block_a0_driving() 返回 false，走下方 legacy 物理。
+	if driver and driver.has_method("is_block_a0_driving") and driver.is_block_a0_driving():
 		return
 
 	if _flying:

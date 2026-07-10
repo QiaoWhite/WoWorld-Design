@@ -11,7 +11,7 @@ use woworld_core::spatial::TerrainQuery;
 use woworld_core::types::WorldPos;
 
 use crate::components::movement_state::{CMovementRecovery, CMovementState, CPrevMovementState};
-use crate::components::transform::Position;
+use crate::components::transform::{Position, Velocity};
 
 /// 计算给定位置的 LocomotionMode（Sprint 1 stub）。
 /// 与 movement_system.rs 中的实现一致——CHG-067 会统一为 CLocomotionMode Component。
@@ -32,11 +32,15 @@ fn compute_locomotion_mode(pos: Vec3, terrain: &dyn TerrainQuery) -> LocomotionM
 ///
 /// Query: `(CMovementState, CPrevMovementState, CMovementRecovery, Position)` + TerrainQuery.
 pub fn movement_mode_system(world: &mut hecs::World, terrain: &dyn TerrainQuery) {
-    for (_, (move_state, prev_state, recovery, pos)) in world.query_mut::<(
+    /// 腾空着地接触容差 (m)——真实触地才判着地，避免起跳上升段 1m 可行走带内误着地。
+    const LANDING_CONTACT_EPS: f32 = 0.15;
+
+    for (_, (move_state, prev_state, recovery, pos, vel)) in world.query_mut::<(
         &mut CMovementState,
         &mut CPrevMovementState,
         &mut CMovementRecovery,
         &Position,
+        &Velocity,
     )>() {
         let current_pos = pos.0;
         let current_loco = compute_locomotion_mode(current_pos, terrain);
@@ -52,7 +56,22 @@ pub fn movement_mode_system(world: &mut hecs::World, terrain: &dyn TerrainQuery)
         let current_is_grounded = current_loco == LocomotionMode::Grounded;
 
         // ── 着地恢复: was PhysicsBody → now Grounded ──
-        if !prev_was_grounded && current_is_grounded {
+        //   ★ 腾空(Airborne)专用收紧（Sprint-064）：is_walkable 的 1m 容差用于"站在略微
+        //   不平地面"，但跳跃上升段 0.1m 处就落在带内会被误判着地、截断跳跃。故对腾空态
+        //   额外要求**真实触地 + 正在下降**（CHG-067 §三 三级着地=下降接触）。游泳出水沿用
+        //   is_walkable（出水本就在水面附近）。
+        let was_airborne = matches!(prev_ms.special, Some(SpecialMode::Airborne(_)));
+        let landing_ok = if was_airborne {
+            let terrain_y = terrain.height_at(WorldPos {
+                x: current_pos.x as f64,
+                y: 0.0,
+                z: current_pos.z as f64,
+            });
+            vel.0.y <= 0.0 && current_pos.y <= terrain_y + LANDING_CONTACT_EPS
+        } else {
+            current_is_grounded
+        };
+        if !prev_was_grounded && landing_ok {
             let medium = terrain.medium_at(WorldPos {
                 x: current_pos.x as f64,
                 y: current_pos.y as f64,
@@ -181,6 +200,7 @@ mod tests {
             }),
             CMovementRecovery::default(),
             Position(Vec3::ZERO),
+            Velocity(Vec3::ZERO),
         ));
 
         movement_mode_system(&mut world, &terrain);
@@ -213,6 +233,7 @@ mod tests {
             }),
             CMovementRecovery::default(),
             Position(Vec3::ZERO),
+            Velocity(Vec3::ZERO),
         ));
 
         movement_mode_system(&mut world, &terrain);
@@ -251,6 +272,7 @@ mod tests {
             }),
             recovery,
             Position(Vec3::ZERO),
+            Velocity(Vec3::ZERO),
         ));
 
         movement_mode_system(&mut world, &terrain);
@@ -289,6 +311,7 @@ mod tests {
             }),
             rec,
             Position(Vec3::ZERO),
+            Velocity(Vec3::ZERO),
         ));
 
         movement_mode_system(&mut world, &terrain);

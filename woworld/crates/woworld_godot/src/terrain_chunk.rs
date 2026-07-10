@@ -198,6 +198,10 @@ pub struct WorldDriver {
     action_wheel: woworld_ecs::resources::interact::ActionWheelData,
     /// ★ Sprint-062: 累计游戏时间（秒）——输入缓冲 pressed_at 基准
     game_time_secs: f32,
+    /// ★ Sprint-063: Block A0 是否对玩家实体行使渲染权威（ECS Position → Godot 节点）。
+    ///   true（默认）= 玩家走 Block A0 地面控制器，ECS 权威。
+    ///   false = G 键自由飞行调试旁路，Godot 节点权威（节点 → ECS 同步）。
+    block_a0_driving: bool,
 
     /// Phase 2 LODCoordinator: 上一帧 LOD 处方（迟滞比较）
     lod_prev: HashMap<EntityId, LodPrescription>,
@@ -293,6 +297,7 @@ impl INode3D for WorldDriver {
             nearby_interactables: woworld_ecs::resources::interact::NearbyInteractables::new(),
             action_wheel: woworld_ecs::resources::interact::ActionWheelData::new(),
             game_time_secs: 0.0,
+            block_a0_driving: true,
             lod_prev: HashMap::new(),
             lod_hyst: HashMap::new(),
             entity_renderer: None,
@@ -619,6 +624,52 @@ impl INode3D for WorldDriver {
         self.player_ecs_entity = Some(player_entity);
         self.bare_player_entity = Some(player_entity);
 
+        // ── Sprint-063: 玩家实体挂角色控制器（Block A0）全组件配方 ──
+        //   玩家=NPC 哲学（001 总纲）：玩家走同一套 Rust Controller。
+        //   配方复刻集成测试 spawn_player。★ 不挂旧 `Movement`——绞杀者
+        //   (movement_system `Without<Movement>`) 据此只处理新管线实体。
+        //   夺舍保持轻量装拆（012 §〇），不在此处或夺舍时重复挂 CC 组件。
+        {
+            use woworld_core::movement::{MovementState, Pace, Stance};
+            use woworld_ecs::components::action_state::{CActionRequestBuf, CActiveAction};
+            use woworld_ecs::components::input_state::CInputBuffer;
+            use woworld_ecs::components::movement_state::{
+                CMoveIntent, CMovementControl, CMovementRecovery, CMovementState,
+                CPrevMovementState,
+            };
+            use woworld_ecs::components::player::{ControlModeComponent, PlayerComponent};
+            use woworld_ecs::components::transform::{Rotation, Velocity};
+
+            let ms = MovementState {
+                stance: Stance::Standing,
+                // ★ Pace::Running（非 Still）：desired_state 的 pace 意图当前无消费者
+                //   （M1=A 前瞻契约），movement_mode_system 也不改 pace——初值即生效值。
+                //   max_speed(Standing, Still)=0 会导致无法移动，故必须给移动 pace。
+                //   方向为零时仍由 movement_system 的无输入摩擦分支停下。
+                pace: Pace::Running,
+                ..Default::default()
+            };
+            self.ecs
+                .insert(
+                    player_entity,
+                    (
+                        PlayerComponent::default(),
+                        ControlModeComponent::manual(),
+                        CActiveAction::default(),
+                        CActionRequestBuf::default(),
+                        CInputBuffer::default(),
+                        CMovementControl::default(),
+                        CMoveIntent::default(),
+                        CMovementState(ms),
+                        CPrevMovementState(ms),
+                        CMovementRecovery::default(),
+                        Velocity(glam::Vec3::ZERO),
+                        Rotation(glam::Quat::IDENTITY),
+                    ),
+                )
+                .expect("player entity exists — just spawned");
+        }
+
         // Spawn NPC 种群（20 个，半径 30m 环形分布，Y 从地形查询）
         const NPC_COUNT: usize = 20;
         for i in 0..NPC_COUNT {
@@ -841,9 +892,26 @@ impl INode3D for WorldDriver {
             vp.set_scene_lod(scene_lod);
         }
 
-        let px = player_pos.x as f32;
-        let pz = player_pos.z as f32;
-        let py = player_pos.y as f32;
+        // Sprint-063: 浮点原点 shader 的 camera_pos 必须是**真实相机**（Camera3D 子节点）
+        //   的世界位置，而非 body/节点位置。二者差一个 eye height(~1.7m)：用 body 位置会让
+        //   `rel = world_pos - camera_pos` 偏大 eye height → 体素地形渲染偏高 → 低眼高相机被
+        //   地表吞没、cull_back 下看到背面显示为透明（旧 +3.4m 高相机恰好掩盖了这 1.7m 误差）。
+        //   px/py/pz 仅供 voxel + clipmap 的 camera_pos uniform 使用。
+        let cam_world = self
+            .base()
+            .get_viewport()
+            .and_then(|vp| vp.get_camera_3d())
+            .map(|c| c.get_global_position())
+            .unwrap_or_else(|| {
+                Vector3::new(
+                    player_pos.x as f32,
+                    player_pos.y as f32,
+                    player_pos.z as f32,
+                )
+            });
+        let px = cam_world.x;
+        let pz = cam_world.z;
+        let py = cam_world.y;
 
         // Update shared voxel material camera_pos (1 call for all 25 chunks)
         if let Some(ref mut voxel_mat) = self.voxel_material {
@@ -1316,6 +1384,8 @@ impl INode3D for WorldDriver {
 
         // 夺舍模式下：CharacterBody3D 位置 → ECS Position 同步
         self.sync_possessed_position();
+        // Sprint-063: 裸玩家飞行旁路时，节点 → ECS（pre-ECS，保持 Block A0 起点一致）
+        self.sync_bare_player_render(false);
 
         // 提前获取 viewport 引用（避免与 console borrow 冲突）
         let viewport = self.base().get_viewport();
@@ -1521,6 +1591,8 @@ impl WorldDriver {
         if let Some(pos) = npc_pos {
             // 切换 player_ecs_entity
             self.player_ecs_entity = Some(target);
+            // Sprint-063: 夺舍期驻停裸玩家（避免 Block A0 无形漂移）
+            self.set_bare_player_manual(false);
 
             // 瞬移 CharacterBody3D 到 NPC 位置
             if let Some(ref mut player) = self.player_node {
@@ -1548,6 +1620,19 @@ impl WorldDriver {
             self.handle_unpossess_internal();
             // 恢复到自由相机模式的裸实体
             self.player_ecs_entity = self.bare_player_entity;
+            // Sprint-063: 恢复裸玩家 Manual 控制（Block A0 重新接管）
+            self.set_bare_player_manual(true);
+            // Sprint-063: 裸玩家 ECS Position 从节点重新播种——退出夺舍时相机停在
+            //   被释放的身体处，避免 Block A0 权威把相机瞬移到夺舍期间漂移的旧位置。
+            if let Some(entity) = self.bare_player_entity {
+                let gp = self.get_player_position();
+                if let Ok(mut pos) = self
+                    .ecs
+                    .get::<&mut woworld_ecs::components::transform::Position>(entity)
+                {
+                    pos.0 = glam::Vec3::new(gp.x as f32, gp.y as f32, gp.z as f32);
+                }
+            }
             godot_print!("[Possess] Exited possession. Free camera mode.");
         }
     }
@@ -1588,6 +1673,60 @@ impl WorldDriver {
             && self.player_ecs_entity != self.bare_player_entity
     }
 
+    /// Sprint-063: 设置裸玩家实体的 ControlMode（Manual=自由控制 / Auto=夺舍期驻停）。
+    ///
+    /// 夺舍 NPC 期间把裸玩家设 Auto——player_input_system 据 controls_domain 跳过它，
+    /// 避免裸玩家 ECS Position 被 Block A0 无形漂移。退出夺舍恢复 Manual。
+    fn set_bare_player_manual(&mut self, manual: bool) {
+        use woworld_core::player::ControlMode;
+        use woworld_ecs::components::player::ControlModeComponent;
+        if let Some(entity) = self.bare_player_entity {
+            if let Ok(mut cm) = self.ecs.get::<&mut ControlModeComponent>(entity) {
+                cm.mode = if manual {
+                    ControlMode::Manual
+                } else {
+                    ControlMode::Auto
+                };
+            }
+        }
+    }
+
+    /// Sprint-063: 裸玩家实体（非夺舍）的 Block A0 渲染权威同步。
+    ///
+    /// - `block_a0_driving` = true（默认）：ECS 权威。`post_ecs=true` 时把玩家实体
+    ///   Position 推给 Godot 节点（Block A0 移动结果可见）。
+    /// - `block_a0_driving` = false（G 飞行旁路）：节点权威。`post_ecs=false` 时把
+    ///   节点位置同步进 ECS，保持 Block A0 起点一致，落地切回时无跳变。
+    ///
+    /// 夺舍模式（NPC 无 CC 组件）走 `sync_possessed_position`，此处早退。
+    fn sync_bare_player_render(&mut self, post_ecs: bool) {
+        if self.is_possessing() {
+            return;
+        }
+        let Some(entity) = self.bare_player_entity else {
+            return;
+        };
+        use woworld_ecs::components::transform::Position;
+        if self.block_a0_driving {
+            if post_ecs {
+                // ECS → 节点
+                let p = match self.ecs.get::<&Position>(entity) {
+                    Ok(pos) => pos.0,
+                    Err(_) => return,
+                };
+                if let Some(ref mut node) = self.player_node {
+                    node.set_global_position(godot::builtin::Vector3::new(p.x, p.y, p.z));
+                }
+            }
+        } else if !post_ecs {
+            // 节点 → ECS（飞行）
+            let gp = self.get_player_position();
+            if let Ok(mut pos) = self.ecs.get::<&mut Position>(entity) {
+                pos.0 = glam::Vec3::new(gp.x as f32, gp.y as f32, gp.z as f32);
+            }
+        }
+    }
+
     /// Sprint-060: 夺舍指定实体（控制台 possess <id> 命令使用）
     fn handle_possess_by_entity(&mut self, target: hecs::Entity) {
         use woworld_ecs::systems::player::possess::possess_entity;
@@ -1601,6 +1740,8 @@ impl WorldDriver {
 
         if let Some(pos) = npc_pos {
             self.player_ecs_entity = Some(target);
+            // Sprint-063: 夺舍期驻停裸玩家（避免 Block A0 无形漂移）
+            self.set_bare_player_manual(false);
 
             // 瞬移 CharacterBody3D
             if let Some(ref mut player) = self.player_node {
@@ -1762,7 +1903,8 @@ impl WorldDriver {
 
             // ── Block A0: 角色控制器管线（Step 5e + Sprint-062 ActionResolver）──
             //   顺序 = player_input → coyote → stamina → movement_mode
-            //          → input_buffer → action_resolver → interact_context → action(+flush) → movement
+            //          → input_buffer → action_resolver → interact_context → action(+flush)
+            //          → jump_launch → movement
             //   · player_input 最先：写 CMoveIntent.direction（Movement 域不经 resolver, 004 §五）
             //   · coyote 必须在 movement_mode 前：读 CPrevMovementState，后者会覆盖它
             //   · stamina 在 movement_mode 前：恢复栈快照到降级后的 pace，避免落地闪帧（D1 定论）
@@ -1812,6 +1954,11 @@ impl WorldDriver {
                     &self.terrain,
                 );
                 self.action_events.mid_phase_flush();
+                // Sprint-064: jump 起跳——动作激活后、移动积分前注入垂直速度 + 置腾空态
+                woworld_ecs::systems::movement::jump_launch_system::jump_launch_system(
+                    &mut self.ecs,
+                    &self.movement_profile_registry,
+                );
                 cc_movement_system(
                     &mut self.ecs,
                     cc_dt,
@@ -1902,10 +2049,28 @@ impl WorldDriver {
                 );
             }
         }
+
+        // Sprint-063: 裸玩家走 Block A0 时，ECS Position → 渲染节点（post-ECS，ECS 权威）
+        self.sync_bare_player_render(true);
     }
 }
 
-/// GDScript 接口 ──────────────────────
+// GDScript 接口 ──────────────────────
+
+/// Godot `Transform3D` → glam `Mat4`（列主序）。
+///
+/// Godot `Basis.rows` 为行主序：`rows[i] = (m_i0, m_i1, m_i2)`。glam Mat4 列 j =
+/// `(rows[0][j], rows[1][j], rows[2][j])`。用于 input_bridge 传相机变换。
+fn transform3d_to_mat4(xform: Transform3D) -> glam::Mat4 {
+    let r = &xform.basis.rows;
+    let o = xform.origin;
+    glam::Mat4::from_cols(
+        glam::Vec4::new(r[0].x, r[1].x, r[2].x, 0.0),
+        glam::Vec4::new(r[0].y, r[1].y, r[2].y, 0.0),
+        glam::Vec4::new(r[0].z, r[1].z, r[2].z, 0.0),
+        glam::Vec4::new(o.x, o.y, o.z, 1.0),
+    )
+}
 
 #[godot_api]
 impl WorldDriver {
@@ -1923,6 +2088,62 @@ impl WorldDriver {
             .as_ref()
             .map(|c| c.is_visible())
             .unwrap_or(false)
+    }
+
+    // ── Sprint-063: input_bridge.gd 桥接 API ─────────────────────
+    //   GDScript 每帧调用：begin_frame → set_move/set_camera_transform → press/release。
+    //   InputState 是平台无关帧快照；Rust 侧 Block A0 消费（004 §一/§五）。
+
+    /// 帧初：清空 pressed/released 边沿（held 保持）。input_bridge 每帧最先调用。
+    #[func]
+    fn input_begin_frame(&mut self) {
+        self.input_state.begin_frame();
+    }
+
+    /// 记录一次按下（边沿 + held）。code/payload 见 `InputAction::from_code`。未知 code 忽略。
+    #[func]
+    fn input_press(&mut self, code: i64, payload: i64) {
+        if let Some(action) = woworld_core::input::InputAction::from_code(code, payload) {
+            self.input_state.press(action);
+        }
+    }
+
+    /// 记录一次释放（边沿，移出 held）。未知 code 忽略。
+    #[func]
+    fn input_release(&mut self, code: i64, payload: i64) {
+        if let Some(action) = woworld_core::input::InputAction::from_code(code, payload) {
+            self.input_state.release(action);
+        }
+    }
+
+    /// 设置原始移动输入（相机相对：x=左右平移, z=前后，+z 为前进）。
+    /// player_input_system 用 camera_transform 转世界空间。
+    #[func]
+    fn input_set_move(&mut self, x: f32, z: f32) {
+        self.input_state.move_direction = glam::Vec2::new(x, z);
+    }
+
+    /// 设置相机变换（Godot Transform3D → glam Mat4）——用于相机相对移动转世界空间。
+    /// 传玩家 body 的 global_transform（仅 yaw，水平朝向；pitch 在 Camera 子节点）。
+    #[func]
+    fn input_set_camera_transform(&mut self, xform: Transform3D) {
+        self.input_state.camera_transform = transform3d_to_mat4(xform);
+    }
+
+    /// Block A0 是否对玩家实体行使渲染权威（player.gd 消费——决定是否让权）。
+    ///
+    /// 仅当「自由裸玩家 + 非飞行」时为真：此时 Block A0 地面控制器权威，
+    /// player.gd 停自身物理。夺舍 NPC（无 CC 组件，走 legacy player.gd 移动）
+    /// 或 G 飞行旁路时返回 false，player.gd 自行驱动节点。
+    #[func]
+    fn is_block_a0_driving(&self) -> bool {
+        self.block_a0_driving && !self.is_possessing()
+    }
+
+    /// 设置 Block A0 渲染权威开关（player.gd 切 G 飞行时调用）。
+    #[func]
+    fn set_block_a0_driving(&mut self, driving: bool) {
+        self.block_a0_driving = driving;
     }
 
     /// 创建完整 NPC Entity（全 Component bundle），返回 hecs Entity

@@ -194,6 +194,63 @@ impl InputAction {
     pub fn is_meta(self) -> bool {
         self.domain().is_none()
     }
+
+    /// 从整数编码 + 载荷还原 `InputAction`——Godot `input_bridge.gd` 传输约定。
+    ///
+    /// GDScript 无法直接构造 Rust 枚举，故桥接层以 `(code, payload)` 整数对喂入
+    /// `WorldDriver::input_press/input_release`，此函数还原为强类型枚举。
+    /// `payload` 仅对带载荷变体（`SpecialSkill`/`HotbarSlot`）有意义，其余忽略。
+    ///
+    /// 编码稳定契约——改动需同步 `input_bridge.gd`。未知 code 返回 `None`（桥接层丢弃）。
+    pub fn from_code(code: i64, payload: i64) -> Option<InputAction> {
+        use InputAction::*;
+        let slot = payload.clamp(0, u8::MAX as i64) as u8;
+        Some(match code {
+            // 移动 1-5
+            1 => Jump,
+            2 => Sprint,
+            3 => Crouch,
+            4 => Crawl,
+            5 => Walk,
+            // 战斗 10-19
+            10 => LightAttack,
+            11 => HeavyAttack,
+            12 => Block,
+            13 => Dodge,
+            14 => Parry,
+            15 => TargetLock,
+            16 => TargetSwitchLeft,
+            17 => TargetSwitchRight,
+            18 => CombatStyleSwitch,
+            19 => SpecialSkill(slot),
+            // 交互 20-23
+            20 => Interact,
+            21 => InteractWheel,
+            22 => PickUpAll,
+            23 => Talk,
+            // 物品 30-34
+            30 => HotbarSlot(slot),
+            31 => UseItem,
+            32 => DropItem,
+            33 => ThrowItem,
+            34 => QuickInventory,
+            // 角色与视角 40-44
+            40 => CameraRotate,
+            41 => CameraZoom,
+            42 => FirstPersonToggle,
+            43 => CharacterSwitch,
+            44 => ControlModeToggle,
+            // 系统 50-56
+            50 => OpenMap,
+            51 => OpenJournal,
+            52 => OpenSkills,
+            53 => OpenInventory,
+            54 => QuickSave,
+            55 => QuickLoad,
+            56 => PauseMenu,
+            _ => return None,
+        })
+    }
 }
 
 // ── HeldItemKind ────────────────────────────────────────────────
@@ -458,6 +515,40 @@ mod tests {
         assert_ne!(InputAction::SpecialSkill(0), InputAction::SpecialSkill(1));
         assert_ne!(InputAction::HotbarSlot(1), InputAction::HotbarSlot(2));
         assert_eq!(InputAction::HotbarSlot(3), InputAction::HotbarSlot(3));
+    }
+
+    #[test]
+    fn test_input_action_from_code_basic() {
+        assert_eq!(InputAction::from_code(1, 0), Some(InputAction::Jump));
+        assert_eq!(InputAction::from_code(13, 0), Some(InputAction::Dodge));
+        assert_eq!(InputAction::from_code(20, 0), Some(InputAction::Interact));
+        assert_eq!(InputAction::from_code(56, 0), Some(InputAction::PauseMenu));
+    }
+
+    #[test]
+    fn test_input_action_from_code_payload() {
+        assert_eq!(
+            InputAction::from_code(19, 3),
+            Some(InputAction::SpecialSkill(3))
+        );
+        assert_eq!(
+            InputAction::from_code(30, 7),
+            Some(InputAction::HotbarSlot(7))
+        );
+        // payload 对无载荷变体无影响
+        assert_eq!(InputAction::from_code(1, 99), Some(InputAction::Jump));
+        // payload 越界钳制到 u8
+        assert_eq!(
+            InputAction::from_code(30, 9999),
+            Some(InputAction::HotbarSlot(255))
+        );
+    }
+
+    #[test]
+    fn test_input_action_from_code_unknown_is_none() {
+        assert_eq!(InputAction::from_code(0, 0), None); // MoveDirection 不经 press 路由
+        assert_eq!(InputAction::from_code(999, 0), None);
+        assert_eq!(InputAction::from_code(-1, 0), None);
     }
 
     // ── HotbarConfig ──

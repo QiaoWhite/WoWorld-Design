@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://main001"]
 
 [ext_resource type="Script" uid="uid://bkt0dafpvvvfe" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scripts/input_bridge.gd" id="2_inputbridge"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.3, 0.45, 0.65, 1)
@@ -29,6 +30,9 @@ shadow_enabled = true
 
 [node name="WorldDriver" type="WorldDriver" parent="."]
 
+[node name="InputBridge" type="Node" parent="."]
+script = ExtResource("2_inputbridge")
+
 [node name="OceanPlane" type="OceanPlane" parent="."]
 
 [node name="Player" type="CharacterBody3D" parent="."]
@@ -37,7 +41,7 @@ script = ExtResource("1_player")
 
 [node name="Camera3D" type="Camera3D" parent="Player"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
-near = 1.0
+near = 0.2
 far = 20000.0
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]

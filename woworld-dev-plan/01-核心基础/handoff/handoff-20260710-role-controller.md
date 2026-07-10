@@ -29,42 +29,15 @@
 
 > ⚠️ 这是最重要的段落。下一会话 AI 启动时首先读这里。
 
-- **当前冲刺**: 角色控制器核心三层实现 — 状态: 代码完成，**管线未集成**
-- **最后操作**: 实现后审计——修复 can_interrupt CommitmentLevel 门控、CoyoteTime 触发顺序、取消窗口计时等 8 项缺陷
-- **机械门状态**: build ✅ / test ✅ (920 passed: 358 core + 478 ecs + 58 worldgen + 26 atmosphere) / clippy ✅
-- **未提交文件**:
-  ```
-  M  woworld/Cargo.lock
-  M  woworld/crates/woworld_core/src/lib.rs
-  M  woworld/crates/woworld_ecs/Cargo.toml
-  M  woworld/crates/woworld_ecs/src/components/mod.rs
-  M  woworld/crates/woworld_ecs/src/lib.rs
-  M  woworld/crates/woworld_ecs/src/resources/mod.rs
-  M  woworld/crates/woworld_ecs/src/systems/mod.rs
-  ?? woworld/assets/action_registry.toml
-  ?? woworld/assets/input_feel.toml
-  ?? woworld/assets/movement_profiles.toml
-  ?? woworld/crates/woworld_core/src/action.rs
-  ?? woworld/crates/woworld_core/src/input.rs
-  ?? woworld/crates/woworld_core/src/kinematics.rs
-  ?? woworld/crates/woworld_core/src/movement.rs
-  ?? woworld/crates/woworld_ecs/src/components/action_state.rs
-  ?? woworld/crates/woworld_ecs/src/components/input_state.rs
-  ?? woworld/crates/woworld_ecs/src/components/movement_state.rs
-  ?? woworld/crates/woworld_ecs/src/events/mod.rs
-  ?? woworld/crates/woworld_ecs/src/resources/action_instance_counter.rs
-  ?? woworld/crates/woworld_ecs/src/resources/action_registry.rs
-  ?? woworld/crates/woworld_ecs/src/resources/movement_profile_registry.rs
-  ?? woworld/crates/woworld_ecs/src/systems/action/
-  ?? woworld/crates/woworld_ecs/src/systems/input/
-  ?? woworld/crates/woworld_ecs/src/systems/movement/
-  ```
-- **下一步（精确）**: Step 5e 已完成 ✅（Block A0 集成 + 冒烟实体 + 集成测试 `tests/step5e_pipeline.rs`）。候选下一步:
-  1. **ActionResolver sprint**（004）—— InputAction 枚举 + 六层映射 + 动作轮盘 + 域过滤；接通玩家按键→ActionRequest
-  2. **Continuous/Charge 运行时**（006）—— 让 block/aim_bow 可激活
-  3. 修 DEVLOG §七 登记的延后项（A2/A3/M3/M4/I1-I5）
-  4. ✅ A6（EMERGENCY 穿透 Locked）+ D1（文档 002 §六 订正 + sync）均已裁决执行
-  5. 删除 Step 5e 冒烟测试实体（terrain_chunk.rs ready() 标记块）
+- **当前冲刺**: 角色控制器 — **核心三层 + Step 5e 管线集成 + 全量审计 + A6/D1 全部完成，已提交推送**
+- **最后操作**: 移除 Step 5e 冒烟测试实体（保留 Block A0 管线）→ commit `ec33720` → push origin/master
+- **机械门状态**: build ✅ / test ✅ (927 passed: 358 core + 484 ecs + 58 worldgen + 26 atmosphere + 1 集成) / clippy ✅ 零告警
+- **git 状态**: 本会话 3 提交全部推送到 origin/master — `745e51f`(角色控制器特性) → `72742be`(杂项) → `ec33720`(移除冒烟实体)。工作树干净（仅 .obsidian 编辑器状态持续抖动）
+- **下一步（精确）**: Step 5e 集成 + 审计 + A6/D1 + 冒烟实体移除 **全部完成并推送**。Block A0 管线就位但**处休眠**（当前无实体挂新组件，绞杀者 no-op）——待下列工作把真实实体接上即激活。候选（按优先级）:
+  1. 🥇 **ActionResolver sprint**（004）—— InputAction 枚举 + 六层映射 + 动作轮盘 + ControlMode 域过滤；接通玩家按键→ActionRequest，让 Block A0 真正跑起来
+  2. 🥈 **NPC/玩家迁移**—— 给实体挂 CMovementState/CMoveIntent 等新组件，从旧 npc::movement 迁到新 movement_system
+  3. **Continuous/Charge 运行时**（006）—— 让 block/aim_bow 可激活
+  4. 修延后项 A2/A3/M3/M4/I1-I5（见「已知问题」表）
 - **已知陷阱**:
   - ⚠️ CoyoteTimeSystem **必须**在 MovementModeSystem 之前运行——否则 CPrevMovementState 已被覆盖
   - ⚠️ 新 MovementSystem query 必须带 `Without<Movement>`——否则会碰到旧 NPC 的 Movement Component
@@ -77,7 +50,7 @@
 
 ```
 cargo build --workspace  ✅
-cargo test --workspace   ✅ 920 passed (358 core + 478 ecs + 58 worldgen + 26 atmosphere)
+cargo test --workspace   ✅ 927 passed (358 core + 484 ecs + 58 worldgen + 26 atmosphere + 1 集成)
 cargo clippy --workspace ✅ 零警告
 ```
 
@@ -85,8 +58,8 @@ cargo clippy --workspace ✅ 零警告
 
 | # | 问题 | 级别 | 状态/计划 |
 |---|------|------|----------|
-| 1 | ECS 管线集成 | — | ✅ Step 5e 完成 |
-| 2 | 无实体携带新 Component | — | ✅ 冒烟测试实体已 spawn |
+| 1 | ECS 管线集成 | — | ✅ Step 5e 完成（Block A0，已推送）|
+| 2 | Block A0 管线休眠（无实体挂新组件）| — | 预期——绞杀者 no-op，待 ActionResolver/NPC 迁移激活。冒烟实体验证后已删 |
 | A2 | InterruptSource 硬编码语义失真（System→全 Staggered，Instinct→全 DodgeCancel） | 🟡 | 战斗/ActionResolver sprint |
 | A3 | interrupt_on_move 存而不用（interact 应被移动打断） | 🟢 | ActionResolver sprint |
 | A7 | Active→Recovery 切换帧 cancel_window 误开 1 帧 | 🟢 | 随动作系统完善 |
@@ -100,6 +73,6 @@ cargo clippy --workspace ✅ 零警告
 
 | 候选 | 依赖前提 | 优先级 |
 |------|---------|--------|
-| **Step 5e: 管线集成 + 测试实体** | 当前冲刺代码 | 🥇 立即 |
-| ActionResolver sprint | 管线集成完成 | 🥈 |
-| NPC 迁移到新 MovementSystem | 管线集成完成 | 🥉 |
+| **ActionResolver sprint（004）** | Block A0 已就位 | 🥇 立即 |
+| NPC/玩家迁移到新 MovementSystem | Block A0 已就位 | 🥈 |
+| Continuous/Charge 运行时（006）| ActionResolver | 🥉 |

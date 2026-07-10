@@ -112,5 +112,10 @@
 - **A6：是** → EMERGENCY(100·死亡级) System 中断穿透 Locked 承诺（action_controller.rs + 2 测试），濒死者不再卡死在锁定动作。
 - **D1：改** → 002 §六 执行顺序订正为 coyote→stamina→movement_mode，附订正说明。已跑 `/woworldidea-design sync`——零跨模块影响（三系统无外部引用），17-模型动作与物理 变更日志追加内部订正条目。
 
-### 入库
-Step 5e 集成 + 8 审计修复共约 12 文件变更（叠加本冲刺 25 文件），待统一 commit。
+### 入库（已完成）
+3 提交全部推送到 origin/master：
+- `745e51f` 角色控制器特性（53 文件·13 规格 + 核心三层 + Step 5e 集成 + 8 修复 + A6/D1）
+- `72742be` 剩余工作区改动（提示词考量 + Obsidian 工作区）
+- `ec33720` 移除 Step 5e 冒烟测试实体（保留 Block A0 管线，休眠待真实实体接入）
+
+927 tests 全绿 · clippy 零告警 · 本地=远程同步 · 工作树干净。

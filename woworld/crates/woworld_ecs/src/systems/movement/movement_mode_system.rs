@@ -32,14 +32,12 @@ fn compute_locomotion_mode(pos: Vec3, terrain: &dyn TerrainQuery) -> LocomotionM
 ///
 /// Query: `(CMovementState, CPrevMovementState, CMovementRecovery, Position)` + TerrainQuery.
 pub fn movement_mode_system(world: &mut hecs::World, terrain: &dyn TerrainQuery) {
-    for (_, (move_state, prev_state, recovery, pos)) in world
-        .query_mut::<(
-            &mut CMovementState,
-            &mut CPrevMovementState,
-            &mut CMovementRecovery,
-            &Position,
-        )>()
-    {
+    for (_, (move_state, prev_state, recovery, pos)) in world.query_mut::<(
+        &mut CMovementState,
+        &mut CPrevMovementState,
+        &mut CMovementRecovery,
+        &Position,
+    )>() {
         let current_pos = pos.0;
         let current_loco = compute_locomotion_mode(current_pos, terrain);
         let _prev_loco = compute_locomotion_mode(pos.0, terrain);
@@ -187,14 +185,12 @@ mod tests {
 
         movement_mode_system(&mut world, &terrain);
 
-        for (_, (ms, _prev, _rec, _pos)) in world
-            .query_mut::<(
-                &CMovementState,
-                &CPrevMovementState,
-                &CMovementRecovery,
-                &Position,
-            )>()
-        {
+        for (_, (ms, _prev, _rec, _pos)) in world.query_mut::<(
+            &CMovementState,
+            &CPrevMovementState,
+            &CMovementRecovery,
+            &Position,
+        )>() {
             assert!(ms.0.special.is_none());
         }
     }
@@ -221,14 +217,12 @@ mod tests {
 
         movement_mode_system(&mut world, &terrain);
 
-        for (_, (ms, _, _, _)) in world
-            .query_mut::<(
-                &CMovementState,
-                &CPrevMovementState,
-                &CMovementRecovery,
-                &Position,
-            )>()
-        {
+        for (_, (ms, _, _, _)) in world.query_mut::<(
+            &CMovementState,
+            &CPrevMovementState,
+            &CMovementRecovery,
+            &Position,
+        )>() {
             match ms.0.special {
                 Some(SpecialMode::Swimming(_)) => {} // 正确
                 other => panic!("expected Swimming, got {:?}", other),
@@ -261,14 +255,12 @@ mod tests {
 
         movement_mode_system(&mut world, &terrain);
 
-        for (_, (_, _, rec, _)) in world
-            .query_mut::<(
-                &CMovementState,
-                &CPrevMovementState,
-                &CMovementRecovery,
-                &Position,
-            )>()
-        {
+        for (_, (_, _, rec, _)) in world.query_mut::<(
+            &CMovementState,
+            &CPrevMovementState,
+            &CMovementRecovery,
+            &Position,
+        )>() {
             assert_eq!(rec.0.len(), 1); // 踩空→自愿状态入栈
         }
     }
@@ -301,14 +293,12 @@ mod tests {
 
         movement_mode_system(&mut world, &terrain);
 
-        for (_, (ms, _, _, _)) in world
-            .query_mut::<(
-                &CMovementState,
-                &CPrevMovementState,
-                &CMovementRecovery,
-                &Position,
-            )>()
-        {
+        for (_, (ms, _, _, _)) in world.query_mut::<(
+            &CMovementState,
+            &CPrevMovementState,
+            &CMovementRecovery,
+            &Position,
+        )>() {
             assert!(ms.0.special.is_none());
             assert_eq!(ms.0.pace, Pace::Running); // 恢复自愿状态
         }

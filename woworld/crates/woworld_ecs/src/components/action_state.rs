@@ -11,10 +11,8 @@ use woworld_core::action::{ActionRequest, ActiveAction};
 /// 当前执行的离散动作——ActionController 的状态存于此。
 ///
 /// None = 空闲，可以接受新请求。
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct CActiveAction(pub Option<ActiveAction>);
-
 
 /// 动作请求缓冲区——多来源（玩家/GOAP/本能/系统）写入。
 ///
@@ -31,9 +29,7 @@ impl Default for CActionRequestBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use woworld_core::action::{
-        ActionId, ActionParams, ActionSource, ActionRequest,
-    };
+    use woworld_core::action::{ActionId, ActionParams, ActionRequest, ActionSource};
 
     #[test]
     fn test_cactive_action_default_none() {

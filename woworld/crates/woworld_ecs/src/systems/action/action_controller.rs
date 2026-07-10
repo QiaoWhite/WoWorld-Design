@@ -38,9 +38,9 @@ pub fn action_controller_tick(
 
     // ── 1. 处理释放信号（priority=RELEASE 的同 action_id 请求）──
     if let Some(active) = current.as_ref() {
-        let should_release = requests.iter().any(|r| {
-            r.action_id == active.action_id && r.priority == action_priority::RELEASE
-        });
+        let should_release = requests
+            .iter()
+            .any(|r| r.action_id == active.action_id && r.priority == action_priority::RELEASE);
         if should_release {
             let instance = active.instance;
             let action_id = active.action_id;

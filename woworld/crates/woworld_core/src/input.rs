@@ -4,7 +4,9 @@
 //!
 //! 参见: `WoWorld-Design/.../角色控制器/008-手感系统.md`
 
-use crate::action::ActionRequest;
+use crate::action::{ActionId, ActionRequest};
+use crate::player::ActionDomain;
+use glam::{Mat4, Vec2};
 
 // ── BufferPriority ──────────────────────────────────────────────
 
@@ -109,6 +111,238 @@ impl BufferedInput {
     }
 }
 
+// ── InputAction ─────────────────────────────────────────────────
+
+/// 玩家输入动作——平台无关枚举。
+///
+/// Godot InputMap → `input_bridge.gd` → `InputState` → 此枚举。
+/// 定义在 `woworld_core`——Godot 桥接层和 Rust 核心都能看到。
+///
+/// 参见: `004-ActionResolver与输入解析.md` §一。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum InputAction {
+    // ── 移动（持续）──
+    MoveDirection,
+    Jump,
+    Sprint,
+    Crouch,
+    Crawl,
+    Walk,
+    // ── 战斗（瞬时）──
+    LightAttack,
+    HeavyAttack,
+    Block,
+    Dodge,
+    Parry,
+    TargetLock,
+    TargetSwitchLeft,
+    TargetSwitchRight,
+    CombatStyleSwitch,
+    SpecialSkill(u8),
+    // ── 交互（瞬时）──
+    Interact,
+    InteractWheel,
+    PickUpAll,
+    Talk,
+    // ── 物品（瞬时）──
+    HotbarSlot(u8),
+    UseItem,
+    DropItem,
+    ThrowItem,
+    QuickInventory,
+    // ── 角色与视角 ──
+    CameraRotate,
+    CameraZoom,
+    FirstPersonToggle,
+    CharacterSwitch,
+    ControlModeToggle,
+    // ── 系统 ──
+    OpenMap,
+    OpenJournal,
+    OpenSkills,
+    OpenInventory,
+    QuickSave,
+    QuickLoad,
+    PauseMenu,
+}
+
+impl InputAction {
+    /// 该动作所属的行为域——用于 `ControlMode` 域过滤（004 §五）。
+    ///
+    /// `None` = 元操作（相机/角色切换/系统菜单）——不受 ControlMode 过滤，恒可用。
+    ///
+    /// 域映射 Provisional（Talk→Speech 等边界情形待实机调整）；仅在
+    /// `DomainDelegated`（玩家系统 Phase 2）落地后才产生实际过滤效果。
+    pub fn domain(self) -> Option<ActionDomain> {
+        use InputAction::*;
+        match self {
+            MoveDirection | Jump | Sprint | Crouch | Crawl | Walk => Some(ActionDomain::Movement),
+            LightAttack | HeavyAttack | Block | Dodge | Parry | TargetLock | TargetSwitchLeft
+            | TargetSwitchRight | CombatStyleSwitch | SpecialSkill(_) => Some(ActionDomain::Combat),
+            Interact | InteractWheel | PickUpAll => Some(ActionDomain::Interaction),
+            Talk => Some(ActionDomain::Speech),
+            HotbarSlot(_) | UseItem | DropItem | ThrowItem | QuickInventory => {
+                Some(ActionDomain::ItemUse)
+            }
+            CameraRotate | CameraZoom | FirstPersonToggle | CharacterSwitch | ControlModeToggle
+            | OpenMap | OpenJournal | OpenSkills | OpenInventory | QuickSave | QuickLoad
+            | PauseMenu => None,
+        }
+    }
+
+    /// 是否为元操作（不受 ControlMode 域过滤）。
+    pub fn is_meta(self) -> bool {
+        self.domain().is_none()
+    }
+}
+
+// ── HeldItemKind ────────────────────────────────────────────────
+
+/// 手持物类别——ActionResolver 第二层装备映射的**输入**（004 §二）。
+///
+/// ⚠️ **Stub 数据源**：装备系统未接线前，实体默认视为 `Empty`（空手）。
+/// 装备系统建好后填充对应组件即接线，resolver 逻辑零改动。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum HeldItemKind {
+    /// 空手——攻击键映射到徒手/通用近战
+    #[default]
+    Empty,
+    /// 近战武器——攻击键映射到轻/重攻击
+    Melee,
+    /// 远程武器（弓）——攻击键映射到拉弓瞄准
+    Ranged,
+    /// 工具（稿/斧）——攻击键结合上下文映射到采集
+    Tool,
+}
+
+// ── HotbarConfig ────────────────────────────────────────────────
+
+/// 热键栏配置——数字键槽位 → `ActionId`（玩家拖拽配置，004 §二 第三层）。
+///
+/// 槽位 0-9：键 `1`-`9` 映射到 idx 1-9，idx 0 预留。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HotbarConfig {
+    slots: [Option<ActionId>; 10],
+}
+
+impl HotbarConfig {
+    /// 空热键栏。
+    pub fn new() -> Self {
+        Self { slots: [None; 10] }
+    }
+
+    /// 绑定槽位 → 动作。越界槽位忽略。
+    pub fn set(&mut self, slot: u8, action: ActionId) {
+        if (slot as usize) < self.slots.len() {
+            self.slots[slot as usize] = Some(action);
+        }
+    }
+
+    /// 查询槽位绑定的动作。
+    pub fn get(&self, slot: u8) -> Option<ActionId> {
+        self.slots.get(slot as usize).copied().flatten()
+    }
+}
+
+impl Default for HotbarConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ── InputState ──────────────────────────────────────────────────
+
+/// 单帧输入快照——`input_bridge.gd` 每帧填充，ActionResolver/PlayerInput 消费。
+///
+/// 非 ECS Component——作为 `WorldDriver` 字段按引用传入系统（与 `ActionRegistry`
+/// 等资源同模式）。仅玩家输入源。
+///
+/// `pressed`/`released` 为**本帧边沿**（begin_frame 清空），`held` 跨帧持续。
+///
+/// 参见: `004-ActionResolver与输入解析.md` §一/§五/§六。
+#[derive(Debug, Clone)]
+pub struct InputState {
+    /// 本帧新按下的动作（边沿）。
+    pressed: Vec<InputAction>,
+    /// 本帧释放的动作（边沿）。
+    released: Vec<InputAction>,
+    /// 当前按住的动作（跨帧持续）。
+    held: Vec<InputAction>,
+    /// 原始移动输入（WASD/摇杆，相机相对——由 PlayerInputSystem 转世界空间）。
+    pub move_direction: Vec2,
+    /// 相机变换——用于将 move_direction 转到世界空间。
+    pub camera_transform: Mat4,
+    /// 相机环顾增量（鼠标/右摇杆）。
+    pub camera_look_delta: Vec2,
+    /// 相机缩放增量（滚轮）。
+    pub camera_zoom_delta: f32,
+}
+
+impl Default for InputState {
+    fn default() -> Self {
+        Self {
+            pressed: Vec::new(),
+            released: Vec::new(),
+            held: Vec::new(),
+            move_direction: Vec2::ZERO,
+            camera_transform: Mat4::IDENTITY,
+            camera_look_delta: Vec2::ZERO,
+            camera_zoom_delta: 0.0,
+        }
+    }
+}
+
+impl InputState {
+    /// 本帧是否新按下该动作。
+    pub fn was_pressed(&self, action: InputAction) -> bool {
+        self.pressed.contains(&action)
+    }
+
+    /// 本帧是否释放该动作。
+    pub fn was_released(&self, action: InputAction) -> bool {
+        self.released.contains(&action)
+    }
+
+    /// 该动作当前是否按住。
+    pub fn is_held(&self, action: InputAction) -> bool {
+        self.held.contains(&action)
+    }
+
+    /// 本帧新按下的动作切片。
+    pub fn pressed_actions(&self) -> &[InputAction] {
+        &self.pressed
+    }
+
+    /// 当前按住的动作切片。
+    pub fn held_actions(&self) -> &[InputAction] {
+        &self.held
+    }
+
+    /// 记录一次按下（桥接层/测试用）——同时进入 pressed 与 held。
+    pub fn press(&mut self, action: InputAction) {
+        if !self.pressed.contains(&action) {
+            self.pressed.push(action);
+        }
+        if !self.held.contains(&action) {
+            self.held.push(action);
+        }
+    }
+
+    /// 记录一次释放（桥接层/测试用）——进入 released，移出 held。
+    pub fn release(&mut self, action: InputAction) {
+        if !self.released.contains(&action) {
+            self.released.push(action);
+        }
+        self.held.retain(|a| *a != action);
+    }
+
+    /// 帧初清理——清空按下/释放边沿，held 保持。
+    pub fn begin_frame(&mut self) {
+        self.pressed.clear();
+        self.released.clear();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,5 +416,110 @@ mod tests {
         assert!((bi.pressed_at - 5.0).abs() < 0.001);
         assert!((bi.expires_at - 5.15).abs() < 0.001);
         assert_eq!(bi.buffer_priority, BufferPriority::Combat);
+    }
+
+    // ── InputAction ──
+
+    #[test]
+    fn test_input_action_domain_mapping() {
+        assert_eq!(InputAction::Jump.domain(), Some(ActionDomain::Movement));
+        assert_eq!(
+            InputAction::LightAttack.domain(),
+            Some(ActionDomain::Combat)
+        );
+        assert_eq!(
+            InputAction::SpecialSkill(3).domain(),
+            Some(ActionDomain::Combat)
+        );
+        assert_eq!(
+            InputAction::Interact.domain(),
+            Some(ActionDomain::Interaction)
+        );
+        assert_eq!(InputAction::Talk.domain(), Some(ActionDomain::Speech));
+        assert_eq!(InputAction::UseItem.domain(), Some(ActionDomain::ItemUse));
+        assert_eq!(
+            InputAction::HotbarSlot(1).domain(),
+            Some(ActionDomain::ItemUse)
+        );
+    }
+
+    #[test]
+    fn test_input_action_meta_has_no_domain() {
+        assert!(InputAction::ControlModeToggle.is_meta());
+        assert!(InputAction::CameraRotate.is_meta());
+        assert!(InputAction::PauseMenu.is_meta());
+        assert!(InputAction::CharacterSwitch.is_meta());
+        assert_eq!(InputAction::PauseMenu.domain(), None);
+        assert!(!InputAction::Jump.is_meta());
+    }
+
+    #[test]
+    fn test_input_action_payload_variants_distinct() {
+        assert_ne!(InputAction::SpecialSkill(0), InputAction::SpecialSkill(1));
+        assert_ne!(InputAction::HotbarSlot(1), InputAction::HotbarSlot(2));
+        assert_eq!(InputAction::HotbarSlot(3), InputAction::HotbarSlot(3));
+    }
+
+    // ── HotbarConfig ──
+
+    #[test]
+    fn test_hotbar_config_set_get() {
+        let mut hb = HotbarConfig::new();
+        assert_eq!(hb.get(1), None);
+        hb.set(1, ActionId(42));
+        hb.set(9, ActionId(7));
+        assert_eq!(hb.get(1), Some(ActionId(42)));
+        assert_eq!(hb.get(9), Some(ActionId(7)));
+        assert_eq!(hb.get(5), None);
+    }
+
+    #[test]
+    fn test_hotbar_config_out_of_range_ignored() {
+        let mut hb = HotbarConfig::new();
+        hb.set(10, ActionId(1)); // 越界——忽略，不 panic
+        hb.set(200, ActionId(2));
+        assert_eq!(hb.get(10), None);
+        assert_eq!(hb.get(200), None);
+    }
+
+    // ── InputState ──
+
+    #[test]
+    fn test_input_state_press_hold_release() {
+        let mut s = InputState::default();
+        assert!(!s.is_held(InputAction::Jump));
+
+        s.press(InputAction::Jump);
+        assert!(s.was_pressed(InputAction::Jump));
+        assert!(s.is_held(InputAction::Jump));
+        assert!(!s.was_released(InputAction::Jump));
+
+        // 下一帧：边沿清空，held 保持
+        s.begin_frame();
+        assert!(!s.was_pressed(InputAction::Jump));
+        assert!(s.is_held(InputAction::Jump));
+
+        s.release(InputAction::Jump);
+        assert!(s.was_released(InputAction::Jump));
+        assert!(!s.is_held(InputAction::Jump));
+    }
+
+    #[test]
+    fn test_input_state_press_idempotent() {
+        let mut s = InputState::default();
+        s.press(InputAction::Sprint);
+        s.press(InputAction::Sprint);
+        assert_eq!(s.pressed_actions().len(), 1);
+        assert_eq!(s.held_actions().len(), 1);
+    }
+
+    #[test]
+    fn test_input_state_default_fields() {
+        let s = InputState::default();
+        assert_eq!(s.move_direction, Vec2::ZERO);
+        assert_eq!(s.camera_transform, Mat4::IDENTITY);
+        assert_eq!(s.camera_zoom_delta, 0.0);
+        assert!(s.pressed_actions().is_empty());
+        assert!(s.held_actions().is_empty());
     }
 }

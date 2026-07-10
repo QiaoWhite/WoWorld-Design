@@ -75,8 +75,7 @@ pub fn action_system(
                             let from = active.phase;
                             active.phase = woworld_core::action::ActionPhase::Recovery;
                             // 设置取消窗口
-                            active.cancel_window_open =
-                                def.cancel_window_ms > 0;
+                            active.cancel_window_open = def.cancel_window_ms > 0;
                             events.send(woworld_core::action::ActionLifecycleEvent::PhaseChanged {
                                 instance: active.instance,
                                 entity: eid,
@@ -89,9 +88,8 @@ pub fn action_system(
                         // ★ 取消窗口计时：在 Recovery 最后 cancel_window_ms 内开放
                         let recovery_elapsed = active.elapsed - windup_s - active_s;
                         let cancel_window_s = def.cancel_window_ms as f32 / 1000.0;
-                        active.cancel_window_open =
-                            cancel_window_s > 0.0
-                                && recovery_elapsed >= (recovery_s - cancel_window_s).max(0.0);
+                        active.cancel_window_open = cancel_window_s > 0.0
+                            && recovery_elapsed >= (recovery_s - cancel_window_s).max(0.0);
 
                         if active.elapsed >= windup_s + active_s + recovery_s {
                             let instance = active.instance;

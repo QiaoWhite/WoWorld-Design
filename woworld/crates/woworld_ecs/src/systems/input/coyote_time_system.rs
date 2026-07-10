@@ -65,16 +65,17 @@ pub fn coyote_time_system(world: &mut hecs::World, dt: f32, terrain: &dyn Terrai
             move_state.0.special,
             Some(SpecialMode::Airborne(
                 AirState::Jumping { .. }
-                | AirState::KnockedBack { .. }
-                | AirState::Terminal
-                | AirState::Gliding
+                    | AirState::KnockedBack { .. }
+                    | AirState::Terminal
+                    | AirState::Gliding
             ))
         );
 
         if prev_was_grounded
             && current_loco == LocomotionMode::PhysicsBody
             && !is_excluded_air_state
-            && coyote.remaining <= 0.0 // 尚未在窗口内
+            && coyote.remaining <= 0.0
+        // 尚未在窗口内
         {
             coyote.remaining = DEFAULT_COYOTE_TIME;
             coyote.left_ground_at = current_pos;
@@ -97,23 +98,47 @@ mod tests {
 
     impl TestTerrain {
         fn ground() -> Self {
-            Self { walkable: true, height: 0.0 }
+            Self {
+                walkable: true,
+                height: 0.0,
+            }
         }
         fn air() -> Self {
-            Self { walkable: false, height: 0.0 }
+            Self {
+                walkable: false,
+                height: 0.0,
+            }
         }
     }
 
     impl TerrainQuery for TestTerrain {
-        fn height_at(&self, _pos: WorldPos) -> f32 { self.height }
-        fn normal_at(&self, _pos: WorldPos) -> Vec3 { Vec3::Y }
-        fn terrain_raycast(&self, _o: WorldPos, _d: Vec3, _m: f32) -> Option<TerrainHit> { None }
-        fn density_at(&self, _pos: WorldPos) -> f32 { 0.0 }
-        fn is_walkable(&self, _pos: WorldPos) -> bool { self.walkable }
-        fn surface_material_at(&self, _pos: WorldPos) -> SurfaceMaterial { SurfaceMaterial::Grass }
-        fn medium_at(&self, _pos: WorldPos) -> woworld_core::material::Medium { woworld_core::material::Medium::Air }
-        fn light_level_at(&self, _pos: WorldPos) -> f32 { 1.0 }
-        fn sample_horizon(&self, _pos: WorldPos, _dirs: &[Vec3]) -> Vec<f32> { vec![] }
+        fn height_at(&self, _pos: WorldPos) -> f32 {
+            self.height
+        }
+        fn normal_at(&self, _pos: WorldPos) -> Vec3 {
+            Vec3::Y
+        }
+        fn terrain_raycast(&self, _o: WorldPos, _d: Vec3, _m: f32) -> Option<TerrainHit> {
+            None
+        }
+        fn density_at(&self, _pos: WorldPos) -> f32 {
+            0.0
+        }
+        fn is_walkable(&self, _pos: WorldPos) -> bool {
+            self.walkable
+        }
+        fn surface_material_at(&self, _pos: WorldPos) -> SurfaceMaterial {
+            SurfaceMaterial::Grass
+        }
+        fn medium_at(&self, _pos: WorldPos) -> woworld_core::material::Medium {
+            woworld_core::material::Medium::Air
+        }
+        fn light_level_at(&self, _pos: WorldPos) -> f32 {
+            1.0
+        }
+        fn sample_horizon(&self, _pos: WorldPos, _dirs: &[Vec3]) -> Vec<f32> {
+            vec![]
+        }
     }
 
     #[test]
@@ -130,7 +155,12 @@ mod tests {
 
         coyote_time_system(&mut world, 0.016, &terrain);
 
-        for (_, (coyote, _, _, _)) in world.query_mut::<(&CCoyoteTime, &CMovementState, &CPrevMovementState, &Position)>() {
+        for (_, (coyote, _, _, _)) in world.query_mut::<(
+            &CCoyoteTime,
+            &CMovementState,
+            &CPrevMovementState,
+            &Position,
+        )>() {
             assert!(coyote.remaining > 0.0);
         }
     }
@@ -155,7 +185,12 @@ mod tests {
 
         coyote_time_system(&mut world, 0.016, &terrain);
 
-        for (_, (coyote, _, _, _)) in world.query_mut::<(&CCoyoteTime, &CMovementState, &CPrevMovementState, &Position)>() {
+        for (_, (coyote, _, _, _)) in world.query_mut::<(
+            &CCoyoteTime,
+            &CMovementState,
+            &CPrevMovementState,
+            &Position,
+        )>() {
             assert_eq!(coyote.remaining, 0.0);
         }
     }
@@ -179,7 +214,12 @@ mod tests {
 
         coyote_time_system(&mut world, 0.016, &terrain);
 
-        for (_, (coyote, _, _, _)) in world.query_mut::<(&CCoyoteTime, &CMovementState, &CPrevMovementState, &Position)>() {
+        for (_, (coyote, _, _, _)) in world.query_mut::<(
+            &CCoyoteTime,
+            &CMovementState,
+            &CPrevMovementState,
+            &Position,
+        )>() {
             assert_eq!(coyote.remaining, 0.0);
         }
     }
@@ -190,7 +230,10 @@ mod tests {
         let terrain = TestTerrain::ground();
 
         world.spawn((
-            CCoyoteTime { remaining: 0.1, left_ground_at: Vec3::ZERO },
+            CCoyoteTime {
+                remaining: 0.1,
+                left_ground_at: Vec3::ZERO,
+            },
             CMovementState::default(),
             CPrevMovementState(MovementState::default()),
             Position(Vec3::ZERO),
@@ -198,7 +241,12 @@ mod tests {
 
         coyote_time_system(&mut world, 0.016, &terrain);
 
-        for (_, (coyote, _, _, _)) in world.query_mut::<(&CCoyoteTime, &CMovementState, &CPrevMovementState, &Position)>() {
+        for (_, (coyote, _, _, _)) in world.query_mut::<(
+            &CCoyoteTime,
+            &CMovementState,
+            &CPrevMovementState,
+            &Position,
+        )>() {
             assert_eq!(coyote.remaining, 0.0);
         }
     }
@@ -209,7 +257,10 @@ mod tests {
         let terrain = TestTerrain::air();
 
         world.spawn((
-            CCoyoteTime { remaining: 0.15, left_ground_at: Vec3::ZERO },
+            CCoyoteTime {
+                remaining: 0.15,
+                left_ground_at: Vec3::ZERO,
+            },
             CMovementState::default(),
             CPrevMovementState(MovementState::default()),
             Position(Vec3::ZERO),
@@ -217,7 +268,12 @@ mod tests {
 
         coyote_time_system(&mut world, 0.05, &terrain);
 
-        for (_, (coyote, _, _, _)) in world.query_mut::<(&CCoyoteTime, &CMovementState, &CPrevMovementState, &Position)>() {
+        for (_, (coyote, _, _, _)) in world.query_mut::<(
+            &CCoyoteTime,
+            &CMovementState,
+            &CPrevMovementState,
+            &Position,
+        )>() {
             assert!((coyote.remaining - 0.10).abs() < 0.01);
         }
     }

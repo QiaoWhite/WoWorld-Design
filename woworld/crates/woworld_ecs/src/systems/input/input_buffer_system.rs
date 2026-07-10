@@ -44,7 +44,7 @@ pub fn input_buffer_system(world: &mut hecs::World, dt: f32) {
 mod tests {
     use super::*;
     use woworld_core::action::{ActionId, ActionParams, ActionRequest, ActionSource};
-    use woworld_core::input::{BufferedInput, BufferPriority};
+    use woworld_core::input::{BufferPriority, BufferedInput};
 
     #[test]
     fn test_buffer_entries_moved_to_request_buf() {
@@ -113,10 +113,7 @@ mod tests {
     fn test_non_player_entity_not_processed() {
         let mut world = hecs::World::new();
         // 没有 PlayerComponent——不被处理
-        world.spawn((
-            CInputBuffer::default(),
-            CActionRequestBuf::default(),
-        ));
+        world.spawn((CInputBuffer::default(), CActionRequestBuf::default()));
 
         input_buffer_system(&mut world, 0.016);
 
@@ -136,8 +133,7 @@ mod tests {
             feel: InputFeelConfig,
         }
         let toml = include_str!("../../../../../assets/input_feel.toml");
-        let w: Wrapper =
-            toml::from_str(toml).expect("input_feel.toml 应能解析进 InputFeelConfig");
+        let w: Wrapper = toml::from_str(toml).expect("input_feel.toml 应能解析进 InputFeelConfig");
         assert!((w.feel.coyote_time_ms - 150.0).abs() < 0.001);
         assert!((w.feel.ledge_snap_angle - 45.0).abs() < 0.001);
     }

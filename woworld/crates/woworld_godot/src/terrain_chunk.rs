@@ -184,10 +184,20 @@ pub struct WorldDriver {
     movement_profile_registry:
         woworld_ecs::resources::movement_profile_registry::MovementProfileRegistry,
     /// ★ Step 5e: 动作实例 ID 生成器（单调递增，因果链串联）
-    action_instance_counter:
-        woworld_ecs::resources::action_instance_counter::ActionInstanceCounter,
+    action_instance_counter: woworld_ecs::resources::action_instance_counter::ActionInstanceCounter,
     /// ★ Step 5e: 动作生命周期事件通道（双缓冲：begin_frame→send→mid_phase_flush→read）
     action_events: woworld_ecs::events::EventChannel<woworld_core::action::ActionLifecycleEvent>,
+
+    /// ★ Sprint-062: 玩家输入帧快照（Godot input_bridge 每帧填充——桥接层属下一冲刺）
+    input_state: woworld_core::input::InputState,
+    /// ★ Sprint-062: 热键栏配置（数字键 → ActionId）
+    hotbar_config: woworld_core::input::HotbarConfig,
+    /// ★ Sprint-062: 附近可交互目标（感官系统填充——stub，属未来冲刺）
+    nearby_interactables: woworld_ecs::resources::interact::NearbyInteractables,
+    /// ★ Sprint-062: 动作轮盘数据（Phase 0 填充 → Godot 渲染）
+    action_wheel: woworld_ecs::resources::interact::ActionWheelData,
+    /// ★ Sprint-062: 累计游戏时间（秒）——输入缓冲 pressed_at 基准
+    game_time_secs: f32,
 
     /// Phase 2 LODCoordinator: 上一帧 LOD 处方（迟滞比较）
     lod_prev: HashMap<EntityId, LodPrescription>,
@@ -278,6 +288,11 @@ impl INode3D for WorldDriver {
             action_instance_counter:
                 woworld_ecs::resources::action_instance_counter::ActionInstanceCounter::new(),
             action_events: woworld_ecs::events::EventChannel::new(),
+            input_state: woworld_core::input::InputState::default(),
+            hotbar_config: woworld_core::input::HotbarConfig::new(),
+            nearby_interactables: woworld_ecs::resources::interact::NearbyInteractables::new(),
+            action_wheel: woworld_ecs::resources::interact::ActionWheelData::new(),
+            game_time_secs: 0.0,
             lod_prev: HashMap::new(),
             lod_hyst: HashMap::new(),
             entity_renderer: None,
@@ -1745,26 +1760,49 @@ impl WorldDriver {
                 self.item_seeded = true;
             }
 
-            // ── Block A0: 角色控制器管线（Step 5e）──
-            //   顺序 = coyote → stamina → movement_mode → input_buffer → action(+flush) → movement
+            // ── Block A0: 角色控制器管线（Step 5e + Sprint-062 ActionResolver）──
+            //   顺序 = player_input → coyote → stamina → movement_mode
+            //          → input_buffer → action_resolver → interact_context → action(+flush) → movement
+            //   · player_input 最先：写 CMoveIntent.direction（Movement 域不经 resolver, 004 §五）
             //   · coyote 必须在 movement_mode 前：读 CPrevMovementState，后者会覆盖它
             //   · stamina 在 movement_mode 前：恢复栈快照到降级后的 pace，避免落地闪帧（D1 定论）
+            //   · action_resolver 在 input_buffer 后（001 Phase 0 序）：即时→CActionRequestBuf,
+            //     时敏→CInputBuffer（下一帧 input_buffer drain）；interact_context 解析交互键
             //   这些系统仅作用于带新组件的实体（绞杀者：movement 带 Without<Movement>），
-            //   旧 20 NPC 与裸玩家不受影响。
+            //   旧 20 NPC 与裸玩家不受影响。当前无实体挂新组件——管线休眠 no-op，
+            //   待 ActionResolver 桥接（下一冲刺）/ 夺舍迁移把实体接上即激活。
             {
                 use woworld_ecs::systems::action::action_system::action_system;
+                use woworld_ecs::systems::input::action_resolver_system::action_resolver_system;
                 use woworld_ecs::systems::input::coyote_time_system::coyote_time_system;
                 use woworld_ecs::systems::input::input_buffer_system::input_buffer_system;
+                use woworld_ecs::systems::input::interact_context_system::interact_context_system;
                 use woworld_ecs::systems::movement::movement_mode_system::movement_mode_system;
                 use woworld_ecs::systems::movement::movement_system::movement_system as cc_movement_system;
                 use woworld_ecs::systems::movement::stamina_gate_system::stamina_gate_system;
+                use woworld_ecs::systems::player::player_input::player_input_system;
 
                 let cc_dt = delta as f32;
+                self.game_time_secs += cc_dt;
                 self.action_events.begin_frame();
+                player_input_system(&mut self.ecs, &self.input_state);
                 coyote_time_system(&mut self.ecs, cc_dt, &self.terrain);
                 stamina_gate_system(&mut self.ecs, cc_dt);
                 movement_mode_system(&mut self.ecs, &self.terrain);
                 input_buffer_system(&mut self.ecs, cc_dt);
+                action_resolver_system(
+                    &mut self.ecs,
+                    &self.input_state,
+                    &self.hotbar_config,
+                    &self.action_registry,
+                    self.game_time_secs,
+                );
+                interact_context_system(
+                    &mut self.ecs,
+                    &self.input_state,
+                    &self.nearby_interactables,
+                    &mut self.action_wheel,
+                );
                 action_system(
                     &mut self.ecs,
                     cc_dt,

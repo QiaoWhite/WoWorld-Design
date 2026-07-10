@@ -582,7 +582,12 @@ mod tests {
             started_at: 0.0,
         };
         match event {
-            ActionLifecycleEvent::Started { instance, entity, action_id, .. } => {
+            ActionLifecycleEvent::Started {
+                instance,
+                entity,
+                action_id,
+                ..
+            } => {
                 assert_eq!(instance, ActionInstanceId(1));
                 assert_eq!(entity, EntityId(100));
                 assert_eq!(action_id, ActionId(5));

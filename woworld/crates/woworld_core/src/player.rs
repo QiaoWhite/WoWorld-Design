@@ -23,6 +23,21 @@ pub enum ControlMode {
     Manual,
 }
 
+impl ControlMode {
+    /// 玩家是否**手动控制**该行为域——ActionResolver 域过滤（004 §五）。
+    ///
+    /// - `Auto` → 恒 `false`（GOAP 驱动一切，玩家旁观）
+    /// - `Manual` → 恒 `true`（玩家接管全部 6 域）
+    ///
+    /// Phase 2 引入 `DomainDelegated` 后，此方法将按 per-域 bitmask 返回。
+    pub fn controls_domain(self, _domain: ActionDomain) -> bool {
+        match self {
+            ControlMode::Auto => false,
+            ControlMode::Manual => true,
+        }
+    }
+}
+
 /// 行为域——玩家可选择性地接管某些域，其余由 GOAP 自主
 ///
 /// 用于未来的 `ControlMode::DomainDelegated { manual_domains }`。
@@ -132,5 +147,17 @@ mod tests {
         assert_eq!(ControlMode::Auto, ControlMode::Auto);
         assert_eq!(ControlMode::Manual, ControlMode::Manual);
         assert_ne!(ControlMode::Auto, ControlMode::Manual);
+    }
+
+    #[test]
+    fn test_control_mode_controls_domain() {
+        // Auto: 玩家不控任何域
+        assert!(!ControlMode::Auto.controls_domain(ActionDomain::Combat));
+        assert!(!ControlMode::Auto.controls_domain(ActionDomain::Movement));
+        assert!(!ControlMode::Auto.controls_domain(ActionDomain::Interaction));
+        // Manual: 玩家控全部域
+        assert!(ControlMode::Manual.controls_domain(ActionDomain::Combat));
+        assert!(ControlMode::Manual.controls_domain(ActionDomain::Movement));
+        assert!(ControlMode::Manual.controls_domain(ActionDomain::MagicUse));
     }
 }

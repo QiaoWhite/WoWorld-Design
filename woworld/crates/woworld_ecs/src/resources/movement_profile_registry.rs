@@ -27,9 +27,7 @@ impl MovementProfileRegistry {
 
     /// 默认 profile（humanoid）。若未加载则返回 Default。
     pub fn default_profile(&self) -> &MovementProfile {
-        self.profiles
-            .get("humanoid")
-            .unwrap_or(&DEFAULT_PROFILE)
+        self.profiles.get("humanoid").unwrap_or(&DEFAULT_PROFILE)
     }
 
     /// 从 TOML 字符串加载 profile 集合。
@@ -139,7 +137,8 @@ mod tests {
         // ★ 集成前置：验证真实 assets/movement_profiles.toml 能被解析。
         let mut r = MovementProfileRegistry::new();
         let toml = include_str!("../../../../assets/movement_profiles.toml");
-        r.load_from_toml(toml).expect("movement_profiles.toml 应能解析");
+        r.load_from_toml(toml)
+            .expect("movement_profiles.toml 应能解析");
         assert!(r.get("humanoid").is_some(), "humanoid profile 应存在");
         assert!(r.get("wolf").is_some(), "wolf profile 应存在");
     }

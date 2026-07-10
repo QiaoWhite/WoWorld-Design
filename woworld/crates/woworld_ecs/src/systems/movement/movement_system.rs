@@ -65,7 +65,8 @@ pub fn movement_system(
             &mut Velocity,
         )>()
         .with::<&CMovementState>()
-        .without::<&crate::components::movement::Movement>() // ★ 绞杀者门控
+        .without::<&crate::components::movement::Movement>()
+    // ★ 绞杀者门控
     {
         let current_pos = pos.0;
         let current_vel = vel.0;
@@ -173,7 +174,12 @@ pub fn movement_system(
 // Sprint 1: RotationLock 仅存储，MovementSystem 不处理旋转。
 // 旋转由独立的朝向系统或 Godot 桥接层在后续 sprint 中实现。
 #[allow(dead_code)]
-fn _apply_rotation_lock(current_rot: glam::Quat, lock: RotationLock, _direction: Vec3, _camera: glam::Mat4) -> glam::Quat {
+fn _apply_rotation_lock(
+    current_rot: glam::Quat,
+    lock: RotationLock,
+    _direction: Vec3,
+    _camera: glam::Mat4,
+) -> glam::Quat {
     match lock {
         RotationLock::Free => current_rot,
         RotationLock::Locked => current_rot,

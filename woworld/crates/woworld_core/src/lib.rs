@@ -14,6 +14,7 @@ pub mod entity_visual;
 pub mod faith;
 pub mod id;
 pub mod input;
+pub mod interact;
 pub mod item;
 pub mod kinematics;
 pub mod lod;
@@ -52,6 +53,13 @@ pub mod prelude {
     pub use crate::entity_visual::{DebugField, DebugSection, EntityDebugSnapshot, EntityVisual};
     pub use crate::faith::{FaithId, FaithTheology, ReligiousMotivation, FAITH_ID_NONE};
     pub use crate::id::*;
+    pub use crate::input::{
+        BufferPriority, BufferedInput, HeldItemKind, HotbarConfig, InputAction, InputFeelConfig,
+        InputState,
+    };
+    pub use crate::interact::{
+        resolve_interact_target, InteractKind, Interactable, ResolvedInteract, INTERACT_RANGE,
+    };
     pub use crate::item::assembly::{
         ComponentConnection, ComponentSlot, ItemAssembly, ItemParams, JointType, ParamDef,
         ParamSchema, SlotInstanceId,
@@ -67,10 +75,7 @@ pub mod prelude {
         ItemProperties, ItemQuery, ItemStack, ItemState, ItemTag, Quality, Rarity,
         ITEM_DEF_ID_NONE,
     };
-    pub use crate::input::{BufferedInput, BufferPriority, InputFeelConfig};
-    pub use crate::kinematics::{
-        LocomotionMode, MovementLock, PhysicsRequirement, RotationLock,
-    };
+    pub use crate::kinematics::{LocomotionMode, MovementLock, PhysicsRequirement, RotationLock};
     pub use crate::lod::*;
     pub use crate::material::*;
     pub use crate::movement::{

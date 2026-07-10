@@ -7,7 +7,35 @@
 
 use glam::Vec3;
 use smallvec::SmallVec;
-use woworld_core::input::BufferedInput;
+use woworld_core::action::ActionId;
+use woworld_core::input::{BufferedInput, HeldItemKind};
+
+/// 手持物——ActionResolver 第二层装备映射的数据源（004 §二）。
+///
+/// ⚠️ **Stub 组件**：装备系统未接线前，实体可不挂此组件——resolver
+/// 缺省视为 `HeldItemKind::Empty`（空手）。装备系统建好后由其填充/维护，
+/// resolver 逻辑零改动即接线。
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CHeldItem(pub HeldItemKind);
+
+/// 装备的特殊技能槽——ActionResolver 第五层（004 §二 第五层：Q/E/R/F → SpecialSkill）。
+///
+/// `slots[n]` = `SpecialSkill(n)` 键触发的动作（`None` = 该槽未绑定技能）。
+///
+/// ⚠️ **Stub 组件**：技能系统未接线前，实体可不挂此组件——resolver 第五层缺省不发请求。
+/// 技能系统建好后由其填充装备栏技能→ActionId 映射，resolver 逻辑零改动即接线。
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CEquippedSkills {
+    /// 4 个技能槽（对应 SpecialSkill(0..4)）
+    pub slots: [Option<ActionId>; 4],
+}
+
+impl CEquippedSkills {
+    /// 查询第 n 个技能槽绑定的动作。
+    pub fn get(&self, n: u8) -> Option<ActionId> {
+        self.slots.get(n as usize).copied().flatten()
+    }
+}
 
 /// 输入缓冲——环形缓冲区，容量 4，6 级优先级淘汰。
 ///

@@ -33,7 +33,11 @@ impl ActionRegistry {
             self.ids.push(id);
         }
         // ★ 预解析 cancel_set（TOML key）→ ActionId，供 can_interrupt 按 id 比对
-        let cancel_ids = def.cancel_set.iter().map(|k| ActionId(fnv_hash(k))).collect();
+        let cancel_ids = def
+            .cancel_set
+            .iter()
+            .map(|k| ActionId(fnv_hash(k)))
+            .collect();
         self.cancel_id_map.insert(id, cancel_ids);
         self.definitions.insert(id, def);
     }
@@ -77,6 +81,13 @@ impl ActionRegistry {
     /// ...
     /// ```
     ///
+    /// TOML key（如 `"jump"`）→ `ActionId`——与 `load_from_toml` 同一 FNV hash。
+    ///
+    /// ActionResolver 用它把语义输入动作名映射到 `ActionId`（不需持有 registry 实例）。
+    pub fn id_of(key: &str) -> ActionId {
+        ActionId(fnv_hash(key))
+    }
+
     /// ActionId 从 TOML key (如 "light_attack") 通过 hash 生成。
     /// Sprint 1: 使用简单的 FNV hash。后续可改用编译时 const hash。
     pub fn load_from_toml(&mut self, toml_str: &str) -> Result<(), toml::de::Error> {
@@ -109,9 +120,7 @@ fn fnv_hash(s: &str) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use woworld_core::action::{
-        ActionKind, CommitmentLevel, MovementLockDef, RotationLockDef,
-    };
+    use woworld_core::action::{ActionKind, CommitmentLevel, MovementLockDef, RotationLockDef};
     use woworld_core::kinematics::PhysicsRequirement;
 
     fn make_test_def(name: &str) -> ActionDef {
@@ -176,7 +185,8 @@ mod tests {
         //   若字段不匹配会在 cargo test 阶段暴露，而非 Godot 运行时 panic。
         let mut r = ActionRegistry::new();
         let toml = include_str!("../../../../assets/action_registry.toml");
-        r.load_from_toml(toml).expect("action_registry.toml 应能解析");
+        r.load_from_toml(toml)
+            .expect("action_registry.toml 应能解析");
         assert!(r.len() >= 6, "应至少加载 6 个动作，实得 {}", r.len());
     }
 

@@ -5,26 +5,25 @@
 //! 参见: `WoWorld-Design/.../角色控制器/002-MovementState与连续移动.md` §十二
 
 use glam::{Mat4, Vec3};
-use woworld_core::movement::{MovementRecoveryStack, MovementState};
 use woworld_core::kinematics::{MovementLock, RotationLock};
+use woworld_core::movement::{MovementRecoveryStack, MovementState};
 
 /// 当前移动状态——MovementModeSystem 写入，MovementSystem 消费。
-#[derive(Debug, Clone, Copy)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CMovementState(pub MovementState);
 
-
 /// 上一帧的移动状态——用于检测状态变化（was_grounded → now_falling 等）。
-#[derive(Debug, Clone, Copy)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CPrevMovementState(pub MovementState);
-
 
 /// 介质变迁恢复栈——MovementModeSystem 管理。
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CMovementRecovery(pub MovementRecoveryStack);
 
-/// 移动意图——ActionResolver（玩家）或 GOAP（NPC）写入。
+/// 移动意图——PlayerInputSystem（玩家）或 GOAP（NPC）写入。
+///
+/// ⚠️ Movement 域不经 ActionResolver（004 §五）：玩家方向输入由
+/// `player_input_system` 直写 `direction`；ActionResolver 只处理离散动作。
 ///
 /// `camera_transform` 用于将输入方向从相机空间转到世界空间。
 /// Sprint 1: NPC 不写此 Component（旧管线），仅测试实体使用。

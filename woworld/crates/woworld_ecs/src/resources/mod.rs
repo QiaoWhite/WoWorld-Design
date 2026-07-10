@@ -3,6 +3,7 @@ pub mod action_registry;
 pub mod culture_registry;
 pub mod economy_registry;
 pub mod faith_registry;
+pub mod interact;
 pub mod inventory_registry;
 pub mod item_registry;
 pub mod movement_profile_registry;

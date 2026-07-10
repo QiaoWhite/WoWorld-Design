@@ -52,8 +52,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **写/读 Rust 代码** | `woworld/` — workspace 结构见下方「代码架构」 |
 | **构建项目** | `cd woworld && cargo build --workspace` |
 | **启动 Godot 编辑器** | `tools/godot/Godot_v4.7-stable_win64.exe woworld/godot/project.godot` |
-| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-08-evening.md` (晚间: Sprint-059调试可视化+Phase2·757 tests) |
-| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260708-evening.md` (Sprint-059+Phase2·757 tests·Bethesda控制台·下一步) |
+| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-10-sprint062.md` (Sprint-062 ActionResolver·六层映射+player_input+交互解析·965 tests) |
+| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260710-sprint062.md` (Sprint-062·Block A0激活·965 tests·下一步 Godot input_bridge) |
 | **🐛 查已知 bug/陷阱** | `woworld-dev-plan/bugs/INDEX.md` — 调试前必须先查 |
 
 ## 文档结构

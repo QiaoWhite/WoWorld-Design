@@ -178,6 +178,19 @@ pub struct WorldDriver {
     /// 帧计数器（ECS System 用——单调递增 tick）
     frame_count: u64,
 
+    /// ★ Step 5e: 角色控制器动作注册表（action_registry.toml 加载）
+    action_registry: woworld_ecs::resources::action_registry::ActionRegistry,
+    /// ★ Step 5e: 移动 profile 注册表（movement_profiles.toml 加载）
+    movement_profile_registry:
+        woworld_ecs::resources::movement_profile_registry::MovementProfileRegistry,
+    /// ★ Step 5e: 动作实例 ID 生成器（单调递增，因果链串联）
+    action_instance_counter:
+        woworld_ecs::resources::action_instance_counter::ActionInstanceCounter,
+    /// ★ Step 5e: 动作生命周期事件通道（双缓冲：begin_frame→send→mid_phase_flush→read）
+    action_events: woworld_ecs::events::EventChannel<woworld_core::action::ActionLifecycleEvent>,
+    /// ★ Step 5e: 角色控制器管线冒烟测试实体（不可见；向 +X 行走验证端到端。验证后可删）
+    move_test_entity: Option<hecs::Entity>,
+
     /// Phase 2 LODCoordinator: 上一帧 LOD 处方（迟滞比较）
     lod_prev: HashMap<EntityId, LodPrescription>,
     /// Phase 2 LODCoordinator: 每实体迟滞状态（跨帧持久）
@@ -261,6 +274,13 @@ impl INode3D for WorldDriver {
             item_registry: woworld_ecs::resources::item_registry::ItemRegistry::new(),
             item_seeded: false,
             frame_count: 0,
+            action_registry: woworld_ecs::resources::action_registry::ActionRegistry::new(),
+            movement_profile_registry:
+                woworld_ecs::resources::movement_profile_registry::MovementProfileRegistry::new(),
+            action_instance_counter:
+                woworld_ecs::resources::action_instance_counter::ActionInstanceCounter::new(),
+            action_events: woworld_ecs::events::EventChannel::new(),
+            move_test_entity: None,
             lod_prev: HashMap::new(),
             lod_hyst: HashMap::new(),
             entity_renderer: None,
@@ -561,6 +581,14 @@ impl INode3D for WorldDriver {
 
         self.init_voxel_grid();
 
+        // ★ Step 5e: 加载角色控制器 TOML 资产到注册表（解析已由 woworld_ecs 单测冒烟验证）
+        self.action_registry
+            .load_from_toml(include_str!("../../../assets/action_registry.toml"))
+            .expect("action_registry.toml must be valid");
+        self.movement_profile_registry
+            .load_from_toml(include_str!("../../../assets/movement_profiles.toml"))
+            .expect("movement_profiles.toml must be valid");
+
         // ECS Phase 0: spawn Player Entity (保存 hecs Entity 用于互转)
         let player_terrain_y = self.terrain.height_at(WorldPos {
             x: 0.0,
@@ -596,6 +624,46 @@ impl INode3D for WorldDriver {
             self.spawn_npc(npc_seed, pos);
         }
         godot_print!("WorldDriver: {} NPCs spawned within 30m radius", NPC_COUNT);
+
+        // ★ Step 5e 冒烟测试实体：完整移动组件 + 恒定 +X 意图 + Running pace。
+        //   驱动新 movement_system 产生位移（向东行走），验证角色控制器管线端到端。
+        //   不带 EntityKind/LodLevel → 不渲染（不耦合 entity_visual）；靠 process 里的
+        //   位置打印验证。验证通过后可整块删除。
+        {
+            use woworld_ecs::components::movement_state::{
+                CMoveIntent, CMovementControl, CMovementRecovery, CMovementState,
+                CPrevMovementState,
+            };
+            use woworld_ecs::components::transform::{Position, Velocity};
+            let test_pos = glam::Vec3::new(
+                5.0,
+                self.terrain.height_at(WorldPos { x: 5.0, y: 0.0, z: 5.0 }),
+                5.0,
+            );
+            let ms = MovementState {
+                stance: Stance::Standing,
+                pace: Pace::Running,
+                ..Default::default()
+            };
+            let intent = CMoveIntent {
+                direction: glam::Vec3::new(1.0, 0.0, 0.0),
+                ..Default::default()
+            };
+            let e = self.ecs.spawn((
+                Position(test_pos),
+                Velocity(glam::Vec3::ZERO),
+                CMovementState(ms),
+                CPrevMovementState(ms),
+                CMovementRecovery::default(),
+                intent,
+                CMovementControl::default(),
+            ));
+            self.move_test_entity = Some(e);
+            godot_print!(
+                "WorldDriver: ★ Step 5e 冒烟测试实体 spawned at {:?}（应向 +X 行走）",
+                test_pos
+            );
+        }
 
         // 初始化 ECS → Godot 视觉桥接
         if let Some(ref mut terrain_parent) = self.terrain_parent {
@@ -1718,6 +1786,53 @@ impl WorldDriver {
                 let econ_id = self.economy_registry.create_economy();
                 self.economy_registry.create_market_with_economy(econ_id);
                 self.item_seeded = true;
+            }
+
+            // ── Block A0: 角色控制器管线（Step 5e）──
+            //   顺序 = coyote → stamina → movement_mode → input_buffer → action(+flush) → movement
+            //   · coyote 必须在 movement_mode 前：读 CPrevMovementState，后者会覆盖它
+            //   · stamina 在 movement_mode 前：恢复栈快照到降级后的 pace，避免落地闪帧（D1 定论）
+            //   这些系统仅作用于带新组件的实体（绞杀者：movement 带 Without<Movement>），
+            //   旧 20 NPC 与裸玩家不受影响。
+            {
+                use woworld_ecs::systems::action::action_system::action_system;
+                use woworld_ecs::systems::input::coyote_time_system::coyote_time_system;
+                use woworld_ecs::systems::input::input_buffer_system::input_buffer_system;
+                use woworld_ecs::systems::movement::movement_mode_system::movement_mode_system;
+                use woworld_ecs::systems::movement::movement_system::movement_system as cc_movement_system;
+                use woworld_ecs::systems::movement::stamina_gate_system::stamina_gate_system;
+
+                let cc_dt = delta as f32;
+                self.action_events.begin_frame();
+                coyote_time_system(&mut self.ecs, cc_dt, &self.terrain);
+                stamina_gate_system(&mut self.ecs, cc_dt);
+                movement_mode_system(&mut self.ecs, &self.terrain);
+                input_buffer_system(&mut self.ecs, cc_dt);
+                action_system(
+                    &mut self.ecs,
+                    cc_dt,
+                    &self.action_registry,
+                    &mut self.action_instance_counter,
+                    &mut self.action_events,
+                    &self.terrain,
+                );
+                self.action_events.mid_phase_flush();
+                cc_movement_system(
+                    &mut self.ecs,
+                    cc_dt,
+                    &self.terrain,
+                    &self.movement_profile_registry,
+                );
+            }
+            // ★ Step 5e 冒烟：每 120 帧打印测试实体位置，验证管线端到端产生位移
+            if self.frame_count % 120 == 0 {
+                if let Some(e) = self.move_test_entity {
+                    if let Ok(p) =
+                        self.ecs.get::<&woworld_ecs::components::transform::Position>(e)
+                    {
+                        godot_print!("Step 5e 测试实体位置: {:?}", p.0);
+                    }
+                }
             }
 
             // ── Block A1: &mut World systems (no CommandBuffer) ──

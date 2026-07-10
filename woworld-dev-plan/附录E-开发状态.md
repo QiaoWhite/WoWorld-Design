@@ -2,7 +2,7 @@
 
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-07-08（Sprint-061 对话气泡 MVP）
+> **最后更新**: 2026-07-10（角色控制器 Sprint + Step 5e 集成 + 审计/A6/D1·927 tests）
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `附录D-模块依赖图.md` · `../CLAUDE-INTERFACES.md`
 
@@ -15,15 +15,15 @@
 | 指标 | 值 |
 |------|-----|
 | 设计模块总数 | 27 个独立系统 + 1 个子模块（家具与放置物品） |
-| 有代码的模块 | **8 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、地形修改编排层、**★玩家系统 Phase 1**） |
+| 有代码的模块 | **9 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、地形修改编排层、玩家系统 Phase 1、**★模型动作与物理（角色控制器）**） |
 | 零代码的模块 | **21 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **807 tests 全绿** (core: 292 + worldgen: 58 + atmosphere: 26 + ecs: 431 + godot: 0), cargo clippy 零警告 |
-| ECS 架构 | **Phase 0/1/2/3 ✅** — 44 Components + 30 Systems + 807 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + **对话气泡 MVP** 就位。 |
+| Rust workspace | 5 crates, **927 tests 全绿** (core: 358 + worldgen: 58 + atmosphere: 26 + ecs: 484 + 集成: 1 + godot: 0), cargo clippy 零警告 |
+| ECS 架构 | **Phase 0/1/2/3 ✅** — 52 Components + 37 Systems + 927 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + **★角色控制器核心三层 + Step 5e 管线集成** 就位。 |
 | Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + **★NPC对话气泡** |
-| 当前冲刺 | **Sprint-061 完成** — 对话雏形 MVP: BubbleType + speech_bubble_system + 夺舍NPC自言自语气泡（807 tests）→ 下一步：NPC-NPC双向对话 / 物品 Phase 3 / 经济 Phase 4 / 玩家 Phase 2 |
+| 当前冲刺 | **角色控制器 Sprint + Step 5e 管线集成完成** — 核心三层接入 WorldDriver Block A0（927 tests）+ 审计修复（含 🔴 cancel_set/windup=0）+ A6/D1 裁决。→ 下一步: ActionResolver sprint(004) / Continuous·Charge 运行时(006) / 修延后项 A2·A3·M3·M4·I1-5 |
 | 最新 CHG | **CHG-067**（2026-07-09·仅设计无代码）— 物理运动学地基（质量→冲量→单体COM涌现·不引擎）。前: CHG-066 对话气泡术语消歧 + Bark MVP |
-| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260708-sprint061]]（2026-07-08·Sprint-061 对话气泡MVP·807 tests） |
+| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260710-role-controller]]（2026-07-10·角色控制器 Sprint + Step 5e 集成·927 tests） |
 
 ---
 
@@ -217,7 +217,8 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 | 物品系统 | P1 | 🟢 Phase 1 | ItemCategory(44)+ItemProperties(28)+ItemRegistry+TOML+ItemQuery trait | v1.0。Phase 1 完成（+33 tests）。延后: Assembly/装备/背包/附魔 |
 | 技能系统 | P1 | 🟡 就绪 | — | SkillId(5分类)/XP公式/天赋三层/教学四路径 |
 | 语言表达 | P4 | 🟡 就绪 | 对话气泡 MVP (BubbleType + speech_bubble_system, 桩化文本) | ExpressionRef/Conversation/信息传播 5 通道。★ Sprint-061 气泡渲染就位(CHG-066)，桩化文本待接入 TextGenerator |
-| 模型动作与物理 | P4 | 🟡 就绪 | — | 9 层动画栈/四 trait/5 子模块。★ **CHG-067 运动学地基**（质量/冲量/COM/投射物/挂载/攀爬）设计完成，**待实现冲刺** → `sprint-proposals/BACKLOG-物理运动学地基-实现-20260709.md`（暂缓 per Q-A2） |
+| 模型动作与物理 | P4 | 🟡 部分实现 | ✅ 角色控制器核心三层 + Step 5e 集成 (927 tests) | 9 层动画栈/四 trait/6 子模块。★ **角色控制器** MovementSystem+ActionController+手感系统+管线集成(Block A0)完成。**CHG-067 运动学地基**暂缓 per Q-A2 |
+| ├ 角色控制器 | P2 | 🟢 核心+管线就位 | ✅ 核心三层 + Step 5e 集成 | 13 篇开发规格（2,731 行）。核心三层(MovementSystem/ActionController/InputBuffer/CoyoteTime/MovementMode/StaminaGate) + WorldDriver Block A0 管线集成·927 tests。ActionResolver(004)/持续充能(006) 待后续。★ CHG-067 消费者 |
 | 音频系统 | P4 | 🟡 就绪 | — | SoundFootprint/AudioQuery(30 methods) |
 | 感官与知觉系统 | P3 | 🟡 就绪 | — | PerceptBatch/4 查询 trait/PerceptualCache |
 | 建筑模块 | P4 | 🟡 就绪 | — | ComponentFamily/WFC 2.5D/BuildingGenerator |

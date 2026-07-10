@@ -1,0 +1,182 @@
+//! MovementSystem — 连续执行层核心
+//!
+//! 消费 CMoveIntent + CMovementState + CMovementControl → 产出 Position + Velocity。
+//! 绞杀者模式: query 带 `Without<Movement>`——只处理新实体，不碰旧 NPC。
+//!
+//! 参见: `WoWorld-Design/.../角色控制器/001-角色控制器总纲.md` §四
+
+use glam::Vec3;
+use woworld_core::kinematics::{LocomotionMode, MovementLock, RotationLock};
+use woworld_core::spatial::TerrainQuery;
+use woworld_core::types::WorldPos;
+
+use crate::components::movement_state::{CMoveIntent, CMovementControl, CMovementState};
+use crate::components::transform::{Position, Velocity};
+use crate::resources::movement_profile_registry::MovementProfileRegistry;
+
+/// 最大可行走坡度（cos 值）——45° ≈ 0.707
+const MAX_WALKABLE_SLOPE_COS: f32 = 0.707;
+/// 趋近零的阈值
+const DIR_EPSILON: f32 = 0.001;
+
+/// 从 MovementLock 计算本帧允许的最大速度。
+fn max_speed_from_lock(lock: MovementLock, base_max: f32) -> f32 {
+    match lock {
+        MovementLock::Free => base_max,
+        MovementLock::Partial { speed_cap } => speed_cap.min(base_max),
+        MovementLock::Full => 0.0,
+        MovementLock::Override(_) => base_max, // Override 使用位移量而非速度
+    }
+}
+
+/// 计算给定位置和地形的 LocomotionMode（Sprint 1 stub）。
+#[allow(dead_code)]
+fn compute_locomotion_mode(pos: Vec3, terrain: &dyn TerrainQuery) -> LocomotionMode {
+    let wp = WorldPos {
+        x: pos.x as f64,
+        y: pos.y as f64,
+        z: pos.z as f64,
+    };
+    if terrain.is_walkable(wp) {
+        LocomotionMode::Grounded
+    } else {
+        LocomotionMode::PhysicsBody
+    }
+}
+
+/// 连续执行层——加速度积分 + 地形跟随 + 坡度检测。
+///
+/// 仅处理带 `CMovementState` 但无旧 `Movement` 组件的实体（绞杀者模式）。
+#[allow(clippy::needless_pass_by_ref_mut)]
+pub fn movement_system(
+    world: &mut hecs::World,
+    dt: f32,
+    terrain: &dyn TerrainQuery,
+    profiles: &MovementProfileRegistry,
+) {
+    let profile = profiles.default_profile();
+
+    for (_, (move_intent, move_state, move_control, pos, vel)) in world
+        .query_mut::<(
+            &CMoveIntent,
+            &CMovementState,
+            &CMovementControl,
+            &mut Position,
+            &mut Velocity,
+        )>()
+        .with::<&CMovementState>()
+        .without::<&crate::components::movement::Movement>() // ★ 绞杀者门控
+    {
+        let current_pos = pos.0;
+        let current_vel = vel.0;
+        let ms = move_state.0;
+        let lock = move_control.movement_lock;
+
+        // ── MovementLock::Override — 强制位移 ──
+        if let MovementLock::Override(displacement) = lock {
+            let new_pos = current_pos + displacement * dt;
+            let wp = WorldPos {
+                x: new_pos.x as f64,
+                y: new_pos.y as f64,
+                z: new_pos.z as f64,
+            };
+            let terrain_y = terrain.height_at(wp);
+            pos.0 = Vec3::new(new_pos.x, terrain_y.max(new_pos.y), new_pos.z);
+            vel.0 = displacement;
+            continue;
+        }
+
+        // ── MovementLock::Full — 原地摩擦减速 ──
+        if lock == MovementLock::Full {
+            let friction = ms.friction(profile);
+            let new_speed = (current_vel.length() - friction * dt).max(0.0);
+            if new_speed < DIR_EPSILON {
+                vel.0 = Vec3::ZERO;
+            } else {
+                vel.0 = current_vel.normalize_or_zero() * new_speed;
+            }
+            // 更新 Y 以跟随地形
+            let wp = WorldPos {
+                x: current_pos.x as f64,
+                y: 0.0,
+                z: current_pos.z as f64,
+            };
+            pos.0.y = terrain.height_at(wp);
+            continue;
+        }
+
+        // ── 正常/Partial — 加速度积分 ──
+        let direction = move_intent.direction;
+        if direction.length_squared() < DIR_EPSILON * DIR_EPSILON {
+            // 无输入——摩擦力减速
+            let friction = ms.friction(profile);
+            let current_speed = current_vel.length();
+            let new_speed = (current_speed - friction * dt).max(0.0);
+            vel.0 = if current_speed > DIR_EPSILON {
+                current_vel.normalize_or_zero() * new_speed
+            } else {
+                Vec3::ZERO
+            };
+        } else {
+            let dir = direction.normalize_or_zero();
+            let target_speed = max_speed_from_lock(lock, ms.max_speed(profile));
+            let accel = ms.acceleration(profile);
+            let friction = ms.friction(profile);
+
+            // 当前速度在移动方向上的投影
+            let current_speed_in_dir = current_vel.dot(dir).max(0.0);
+
+            let new_speed = if current_speed_in_dir < target_speed {
+                // 加速
+                (current_speed_in_dir + accel * dt).min(target_speed)
+            } else {
+                // 减速到目标速度
+                (current_speed_in_dir - friction * dt).max(target_speed)
+            };
+
+            vel.0 = dir * new_speed;
+        }
+
+        // ── XZ 位移 ──
+        let new_xz = Vec3::new(
+            current_pos.x + vel.0.x * dt,
+            0.0,
+            current_pos.z + vel.0.z * dt,
+        );
+
+        // ── 地形跟随 + 坡度检测 ──
+        let wp = WorldPos {
+            x: new_xz.x as f64,
+            y: 0.0,
+            z: new_xz.z as f64,
+        };
+        let terrain_y = terrain.height_at(wp);
+        let normal = terrain.normal_at(wp);
+
+        // 陡坡阻挡
+        if normal.y < MAX_WALKABLE_SLOPE_COS {
+            // 保持在当前位置
+            let stay_wp = WorldPos {
+                x: current_pos.x as f64,
+                y: 0.0,
+                z: current_pos.z as f64,
+            };
+            pos.0.y = terrain.height_at(stay_wp);
+            continue;
+        }
+
+        pos.0 = Vec3::new(new_xz.x, terrain_y, new_xz.z);
+    }
+}
+
+// ── 未使用的 RotationLock 处理 ──
+// Sprint 1: RotationLock 仅存储，MovementSystem 不处理旋转。
+// 旋转由独立的朝向系统或 Godot 桥接层在后续 sprint 中实现。
+#[allow(dead_code)]
+fn _apply_rotation_lock(current_rot: glam::Quat, lock: RotationLock, _direction: Vec3, _camera: glam::Mat4) -> glam::Quat {
+    match lock {
+        RotationLock::Free => current_rot,
+        RotationLock::Locked => current_rot,
+        _ => current_rot, // Sprint 1 stub
+    }
+}

@@ -1017,3 +1017,33 @@ CHG-057/058 在 06-认知与智慧系统中引入根本性架构变更后，CHG-
 | 生命系统 (005) | 实现 SurfaceAnchor(坐骑/巨兽); 填 Mass |
 | 物品系统 | 填 Mass(weight_grams); DroppedItem = 会静止的投射物 |
 | 导航/NPC行动系统 | 可攀爬边 + A* 握力掩码(待立项·Q-A4) |
+
+## 角色控制器 — 新增契约（2026-07-09·设计完成/代码未开始）
+
+> **完整规格**: [[WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/README|角色控制器]] · 12 篇开发规格
+> **设计讨论**: 13 轮 grill-me 深度讨论
+
+### 核心契约
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| **MovementState** (Stance×Pace×SpecialMode) | 角色控制器 `002` | 动画系统(步态参数) · 感官系统(stealth_mod) · 相机系统(水下滤镜) | 连续移动状态。Stance/Pace 组合非互斥——SpecialMode 存在时覆盖两者 |
+| **ActionController** (承诺中断系统) | 角色控制器 `003` | 战斗/魔法/制作/交互——全部域 | 非状态图。四级承诺 + 三阶段时间线。复杂度在 TOML action_registry 中——核心仲裁 ~40 行 Rust |
+| **ActionRegistry** (TOML 动作注册) | 角色控制器 `003` | 全部域模块——各自注册动作 | TOML 数据驱动。每个动作声明 commitment/cancel_set/physics_req/movement_lock |
+| **ActionRequestBuf** | 角色控制器 `001` | ActionResolver(玩家) · GoapIntentDispatch(GOAP) · InstinctLayer(本能) | 多来源写入同一队列——ActionController 按 source + priority 统一仲裁 |
+| **ActionLifecycleEvent** (6种) | 角色控制器 `005` | GOAP(规划反馈) · Memory(值得记忆) · Animation(阶段切换) · UI(反馈) | 双缓冲事件队列。mid_phase_flush 同帧可见 |
+| **Grip 握力** | 角色控制器 `007` | 战斗(攀爬打击) · 天气(湿滑涌入) | ★ 独立于 Stamina——消耗模式根本不同。表面材质 × 天气 → 消耗涌出 |
+| **InputBuffer** | 角色控制器 `008` | ActionResolver(填充) · ActionController(消费) | 环形缓冲区，4 容量，6 级优先级淘汰。仅玩家实体激活 |
+| **CDead 门控** | 角色控制器 `009` | 12 个 Gameplay System——Without<CDead> | 死亡=控制器终结，非状态。仅 Animation/SkeletalRelaxation/Sensory 不跳过 |
+| **夺舍过渡** | 角色控制器 `012` | 玩家系统 `003` | 三种场景(Quiet/SemiUrgent/Urgent)——七步交接。保留物理状态，清空 AI 状态 |
+
+### 跨模块影响
+
+| 受影响模块 | 影响 |
+|-----------|------|
+| **CHG-067 运动学地基** | 消费者——MovementSystem 使用 LocomotionMode 三态机；Grounded 态内由 MovementLock 门控覆盖 |
+| **玩家系统** | 消费者——玩家=NPC 共享控制器；ControlMode 影响 ActionResolver 域过滤 + GoapIntentDispatch 门控 |
+| **战斗系统** | 消费者——离散/持续/充能三类动作走同一 ActionController；Combo 链基于 cancel_set 机制构建 |
+| **NPC 活人感** | 消费者——GOAP 通过 GoapIntentDispatch → CNpcMovementBehavior → PathFollowing → MoveIntent |
+| **动画系统** | 消费者——MovementState::gait_params() 产出 9 个步态参数；ActionLifecycleEvent 驱动 Layer 0/8 姿态切换 |
+| **Godot 桥接** | Godot CharacterBody3D **已移除**——所有移动物理在 Rust 侧。Godot 仅 Transform3D 定位 + InputMap 采集 |

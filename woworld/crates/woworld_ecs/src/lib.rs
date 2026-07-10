@@ -8,6 +8,7 @@
 
 pub mod components;
 pub mod entity_id;
+pub mod events;
 pub mod prng;
 pub mod resources;
 pub mod systems;

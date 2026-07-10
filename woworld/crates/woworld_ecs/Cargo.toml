@@ -14,7 +14,11 @@ hecs = "0.10"
 glam = { version = "0.28", features = ["bytemuck"] }
 
 # 核心类型（EntityId, WorldPos, LodPrescription, etc.）
-woworld_core = { path = "../woworld_core" }
+woworld_core = { path = "../woworld_core", features = ["serde"] }
+
+# 小缓冲区——Component 内联（栈分配，铁律 2 合规）
+smallvec = "1"
 
 # TOML 数据文件解析（物品定义/配方表等）
 toml = "0.8"
+serde = { version = "1", features = ["derive"] }

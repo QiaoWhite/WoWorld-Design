@@ -5,6 +5,7 @@
 //!
 //! 参见: `WoWorld-Design/开发路线图/002-轨A-正式开发.md` A.2 阶段二
 
+pub mod action;
 pub mod culture;
 pub mod density;
 pub mod economy;
@@ -12,9 +13,12 @@ pub mod edit_terrain;
 pub mod entity_visual;
 pub mod faith;
 pub mod id;
+pub mod input;
 pub mod item;
+pub mod kinematics;
 pub mod lod;
 pub mod material;
+pub mod movement;
 pub mod naming;
 pub mod ocean;
 pub mod player;
@@ -28,6 +32,12 @@ pub mod weather_types;
 
 /// 常用类型统一导入
 pub mod prelude {
+    pub use crate::action::{
+        action_priority, ActionDef, ActionFailureReason, ActionId, ActionInstanceId, ActionKind,
+        ActionLifecycleEvent, ActionParams, ActionPhase, ActionRequest, ActionSource, ActiveAction,
+        ChargeStage, CommitmentLevel, InterruptSource, OverchargeBehavior, ReleaseBehavior,
+        ResourceType, SustainDrain, SustainPhase,
+    };
     pub use crate::culture::CultureCoreParams;
     pub use crate::culture::CultureId;
     pub use crate::culture::CULTURE_ID_NONE;
@@ -57,8 +67,17 @@ pub mod prelude {
         ItemProperties, ItemQuery, ItemStack, ItemState, ItemTag, Quality, Rarity,
         ITEM_DEF_ID_NONE,
     };
+    pub use crate::input::{BufferedInput, BufferPriority, InputFeelConfig};
+    pub use crate::kinematics::{
+        LocomotionMode, MovementLock, PhysicsRequirement, RotationLock,
+    };
     pub use crate::lod::*;
     pub use crate::material::*;
+    pub use crate::movement::{
+        is_valid_stance_pace, AirState, GaitParams, JumpHeight, MovementProfile,
+        MovementRecoveryStack, MovementState, Pace, SpecialMode, Stance, StanceTransition,
+        SwimPace,
+    };
     pub use crate::naming::{generate_name, NpcName};
     pub use crate::player::{ActionDomain, ControlMode};
     pub use crate::power::{PowerAtom, PowerEdge, PowerSource, LEGITIMACY_CRISIS_THRESHOLD};

@@ -1,0 +1,110 @@
+# Action Registry — 初始动作定义
+# 参见: WoWorld-Design/.../角色控制器/003-ActionController与离散动作.md §三
+
+[action.light_attack]
+name = "轻攻击"
+category = "Combat"
+kind = "Discrete"
+priority = 15
+commitment = "Hard"
+windup_ms = 120
+active_ms = 100
+recovery_ms = 250
+cancel_set = ["heavy_attack", "special_skill"]
+cancel_window_ms = 120
+bufferable = true
+buffer_window_ms = 150
+physics_req = "Grounded"
+movement_lock = "Full"
+rotation_lock = "TargetDirection"
+interrupt_on_move = false
+
+[action.heavy_attack]
+name = "重攻击"
+category = "Combat"
+kind = "Discrete"
+priority = 15
+commitment = "Hard"
+windup_ms = 350
+active_ms = 150
+recovery_ms = 400
+cancel_set = ["dodge", "special_skill"]
+cancel_window_ms = 120
+bufferable = true
+buffer_window_ms = 200
+physics_req = "Grounded"
+movement_lock = "Full"
+rotation_lock = "TargetDirection"
+interrupt_on_move = false
+
+[action.dodge]
+name = "闪避"
+category = "Combat"
+kind = "Discrete"
+priority = 25
+commitment = "Hard"
+windup_ms = 0
+active_ms = 350
+recovery_ms = 100
+cancel_set = ["dodge", "jump"]
+cancel_window_ms = 100
+bufferable = true
+buffer_window_ms = 200
+physics_req = "Grounded"
+movement_lock = "Full"
+rotation_lock = "InputDirection"
+interrupt_on_move = false
+
+[action.jump]
+name = "跳跃"
+category = "Movement"
+kind = "Discrete"
+priority = 20
+commitment = "Hard"
+windup_ms = 50
+active_ms = 300
+recovery_ms = 100
+cancel_set = ["dodge"]
+cancel_window_ms = 0
+bufferable = true
+buffer_window_ms = 200
+physics_req = "Grounded"
+movement_lock = "Full"
+rotation_lock = "InputDirection"
+interrupt_on_move = false
+
+[action.interact]
+name = "交互"
+category = "Interaction"
+kind = "Discrete"
+priority = 10
+commitment = "Soft"
+windup_ms = 0
+active_ms = 100
+recovery_ms = 0
+cancel_set = []
+cancel_window_ms = 0
+bufferable = false
+buffer_window_ms = 0
+physics_req = "Grounded"
+movement_lock = "Full"
+rotation_lock = "TargetDirection"
+interrupt_on_move = true
+
+[action.block]
+name = "防御"
+category = "Combat"
+kind = "Continuous"
+priority = 20
+commitment = "Soft"
+windup_ms = 50
+active_ms = 0
+recovery_ms = 100
+cancel_set = ["dodge", "parry", "light_attack", "heavy_attack"]
+cancel_window_ms = 999
+bufferable = false
+buffer_window_ms = 0
+physics_req = "Grounded"
+movement_lock = "Full"
+rotation_lock = "CameraForward"
+interrupt_on_move = false

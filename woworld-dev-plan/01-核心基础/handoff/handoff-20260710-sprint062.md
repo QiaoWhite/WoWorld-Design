@@ -25,10 +25,10 @@
 
 > ⚠️ 下一会话 AI 启动首先读这里。
 
-- **当前冲刺**: Sprint-062 ActionResolver — **P1-P6 全部完成**，未提交
-- **最后操作**: P6 收尾——修 CMoveIntent 注释（movement_state.rs:23）+ 同步 001 §四 执行序订正注记 + 本 handoff
+- **当前冲刺**: Sprint-062 ActionResolver — **P1-P6 全部完成，已提交推送**
+- **最后操作**: P6 收尾（修 CMoveIntent 注释 + 同步 001 §四 执行序订正）→ commit `05c8b12` → push `origin/master`（`7ab9d1d..05c8b12`）
 - **机械门状态**: build ✅ / test ✅ (965 passed: core 374 + ecs 507 + worldgen 58 + atmosphere 26) / clippy ✅ (规范命令零告警) / fmt ✅
-- **git 状态**: **未提交**（工作树含本冲刺全部改动）。待用户确认后提交。
+- **git 状态**: ✅ **已提交推送** `origin/master` = `05c8b12`（30 文件：7 新源 + 3 治理文档 + 修改；`.obsidian` 编辑器噪声未纳入，工作树仅剩它抖动）
 - **Block A0 状态**: **已激活**——`sprint062_actionresolver.rs` 3 集成测试证明 InputAction→ActionRequest→ActionController 端到端跑通（玩家输入移动实体 + 跳跃启动动作 + Auto 模式抑制）。真实游戏中当前无实体挂新组件——仍休眠 no-op，待夺舍迁移/桥接接上。
 - **下一步（精确，按优先级）**:
   1. 🥇 **Godot input_bridge.gd**——InputMap → InputState（每帧 begin_frame + press/release + move_direction/camera_transform 填充）→ 让键盘真正驱动 Block A0。这是本冲刺明确留下的下一步。
@@ -43,8 +43,7 @@
   - ⚠️ `ActionRegistry::id_of(key)` 用 FNV hash——resolver 靠动作名字符串（"jump"/"dodge"/...）映射 ActionId。改 TOML key 名会改 ActionId。
   - ⚠️ 第二层 `aim_draw`/`parry`、无 TOML def → ActionController Failed 拒绝（弓/招架暂无效），待战斗/射箭 sprint 补。
 - **待用户确认**:
-  - 设计文档 001 已修改（开发阶段/）→ 需询问是否跑 `/woworldidea-design sync`（本次为模块内执行序注记，无跨模块接口 delta——sync 实质 no-op，但按规则须问）。
-  - 是否提交本冲刺改动。
+  - 🟡 **`/woworldidea-design sync` 未跑**：本冲刺改了 `开发阶段/001-角色控制器总纲.md`（仅模块内执行序订正注记，无跨模块接口 delta——sync 实质 no-op）。按 CLAUDE.md 规则新会话可主动询问是否运行；实质影响为零，跳过亦可。
 
 ## 🔧 机械门验证
 

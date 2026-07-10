@@ -188,8 +188,6 @@ pub struct WorldDriver {
         woworld_ecs::resources::action_instance_counter::ActionInstanceCounter,
     /// ★ Step 5e: 动作生命周期事件通道（双缓冲：begin_frame→send→mid_phase_flush→read）
     action_events: woworld_ecs::events::EventChannel<woworld_core::action::ActionLifecycleEvent>,
-    /// ★ Step 5e: 角色控制器管线冒烟测试实体（不可见；向 +X 行走验证端到端。验证后可删）
-    move_test_entity: Option<hecs::Entity>,
 
     /// Phase 2 LODCoordinator: 上一帧 LOD 处方（迟滞比较）
     lod_prev: HashMap<EntityId, LodPrescription>,
@@ -280,7 +278,6 @@ impl INode3D for WorldDriver {
             action_instance_counter:
                 woworld_ecs::resources::action_instance_counter::ActionInstanceCounter::new(),
             action_events: woworld_ecs::events::EventChannel::new(),
-            move_test_entity: None,
             lod_prev: HashMap::new(),
             lod_hyst: HashMap::new(),
             entity_renderer: None,
@@ -624,46 +621,6 @@ impl INode3D for WorldDriver {
             self.spawn_npc(npc_seed, pos);
         }
         godot_print!("WorldDriver: {} NPCs spawned within 30m radius", NPC_COUNT);
-
-        // ★ Step 5e 冒烟测试实体：完整移动组件 + 恒定 +X 意图 + Running pace。
-        //   驱动新 movement_system 产生位移（向东行走），验证角色控制器管线端到端。
-        //   不带 EntityKind/LodLevel → 不渲染（不耦合 entity_visual）；靠 process 里的
-        //   位置打印验证。验证通过后可整块删除。
-        {
-            use woworld_ecs::components::movement_state::{
-                CMoveIntent, CMovementControl, CMovementRecovery, CMovementState,
-                CPrevMovementState,
-            };
-            use woworld_ecs::components::transform::{Position, Velocity};
-            let test_pos = glam::Vec3::new(
-                5.0,
-                self.terrain.height_at(WorldPos { x: 5.0, y: 0.0, z: 5.0 }),
-                5.0,
-            );
-            let ms = MovementState {
-                stance: Stance::Standing,
-                pace: Pace::Running,
-                ..Default::default()
-            };
-            let intent = CMoveIntent {
-                direction: glam::Vec3::new(1.0, 0.0, 0.0),
-                ..Default::default()
-            };
-            let e = self.ecs.spawn((
-                Position(test_pos),
-                Velocity(glam::Vec3::ZERO),
-                CMovementState(ms),
-                CPrevMovementState(ms),
-                CMovementRecovery::default(),
-                intent,
-                CMovementControl::default(),
-            ));
-            self.move_test_entity = Some(e);
-            godot_print!(
-                "WorldDriver: ★ Step 5e 冒烟测试实体 spawned at {:?}（应向 +X 行走）",
-                test_pos
-            );
-        }
 
         // 初始化 ECS → Godot 视觉桥接
         if let Some(ref mut terrain_parent) = self.terrain_parent {
@@ -1824,17 +1781,6 @@ impl WorldDriver {
                     &self.movement_profile_registry,
                 );
             }
-            // ★ Step 5e 冒烟：每 120 帧打印测试实体位置，验证管线端到端产生位移
-            if self.frame_count % 120 == 0 {
-                if let Some(e) = self.move_test_entity {
-                    if let Ok(p) =
-                        self.ecs.get::<&woworld_ecs::components::transform::Position>(e)
-                    {
-                        godot_print!("Step 5e 测试实体位置: {:?}", p.0);
-                    }
-                }
-            }
-
             // ── Block A1: &mut World systems (no CommandBuffer) ──
             woworld_ecs::systems::npc::needs::needs_decay_system(&mut self.ecs, day_progress);
             regen::regen_system(&mut self.ecs);

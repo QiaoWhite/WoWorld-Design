@@ -46,7 +46,7 @@
   ```
 - **下一步**: Sprint-066 已闭环并推送（`bed70c8`）。下一冲刺候选见 §🚀。
 - **已知陷阱 / 待接线**:
-  - ⚠️ **I4 边缘吸附 + M4 土狼时间在实机不激活**：Godot 玩家实体（`terrain_chunk.rs:652+`）**未挂 `CInputFeelConfig` / `CCoyoteTime`**——I4 ledge snap 不触发（且纯高度场本就无操作），M4 coyote 用 fallback 0.15。激活需在玩家配方补这两组件（**会一并打开 coyote-jump 行为**，是 input/玩家配方定稿冲刺的决定，本冲刺不擅动）。
+  - ✅ **候选A 已接（后续跟进）**：Godot 玩家实体（`terrain_chunk.rs`）已补挂 `CInputFeelConfig` + `CCoyoteTime` → I4 门控 + M4 可配土狼窗 + **coyote-jump 已激活**（踩空后 0.15s 窗内仍可起跳）。ledge snap 纯高度场下仍与 height_at 重合（待体素碰撞移动才可见）。集成测试 `coyote_grace_jump_after_walking_off_edge` 守护配方。顺带消解 coyote_time_system 的**第 4 处** compute_locomotion（Sprint-066 主体漏收）。→ tests 1046→1047。
   - ✅ **I1-I3 在实机已激活**：玩家有 `CInputBuffer`，真 `[action.jump]` bufferable=true/physics_req=Grounded → 空中按跳跃现在**留缓冲、落地起跳**（此前被 drain+clear 丢弃）。这是本冲刺可见的手感修复。
   - ⚠️ `input_buffer_system` 签名变更（+`terrain`/`registry`/`now`）——新调用点必须传这三个；`now` 是累计游戏秒（过期基线），非 dt。
   - ⚠️ I5 空闲门控**未做**：控制器忙碌时 input_buffer 仍 drain + `request_buf.clear()` 丢弃非取消类缓冲输入（连招走 cancel_window 中断路径不受影响）。单独立项。
@@ -111,19 +111,19 @@ Finished `dev` profile（.dll 已更新）
 | # | 问题 | 级别 | 计划 |
 |---|------|------|------|
 | 1 | I5 空闲门控未做（忙碌时缓冲输入丢失，连招除外） | 🔵 结构性 | 单独立项（Q3=A） |
-| 2 | I4 ledge snap + M4 coyote 实机未激活（玩家缺 CInputFeelConfig/CCoyoteTime） | 🔵 结构性 | input/玩家配方定稿冲刺（含 coyote-jump 决定） |
+| 2 | ~~I4 ledge snap + M4 coyote 实机未激活~~ → ✅ **已激活**（候选A 后续：玩家补 CInputFeelConfig+CCoyoteTime，coyote-jump 已开，1047 tests） | ✅ 已解决 | — |
 | 3 | ledge snap 纯高度场下与 height_at 重合（近无操作） | 🟢 | 体素碰撞移动接管后自然生效 |
 | 4 | 文档↔代码命名漂移（008 `max_snap_*`/`CPlayerTag` vs 代码 `ledge_snap_*`/`PlayerComponent`） | 🟢 | doc-sync（非本冲刺） |
 
 ## 🚀 下一步候选
 | 候选 | 依赖前提 | 优先级 |
 |------|---------|--------|
-| A: 玩家实体接入 CInputFeelConfig + CCoyoteTime（激活 I4/M4/coyote-jump） | 决定是否开 coyote-jump | 🥇 |
-| B: I5 空闲门控（忙碌时缓冲保留，含 combo cancel_window 交互设计） | 003 ActionController 忙碌语义 | 🥈 |
-| C: 玩家接 Vitals + Block 键位（持续/充能动作实机可玩） | input_bridge InputMap | 🥉 |
-| D: A2 InterruptSource 语义（Instinct→非全 DodgeCancel） | 战斗中断上下文 | — |
+| A: ~~玩家实体接入 CInputFeelConfig + CCoyoteTime~~ → ✅ **已做**（coyote-jump 已激活，1047 tests） | 决定是否开 coyote-jump | ✅ 完成 |
+| B: I5 空闲门控（忙碌时缓冲保留，含 combo cancel_window 交互设计） | 003 ActionController 忙碌语义 | 🥇 |
+| C: 玩家接 Vitals + Block 键位（持续/充能动作实机可玩） | input_bridge InputMap | 🥈 |
+| D: A2 InterruptSource 语义（Instinct→非全 DodgeCancel） | 战斗中断上下文 | 🥉 |
 
-**建议**: 🥇 A（补玩家手感组件，让本冲刺 + Sprint-065 M4 的机制真正上线）或 🥈 B（把 I5 想清楚闭环手感缓冲）。
+**建议**: 候选 A（激活玩家手感组件 + coyote-jump）已随本 handoff 后续完成。下一步 🥇 B（I5 空闲门控闭环手感缓冲）或 🥈 C（玩家接 Vitals+Block 键位使持续/充能动作实机可玩）。
 
 ---
 

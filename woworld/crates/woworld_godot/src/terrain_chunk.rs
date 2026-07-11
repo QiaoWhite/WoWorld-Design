@@ -669,7 +669,9 @@ impl INode3D for WorldDriver {
         {
             use woworld_core::movement::{MovementState, Pace, Stance};
             use woworld_ecs::components::action_state::{CActionRequestBuf, CActiveAction};
-            use woworld_ecs::components::input_state::CInputBuffer;
+            use woworld_ecs::components::input_state::{
+                CCoyoteTime, CInputBuffer, CInputFeelConfig,
+            };
             use woworld_ecs::components::movement_state::{
                 CMoveIntent, CMovementControl, CMovementRecovery, CMovementState,
                 CPrevMovementState,
@@ -695,6 +697,11 @@ impl INode3D for WorldDriver {
                         CActiveAction::default(),
                         CActionRequestBuf::default(),
                         CInputBuffer::default(),
+                        // Sprint-066 候选A：手感组件激活——CInputFeelConfig（土狼窗可配 +
+                        //   I4 边缘吸附玩家门控）、CCoyoteTime（土狼跳 grace，coyote_time_system
+                        //   写 remaining，action/input_buffer 的 effective_loco 据此放宽物理门）。
+                        CInputFeelConfig::default(),
+                        CCoyoteTime::default(),
                         CMovementControl::default(),
                         CMoveIntent::default(),
                         CMovementState(ms),

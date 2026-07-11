@@ -8,11 +8,9 @@
 //!
 //! 参见: `WoWorld-Design/.../角色控制器/008-手感系统.md` §四
 
-use glam::Vec3;
-use woworld_core::kinematics::LocomotionMode;
+use woworld_core::kinematics::{base_locomotion, LocomotionMode};
 use woworld_core::movement::{AirState, SpecialMode};
 use woworld_core::spatial::TerrainQuery;
-use woworld_core::types::WorldPos;
 
 use crate::components::input_state::{CCoyoteTime, CInputFeelConfig};
 use crate::components::movement_state::{CMovementState, CPrevMovementState};
@@ -20,19 +18,6 @@ use crate::components::transform::Position;
 
 /// 默认土狼时间 (s)——实体无 CInputFeelConfig 时的回退值（M4 之前为硬编码）。
 const DEFAULT_COYOTE_TIME: f32 = 0.15;
-
-fn compute_locomotion(pos: Vec3, terrain: &dyn TerrainQuery) -> LocomotionMode {
-    let wp = WorldPos {
-        x: pos.x as f64,
-        y: pos.y as f64,
-        z: pos.z as f64,
-    };
-    if terrain.is_walkable(wp) {
-        LocomotionMode::Grounded
-    } else {
-        LocomotionMode::PhysicsBody
-    }
-}
 
 /// 土狼时间管理——在 MovementModeSystem 之前运行，读上一帧真实状态。
 pub fn coyote_time_system(world: &mut hecs::World, dt: f32, terrain: &dyn TerrainQuery) {
@@ -48,7 +33,7 @@ pub fn coyote_time_system(world: &mut hecs::World, dt: f32, terrain: &dyn Terrai
             .map(|f| f.coyote_time_secs)
             .unwrap_or(DEFAULT_COYOTE_TIME);
         let current_pos = pos.0;
-        let current_loco = compute_locomotion(current_pos, terrain);
+        let current_loco = base_locomotion(current_pos, terrain);
 
         // ── 着地 → 归零 ──
         if current_loco == LocomotionMode::Grounded {
@@ -94,7 +79,7 @@ mod tests {
     use glam::Vec3;
     use woworld_core::material::SurfaceMaterial;
     use woworld_core::movement::{JumpHeight, MovementState, Pace, Stance};
-    use woworld_core::types::TerrainHit;
+    use woworld_core::types::{TerrainHit, WorldPos};
 
     struct TestTerrain {
         walkable: bool,

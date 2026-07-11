@@ -269,3 +269,50 @@ fn jump_expires_if_never_lands() {
         "过期后落地不应起跳"
     );
 }
+
+/// 候选A 激活验证——玩家配方带 CCoyoteTime + CInputFeelConfig → 踩空后土狼窗内仍可起跳。
+/// 复刻 Godot 玩家配方（terrain_chunk.rs），守护"配方漏挂手感组件"回归。
+#[test]
+fn coyote_grace_jump_after_walking_off_edge() {
+    use woworld_ecs::components::input_state::{CCoyoteTime, CInputFeelConfig};
+    use woworld_ecs::systems::input::coyote_time_system::coyote_time_system;
+
+    let registry = jump_registry();
+    let mut counter = ActionInstanceCounter::default();
+    let mut events = EventChannel::default();
+    let airborne = Ground { walkable: false };
+
+    let mut world = hecs::World::new();
+    let e = spawn_player(&mut world);
+    // 补齐候选A 手感组件（与 Godot 玩家 spawn 配方一致）
+    world
+        .insert(e, (CCoyoteTime::default(), CInputFeelConfig::default()))
+        .unwrap();
+
+    let dt = 0.016_f32;
+
+    // ── 踩空：prev grounded(special=None) + 当前 airborne(SkyVoid=不可行走) + special 非 Jumping ──
+    //   coyote_time_system 检测 was_grounded→not_walkable → 设 remaining = coyote_time(0.15)。
+    coyote_time_system(&mut world, dt, &airborne);
+    assert!(
+        world.get::<&CCoyoteTime>(e).unwrap().remaining > 0.0,
+        "踩空应触发土狼窗（remaining>0）"
+    );
+
+    // ── 土狼窗内按跳跃：input_buffer/action 的 effective_loco 上调 Grounded → 空中仍接受起跳 ──
+    push_jump_to_buffer(&mut world, e, 0.0);
+    tick(
+        &mut world,
+        &registry,
+        &mut counter,
+        &mut events,
+        &airborne,
+        dt,
+        0.05,
+    );
+
+    assert!(
+        world.get::<&CActiveAction>(e).unwrap().0.is_some(),
+        "土狼窗内应接受起跳（coyote grace-jump，虽在空中）"
+    );
+}

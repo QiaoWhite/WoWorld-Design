@@ -2,7 +2,7 @@
 
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-07-11（第三人称相机 MVP + 夺舍 CC 管线统一·1001 tests·实机验证通过）
+> **最后更新**: 2026-07-11（Sprint-065 持续/充能动作运行时·1026 tests·相机 MVP 已推送）
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `附录D-模块依赖图.md` · `../CLAUDE-INTERFACES.md`
 
@@ -18,12 +18,12 @@
 | 有代码的模块 | **9 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、地形修改编排层、玩家系统 Phase 1、**★模型动作与物理（角色控制器）**） |
 | 零代码的模块 | **21 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **1001 tests 全绿** (core: 392 + worldgen: 58 + atmosphere: 26 + ecs: 525 + godot: 0), cargo clippy 零警告 |
-| ECS 架构 | **Phase 0/1/2/3 ✅** — 53 Components + 38 Systems + 1001 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + 角色控制器核心三层 + Step 5e 管线集成 + **★第三人称相机 MVP（CJustLanded + character_facing_system + 夺舍 CC 管线统一）** 就位。 |
-| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + NPC对话气泡 + **★独立 CameraRig 第三人称相机（自由环绕/缩放/FP切换/terrain_raycast 碰撞/疾跑 FOV）** |
-| 当前冲刺 | **第三人称相机 MVP 完成**（1001 tests·实机验证通过·**已推送**）— 独立 CameraRig + SmoothDamp 跟随 + terrain_raycast 碰撞 + character_facing_system + CJustLanded + 夺舍 CC 管线统一 + CameraState 生产者接入 LOD。→ 下一步: **角色控制器运行时补全**（Continuous/Charge 运行时·规格006 + 延后项 A2/A3/M3/M4/I1-5） |
+| Rust workspace | 5 crates, **1026 tests 全绿** (core: 393 + worldgen: 58 + atmosphere: 26 + ecs: 548 + 集成: 1 + godot: 0), cargo clippy 零警告 |
+| ECS 架构 | **Phase 0/1/2/3 ✅** — 55 Components + 38 Systems + 1026 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + 角色控制器核心三层 + Step 5e 管线集成 + 第三人称相机 MVP + **★持续/充能动作运行时（006·SustainDrain 消耗+SustainPhase 迁移+ReleaseBehavior 分发+充能阶梯 follow-up+CPendingFollowUp/CInputFeelConfig+A3 interrupt_on_move+M4 coyote 字段）** 就位。 |
+| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + NPC对话气泡 + 独立 CameraRig 第三人称相机 |
+| 当前冲刺 | **Sprint-065 持续/充能动作运行时完成**（1026 tests·clippy 零警告·未提交）— 解除 action_controller Discrete 硬门 + dispatch_release 释放分发归 wrapper + sustain drain 消耗 Vitals + 充能阶梯 follow-up 帧间接续 + block/aim_bow TOML + A3/M4。→ 下一步: I1-5 手感 mini-sprint / 玩家实体接 Vitals+Block 键位（实机可玩）/ A2 中断语义 |
 | 最新 CHG | **CHG-069**（2026-07-11·第三人称相机与视角系统·玩家系统007 v1.2·实现已落地）— 前: CHG-067 物理运动学地基（仅设计） |
-| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260711-camera-mvp]]（2026-07-11·相机 MVP + 夺舍 CC 管线统一·1001 tests·实机验证通过） |
+| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260711-sprint065]]（2026-07-11·Sprint-065 持续/充能动作运行时·1026 tests） |
 
 ---
 
@@ -97,7 +97,7 @@
 | `lod.rs` | LodPrescription(7×u8) + distance_to_scene_lod/char_lod + LodCoordinator trait | ✅ Sprint-033 新增 |
 | `weather_types.rs` | WeatherState(6), Season(4) — 天气/季节枚举定义 | ✅ Sprint-033 新增 |
 | `camera.rs` | ★ 相机工具 — smooth_damp 家族 + resolve_camera_arm（第三人称相机 MVP·CHG-069） | ✅ 完整 |
-| 测试 | 392 tests (time + density + lod + weather_types + camera + inventory/equipment/economy/culture/faith/power/bootstrap 等) | ✅ 全绿 |
+| 测试 | 393 tests (time + density + lod + weather_types + camera + action(ActionId::from_key) + inventory/equipment/economy/culture/faith/power/bootstrap 等) | ✅ 全绿 |
 
 ### woworld_worldgen — 🟡 部分实现（零架构偏离）
 
@@ -219,7 +219,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 | 技能系统 | P1 | 🟡 就绪 | — | SkillId(5分类)/XP公式/天赋三层/教学四路径 |
 | 语言表达 | P4 | 🟡 就绪 | 对话气泡 MVP (BubbleType + speech_bubble_system, 桩化文本) | ExpressionRef/Conversation/信息传播 5 通道。★ Sprint-061 气泡渲染就位(CHG-066)，桩化文本待接入 TextGenerator |
 | 模型动作与物理 | P4 | 🟡 部分实现 | ✅ 角色控制器核心三层 + Step 5e 集成 (927 tests) | 9 层动画栈/四 trait/6 子模块。★ **角色控制器** MovementSystem+ActionController+手感系统+管线集成(Block A0)完成。**CHG-067 运动学地基**暂缓 per Q-A2 |
-| ├ 角色控制器 | P2 | 🟢 核心+管线就位 | ✅ 核心三层 + Step 5e 集成 | 13 篇开发规格（2,731 行）。核心三层(MovementSystem/ActionController/InputBuffer/CoyoteTime/MovementMode/StaminaGate) + WorldDriver Block A0 管线集成·927 tests。ActionResolver(004)/持续充能(006) 待后续。★ CHG-067 消费者 |
+| ├ 角色控制器 | P2 | 🟢 核心+管线+离散/持续/充能运行时 | ✅ 核心三层 + Step 5e + 006 运行时 | 13 篇开发规格（2,731 行）。核心三层 + Block A0 管线 + ActionResolver(004) + **★006 持续/充能运行时(dispatch_release/SustainDrain/充能阶梯/CPendingFollowUp·Sprint-065)**·1026 tests。延后: A2 中断语义/M3 滑翔/I1-5 手感/玩家实体接 Vitals+键位。★ CHG-067 消费者 |
 | 音频系统 | P4 | 🟡 就绪 | — | SoundFootprint/AudioQuery(30 methods) |
 | 感官与知觉系统 | P3 | 🟡 就绪 | — | PerceptBatch/4 查询 trait/PerceptualCache |
 | 建筑模块 | P4 | 🟡 就绪 | — | ComponentFamily/WFC 2.5D/BuildingGenerator |
@@ -256,6 +256,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | Sprint | 日期 | 目标 | 状态 |
 |--------|------|------|------|
+| Sprint-065 | 2026-07-11 | ★ 持续/充能动作运行时（006）— 解除 Discrete 硬门 + SustainDrain 消耗 + SustainPhase 迁移 + ReleaseBehavior 分发(dispatch_release) + 充能阶梯 follow-up + block/aim_bow TOML + A3(interrupt_on_move) + M4(coyote 字段)·1026 tests | ✅ 完成 |
 | 相机 MVP | 2026-07-11 | ★ 第三人称相机 MVP — 独立 CameraRig + SmoothDamp 跟随 + terrain_raycast 碰撞 + character_facing_system + CJustLanded + 夺舍 CC 管线统一（CHG-069·1001 tests·实机验证） | ✅ 完成 |
 | Sprint-062~064 | 2026-07-10~11 | ★ 角色控制器垂直切片 — ActionResolver + input_bridge + 玩家 Block A0 + 跳跃（977 tests） | ✅ 完成 |
 | Sprint-061 | 2026-07-08 | ★ 对话雏形 MVP — BubbleType + speech_bubble_system + NPC自言自语气泡 + 术语消歧(CHG-066) | ✅ 完成 |

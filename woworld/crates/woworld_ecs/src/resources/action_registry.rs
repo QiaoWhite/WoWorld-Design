@@ -36,7 +36,7 @@ impl ActionRegistry {
         let cancel_ids = def
             .cancel_set
             .iter()
-            .map(|k| ActionId(fnv_hash(k)))
+            .map(|k| ActionId::from_key(k))
             .collect();
         self.cancel_id_map.insert(id, cancel_ids);
         self.definitions.insert(id, def);
@@ -85,11 +85,11 @@ impl ActionRegistry {
     ///
     /// ActionResolver 用它把语义输入动作名映射到 `ActionId`（不需持有 registry 实例）。
     pub fn id_of(key: &str) -> ActionId {
-        ActionId(fnv_hash(key))
+        ActionId::from_key(key)
     }
 
     /// ActionId 从 TOML key (如 "light_attack") 通过 hash 生成。
-    /// Sprint 1: 使用简单的 FNV hash。后续可改用编译时 const hash。
+    /// ★ 委托 `ActionId::from_key`（woworld_core）——单一 FNV-1a hash 源。
     pub fn load_from_toml(&mut self, toml_str: &str) -> Result<(), toml::de::Error> {
         #[derive(serde::Deserialize)]
         struct ActionRegistryToml {
@@ -98,23 +98,11 @@ impl ActionRegistry {
 
         let parsed: ActionRegistryToml = toml::from_str(toml_str)?;
         for (key, def) in parsed.action {
-            let id = ActionId(fnv_hash(&key));
+            let id = ActionId::from_key(&key);
             self.register(id, def);
         }
         Ok(())
     }
-}
-
-/// 简单 FNV-1a 32-bit hash（用于 TOML key → ActionId 映射）。
-///
-/// 不需要外部依赖——几行代码实现。
-fn fnv_hash(s: &str) -> u32 {
-    let mut hash: u32 = 0x811c9dc5;
-    for byte in s.bytes() {
-        hash ^= byte as u32;
-        hash = hash.wrapping_mul(0x01000193);
-    }
-    hash
 }
 
 #[cfg(test)]
@@ -196,12 +184,48 @@ mod tests {
         let mut r = ActionRegistry::new();
         r.load_from_toml(include_str!("../../../../assets/action_registry.toml"))
             .unwrap();
-        let light_id = ActionId(fnv_hash("light_attack"));
-        let heavy_id = ActionId(fnv_hash("heavy_attack"));
+        let light_id = ActionId::from_key("light_attack");
+        let heavy_id = ActionId::from_key("heavy_attack");
         // light_attack.cancel_set = ["heavy_attack", "special_skill"]
         assert!(
             r.cancel_set_ids(light_id).contains(&heavy_id),
             "light_attack 应可被 heavy_attack 取消"
         );
+    }
+
+    #[test]
+    fn test_sprint065_continuous_charge_defs_parse() {
+        // ★ Sprint-065：block(Continuous) / aim_bow(Charge) 006 示例反序列化 +
+        //   充能阶梯 action_id（字符串键）解析到子动作 key 的 id（单一 hash 源闭环）。
+        use woworld_core::action::{ActionKind, ReleaseBehavior};
+        let mut r = ActionRegistry::new();
+        r.load_from_toml(include_str!("../../../../assets/action_registry.toml"))
+            .expect("action_registry.toml 应能解析");
+
+        // block: Continuous + Complete + sustain_drain + 阈值
+        let block = r.get(ActionId::from_key("block")).expect("block 应存在");
+        assert_eq!(block.kind, ActionKind::Continuous);
+        assert_eq!(block.release_behavior, Some(ReleaseBehavior::Complete));
+        assert!(block.sustain_drain.is_some(), "block 应有 sustain_drain");
+        assert_eq!(block.overextend_threshold_secs, Some(8.0));
+        assert_eq!(block.critical_threshold_secs, Some(12.0));
+
+        // aim_bow: Charge + Charged(3 阶梯)
+        let aim = r
+            .get(ActionId::from_key("aim_bow"))
+            .expect("aim_bow 应存在");
+        assert_eq!(aim.kind, ActionKind::Charge);
+        match &aim.release_behavior {
+            Some(ReleaseBehavior::Charged { stages, .. }) => {
+                assert_eq!(stages.len(), 3, "aim_bow 应有 3 阶梯");
+                // 400ms 阶梯的 action_id 应等于 "aimed_shot" 的 id，且该子动作已注册
+                assert_eq!(stages[1].action_id, ActionId::from_key("aimed_shot"));
+                assert!(
+                    r.get(ActionId::from_key("aimed_shot")).is_some(),
+                    "aimed_shot 子动作应已注册"
+                );
+            }
+            other => panic!("aim_bow.release_behavior 应为 Charged，实得 {:?}", other),
+        }
     }
 }

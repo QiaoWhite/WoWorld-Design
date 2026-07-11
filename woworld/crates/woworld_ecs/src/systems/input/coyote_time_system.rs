@@ -14,11 +14,11 @@ use woworld_core::movement::{AirState, SpecialMode};
 use woworld_core::spatial::TerrainQuery;
 use woworld_core::types::WorldPos;
 
-use crate::components::input_state::CCoyoteTime;
+use crate::components::input_state::{CCoyoteTime, CInputFeelConfig};
 use crate::components::movement_state::{CMovementState, CPrevMovementState};
 use crate::components::transform::Position;
 
-/// 默认土狼时间 (s)。后续 sprint 从 InputFeelConfig 读取。
+/// 默认土狼时间 (s)——实体无 CInputFeelConfig 时的回退值（M4 之前为硬编码）。
 const DEFAULT_COYOTE_TIME: f32 = 0.15;
 
 fn compute_locomotion(pos: Vec3, terrain: &dyn TerrainQuery) -> LocomotionMode {
@@ -36,12 +36,17 @@ fn compute_locomotion(pos: Vec3, terrain: &dyn TerrainQuery) -> LocomotionMode {
 
 /// 土狼时间管理——在 MovementModeSystem 之前运行，读上一帧真实状态。
 pub fn coyote_time_system(world: &mut hecs::World, dt: f32, terrain: &dyn TerrainQuery) {
-    for (_, (coyote, move_state, prev_state, pos)) in world.query_mut::<(
+    for (_, (coyote, move_state, prev_state, pos, feel)) in world.query_mut::<(
         &mut CCoyoteTime,
         &CMovementState,
         &CPrevMovementState,
         &Position,
+        Option<&CInputFeelConfig>,
     )>() {
+        // M4: 土狼时间从 CInputFeelConfig 读取（缺组件回退默认 0.15s）
+        let coyote_time = feel
+            .map(|f| f.coyote_time_secs)
+            .unwrap_or(DEFAULT_COYOTE_TIME);
         let current_pos = pos.0;
         let current_loco = compute_locomotion(current_pos, terrain);
 
@@ -77,7 +82,7 @@ pub fn coyote_time_system(world: &mut hecs::World, dt: f32, terrain: &dyn Terrai
             && coyote.remaining <= 0.0
         // 尚未在窗口内
         {
-            coyote.remaining = DEFAULT_COYOTE_TIME;
+            coyote.remaining = coyote_time;
             coyote.left_ground_at = current_pos;
         }
     }
@@ -276,5 +281,32 @@ mod tests {
         )>() {
             assert!((coyote.remaining - 0.10).abs() < 0.01);
         }
+    }
+
+    #[test]
+    fn test_coyote_uses_input_feel_config() {
+        // ★ M4: 带 CInputFeelConfig 的实体用其 coyote_time_secs（0.3），而非硬编码 0.15
+        use crate::components::input_state::CInputFeelConfig;
+        let mut world = hecs::World::new();
+        let terrain = TestTerrain::air();
+
+        let e = world.spawn((
+            CCoyoteTime::default(),
+            CMovementState(MovementState::default()),
+            CPrevMovementState(MovementState::default()), // was grounded
+            Position(Vec3::ZERO),
+            CInputFeelConfig {
+                coyote_time_secs: 0.3,
+            },
+        ));
+
+        coyote_time_system(&mut world, 0.016, &terrain);
+
+        let coyote = world.get::<&CCoyoteTime>(e).unwrap();
+        assert!(
+            (coyote.remaining - 0.3).abs() < 1e-6,
+            "应用 CInputFeelConfig 的 0.3s，实得 {}",
+            coyote.remaining
+        );
     }
 }

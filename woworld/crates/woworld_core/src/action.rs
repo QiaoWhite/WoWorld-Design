@@ -16,12 +16,58 @@ use crate::types::EntityId;
 
 /// 动作标识符——TOML `action_registry.toml` 中 `[action.NAME]` 的散列或索引。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct ActionId(pub u32);
 
 impl ActionId {
     /// 哨兵值——无效/未设置的动作。
     pub const NONE: Self = Self(u32::MAX);
+
+    /// 从 TOML key（如 `"aimed_shot"`）通过 FNV-1a 32-bit hash 生成 ActionId。
+    ///
+    /// ★ 单一 hash 源——`ActionRegistry` 的 TOML key 解析与 `ChargeStage`/`Trigger`
+    ///   子动作引用必须走同一算法，否则 `action_id = "aimed_shot"` 解析出的 id
+    ///   与 `[action.aimed_shot]` 的 map-key id 不一致，充能接续会找不到子动作。
+    pub const fn from_key(key: &str) -> Self {
+        let bytes = key.as_bytes();
+        let mut hash: u32 = 0x811c_9dc5;
+        let mut i = 0;
+        while i < bytes.len() {
+            hash ^= bytes[i] as u32;
+            hash = hash.wrapping_mul(0x0100_0193);
+            i += 1;
+        }
+        Self(hash)
+    }
+}
+
+/// 自定义反序列化——同时接受 TOML **字符串键**（FNV hash）与**整数 id**。
+///
+/// 006 的 `release_behavior`/`stages` 中 `action_id = "quick_shot"` 是字符串键；
+/// 手写整数 id 也保留支持（visit_i64/u64）。
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for ActionId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ActionIdVisitor;
+        impl serde::de::Visitor<'_> for ActionIdVisitor {
+            type Value = ActionId;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("动作 key 字符串或 u32 id")
+            }
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<ActionId, E> {
+                Ok(ActionId::from_key(v))
+            }
+            fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<ActionId, E> {
+                Ok(ActionId(v as u32))
+            }
+            fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<ActionId, E> {
+                Ok(ActionId(v as u32))
+            }
+        }
+        deserializer.deserialize_any(ActionIdVisitor)
+    }
 }
 
 // ── ActionInstanceId ────────────────────────────────────────────
@@ -479,6 +525,21 @@ mod tests {
     fn test_action_id_eq() {
         assert_eq!(ActionId(1), ActionId(1));
         assert_ne!(ActionId(1), ActionId(2));
+    }
+
+    #[test]
+    fn test_action_id_from_key_deterministic() {
+        // ★ Sprint-065: from_key 确定性——同键同 id，异键异 id（FNV-1a）
+        assert_eq!(
+            ActionId::from_key("aimed_shot"),
+            ActionId::from_key("aimed_shot")
+        );
+        assert_ne!(
+            ActionId::from_key("aimed_shot"),
+            ActionId::from_key("quick_shot")
+        );
+        // 空键 = FNV-1a offset basis（字符串反序列化路径由 woworld_ecs registry 测试覆盖）
+        assert_eq!(ActionId::from_key("").0, 0x811c_9dc5);
     }
 
     // ── ActionInstanceId ──

@@ -26,6 +26,16 @@ impl Default for CActionRequestBuf {
     }
 }
 
+/// 充能子动作的帧间载体——ActionController 释放充能动作时写入选定子动作请求，
+/// 下一帧 `action_system` 将其注入 `CActionRequestBuf`（`source = ChargedAction`）后清空。
+///
+/// 一帧间隙——由 Recovery 帧或 id 帧覆盖，玩家无感（006 §五 帧间传递）。
+/// `None` = 无待接续子动作。字段无堆分配（ActionRequest 全栈上）——铁律 #7 合规。
+///
+/// 参见: `WoWorld-Design/.../角色控制器/006-持续动作与充能动作.md` §五
+#[derive(Debug, Clone, Default)]
+pub struct CPendingFollowUp(pub Option<ActionRequest>);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -68,5 +78,23 @@ mod tests {
     fn test_caction_request_buf_capacity() {
         let buf = CActionRequestBuf::default();
         assert!(buf.0.capacity() >= 4);
+    }
+
+    #[test]
+    fn test_cpending_follow_up_default_none() {
+        let f = CPendingFollowUp::default();
+        assert!(f.0.is_none());
+    }
+
+    #[test]
+    fn test_cpending_follow_up_holds_request() {
+        let f = CPendingFollowUp(Some(ActionRequest {
+            action_id: ActionId(7),
+            priority: 5,
+            source: ActionSource::ChargedAction,
+            params: ActionParams::default(),
+        }));
+        assert_eq!(f.0.as_ref().unwrap().action_id, ActionId(7));
+        assert_eq!(f.0.as_ref().unwrap().source, ActionSource::ChargedAction);
     }
 }

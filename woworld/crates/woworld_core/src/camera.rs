@@ -337,7 +337,10 @@ mod tests {
             hit_distance: Some(10.0),
         };
         let arm = resolve_camera_arm(&terrain, pivot(), dir_back(), 4.0, 0.3);
-        assert!((arm - 4.0).abs() < 0.001, "hit beyond desired should not extend arm");
+        assert!(
+            (arm - 4.0).abs() < 0.001,
+            "hit beyond desired should not extend arm"
+        );
     }
 
     #[test]
@@ -347,7 +350,10 @@ mod tests {
         };
         // desired=4.0, margin=0.3, hit=0.2 → floor = MIN_ARM(0.3).min(4.0) = 0.3
         let arm = resolve_camera_arm(&terrain, pivot(), dir_back(), 4.0, 0.3);
-        assert!((arm - 0.3).abs() < 0.001, "arm={arm} should floor at MIN_ARM");
+        assert!(
+            (arm - 0.3).abs() < 0.001,
+            "arm={arm} should floor at MIN_ARM"
+        );
     }
 
     #[test]
@@ -366,6 +372,9 @@ mod tests {
             hit_distance: Some(1.0),
         };
         let arm = resolve_camera_arm(&terrain, pivot(), Vec3::ZERO, 4.0, 0.3);
-        assert!((arm - 4.0).abs() < 0.001, "zero dir should return desired unchanged");
+        assert!(
+            (arm - 4.0).abs() < 0.001,
+            "zero dir should return desired unchanged"
+        );
     }
 }

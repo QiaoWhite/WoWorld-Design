@@ -363,7 +363,10 @@ mod tests {
 
         assert!(world.get::<&Goal>(npc).is_err());
         assert!(world.get::<&Wander>(npc).is_err());
-        assert!(world.get::<&Movement>(npc).is_err(), "old Movement must be removed for CC pipeline");
+        assert!(
+            world.get::<&Movement>(npc).is_err(),
+            "old Movement must be removed for CC pipeline"
+        );
     }
 
     #[test]

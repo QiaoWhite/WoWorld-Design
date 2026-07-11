@@ -131,6 +131,16 @@
 | 修改请求 | `ModificationRequest` | woworld_core::edit_terrain（单次修改描述符） |
 | 对话气泡类型 | `BubbleType` | woworld_core::speech_bubble（Normal/Emotion/Ambient/Quest/Damage·CHG-066·UI文字气泡·区别于音频 BarkType） |
 | 对话气泡状态 | `SpeechBubbleState` | woworld_ecs::resources（Resource·跨帧气泡 duration+cooldown·CHG-066） |
+| 动作类型 | `ActionKind` | woworld_core::action（Discrete/Continuous/Charge·Sprint-065 激活后二者运行时） |
+| 释放行为 | `ReleaseBehavior` | woworld_core::action（Complete/Trigger/Charged·持续/充能动作松键分发·006） |
+| 充能阶梯 | `ChargeStage` | woworld_core::action（threshold_ms→action_id+power_multiplier·按充能时长选子动作） |
+| 过充行为 | `OverchargeBehavior` | woworld_core::action（AutoRelease/Penalize/ForceCancel·充能到顶策略） |
+| 维持消耗 | `SustainDrain` | woworld_core::action（resource+rate_per_sec+overextend_multiplier·持续动作资源消耗） |
+| 维持阶段 | `SustainPhase` | woworld_core::action（Normal/Overextended/Critical·持续动作过久迁移） |
+| 动作key哈希 | `ActionId::from_key` | woworld_core::action（FNV-1a 字符串键→ActionId·单一 hash 源·Sprint-065） |
+| 待接续子动作 | `CPendingFollowUp` | woworld_ecs::components::action_state（充能子动作帧间载体·006 §五·Sprint-065） |
+| 手感配置 | `CInputFeelConfig` | woworld_ecs::components::input_state（coyote_time_secs·008 InputFeelConfig·M4） |
+| 释放分发 | `dispatch_release` | woworld_ecs::systems::action（纯函数·按 ReleaseBehavior 分发释放+返回子动作请求·Sprint-065） |
 | 地形修改编排层 | Terrain Modification Orchestration | CHG-065——内核不转ECS·编排层入ECS |
 | 开发阶段 | Phase | 开发治理——模块从设计到交付的宏观阶段划分 |
 | 子里程碑 | Milestone | 开发治理——Phase 内的可验证进度节点 |

@@ -79,6 +79,26 @@ impl Default for CCoyoteTime {
     }
 }
 
+/// 手感配置——`InputFeelConfig` 的 ECS 组件承载（008 §一）。
+///
+/// **M4**: 承载 `coyote_time_secs`，替换 `coyote_time_system` 中的硬编码 `0.15`。
+///
+/// ⚠️ 当前仅 `coyote_time_secs` 接线——跳跃/闪避/连招缓冲窗、边缘吸附等
+///    其余手感字段留待手感系统 I1-5 冲刺扩展。缺此组件时系统回退默认值 0.15s。
+#[derive(Debug, Clone, Copy)]
+pub struct CInputFeelConfig {
+    /// 土狼时间 (s)——离地后仍可起跳的宽限窗（008 §一 `coyote_time duration_ms=150`）
+    pub coyote_time_secs: f32,
+}
+
+impl Default for CInputFeelConfig {
+    fn default() -> Self {
+        Self {
+            coyote_time_secs: 0.15,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -104,6 +124,12 @@ mod tests {
         };
         assert!(c.remaining > 0.0);
         assert!((c.left_ground_at.x - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_cinput_feel_config_default_coyote() {
+        let cfg = CInputFeelConfig::default();
+        assert!((cfg.coyote_time_secs - 0.15).abs() < 1e-6);
     }
 
     #[test]

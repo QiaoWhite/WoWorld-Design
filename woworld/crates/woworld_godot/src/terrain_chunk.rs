@@ -880,13 +880,14 @@ impl INode3D for WorldDriver {
         }
 
         // ★ 007: 优先用 CameraRig 发布的真实 CameraState；回退 body forward（CameraRig 未就绪）
-        let lod_camera = self.latest_camera_state.clone().unwrap_or_else(|| {
-            CameraState {
+        let lod_camera = self
+            .latest_camera_state
+            .clone()
+            .unwrap_or_else(|| CameraState {
                 position: DVec3::new(player_pos.x, player_pos.y, player_pos.z),
                 forward: camera_forward,
                 fov_radians: 70.0_f32.to_radians(),
-            }
-        });
+            });
 
         let lod_input = LodCoordinatorInput {
             camera: lod_camera,
@@ -1671,11 +1672,7 @@ impl WorldDriver {
         let rows2 = cam_basis2.rows;
         let cam_fwd = glam::Vec3::new(-rows2[0].z, -rows2[1].z, -rows2[2].z); // forward = -Z
         self.latest_camera_state = Some(CameraState {
-            position: glam::DVec3::new(
-                cam_world.x as f64,
-                cam_world.y as f64,
-                cam_world.z as f64,
-            ),
+            position: glam::DVec3::new(cam_world.x as f64, cam_world.y as f64, cam_world.z as f64),
             forward: glam::DVec3::new(cam_fwd.x as f64, cam_fwd.y as f64, cam_fwd.z as f64),
             fov_radians: cam.get_fov().to_radians(),
         });

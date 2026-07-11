@@ -133,7 +133,14 @@ pub fn movement_mode_system(world: &mut hecs::World, terrain: &dyn TerrainQuery)
 
     // ── 写入本 tick 的 CJustLanded ──
     for (entity, impact) in just_landed {
-        world.insert_one(entity, CJustLanded { impact_speed: impact }).ok();
+        world
+            .insert_one(
+                entity,
+                CJustLanded {
+                    impact_speed: impact,
+                },
+            )
+            .ok();
     }
 }
 
@@ -378,8 +385,14 @@ mod tests {
 
         movement_mode_system(&mut world, &terrain);
 
-        let jl = world.get::<&CJustLanded>(e).expect("CJustLanded should be written");
-        assert!((jl.impact_speed - 5.0).abs() < 0.001, "impact={}", jl.impact_speed);
+        let jl = world
+            .get::<&CJustLanded>(e)
+            .expect("CJustLanded should be written");
+        assert!(
+            (jl.impact_speed - 5.0).abs() < 0.001,
+            "impact={}",
+            jl.impact_speed
+        );
     }
 
     #[test]
@@ -411,7 +424,10 @@ mod tests {
 
         // 第二 tick：实体已着地（special=None），CJustLanded 应被清除，且不重写
         movement_mode_system(&mut world, &terrain);
-        assert!(world.get::<&CJustLanded>(e).is_err(), "CJustLanded should be cleared next tick");
+        assert!(
+            world.get::<&CJustLanded>(e).is_err(),
+            "CJustLanded should be cleared next tick"
+        );
     }
 
     #[test]
@@ -436,6 +452,9 @@ mod tests {
         ));
 
         movement_mode_system(&mut world, &terrain);
-        assert!(world.get::<&CJustLanded>(e).is_err(), "grounded entity should not get CJustLanded");
+        assert!(
+            world.get::<&CJustLanded>(e).is_err(),
+            "grounded entity should not get CJustLanded"
+        );
     }
 }

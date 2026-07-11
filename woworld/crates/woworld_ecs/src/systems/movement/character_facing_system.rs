@@ -115,7 +115,10 @@ mod tests {
         for (_, rot) in world.query_mut::<&Rotation>().with::<&PlayerComponent>() {
             let angle = rot.0.angle_between(Quat::IDENTITY);
             // First frame should rotate toward +X (from NEG_Z)
-            assert!(angle > 0.0, "should rotate on first frame, got angle={angle}");
+            assert!(
+                angle > 0.0,
+                "should rotate on first frame, got angle={angle}"
+            );
         }
     }
 
@@ -172,9 +175,9 @@ mod tests {
             //   col1 = (0, 1, 0)  = world +Y = up
             //   col2 = (-1, 0, 0) = world -X = -forward = back
             let cam_xform = Mat4::from_cols(
-                glam::Vec4::new(0.0, 0.0, -1.0, 0.0),   // col0 = right (local +X)
-                glam::Vec4::new(0.0, 1.0, 0.0, 0.0),     // col1 = up    (local +Y)
-                glam::Vec4::new(-1.0, 0.0, 0.0, 0.0),    // col2 = back  (local +Z, = -forward)
+                glam::Vec4::new(0.0, 0.0, -1.0, 0.0), // col0 = right (local +X)
+                glam::Vec4::new(0.0, 1.0, 0.0, 0.0),  // col1 = up    (local +Y)
+                glam::Vec4::new(-1.0, 0.0, 0.0, 0.0), // col2 = back  (local +Z, = -forward)
                 glam::Vec4::W,
             );
             intent.camera_transform = cam_xform;
@@ -184,7 +187,11 @@ mod tests {
             let facing = rot.0 * Vec3::NEG_Z;
             // CameraForward → face same direction as camera (-Z of camera matrix projects to XZ)
             // Camera faces +X world → character should face +X
-            assert!(facing.x > 0.0, "should face +X (camera direction), got {:?}", facing);
+            assert!(
+                facing.x > 0.0,
+                "should face +X (camera direction), got {:?}",
+                facing
+            );
         }
     }
 
@@ -201,7 +208,10 @@ mod tests {
         character_facing_system(&mut world, 1.0 / 60.0);
         for (_, rot) in world.query_mut::<&Rotation>().with::<&PlayerComponent>() {
             let angle = rot.0.angle_between(Quat::IDENTITY);
-            assert!(angle < 0.001, "Locked should prevent rotation, got angle={angle}");
+            assert!(
+                angle < 0.001,
+                "Locked should prevent rotation, got angle={angle}"
+            );
         }
     }
 

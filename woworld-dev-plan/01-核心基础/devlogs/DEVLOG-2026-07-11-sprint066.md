@@ -24,9 +24,19 @@
 
 ## 学到的东西
 - **"隐式满足"要证伪不能证真**：I5 表面看 `current.is_none()` 门控就够了，深挖才发现 drain 与 accept 是两层、`request_buf.clear()` 才是丢数据的元凶。审计价值全在这种反直觉处。
-- **消解重复顺手做，但先验等价**：三处 `compute_locomotion` 逐字节相同才敢合并；movement 要的是 base（土狼窗内物理上仍腾空），action 要的是 effective（放宽物理门）——拆成两个函数各取所需，不硬合成一个带标志位的。
-- **实机激活 ≠ 代码完成**：I1-3 因玩家有 CInputBuffer 而真上线（空中跳跃现在落地触发）；I4 因玩家缺 CInputFeelConfig 而 inert。验收要查"真实体有没有挂对组件 + 真 TOML flag"，不能只看单测绿。
+- **消解重复顺手做，但先验等价**：`compute_locomotion` 逐字节相同才敢合并；movement 要的是 base（土狼窗内物理上仍腾空），action 要的是 effective（放宽物理门）——拆成两个函数各取所需，不硬合成一个带标志位的。
+- **实机激活 ≠ 代码完成**：I1-3 因玩家有 CInputBuffer 而真上线（空中跳跃现在落地触发）；I4/coyote 因玩家缺 CInputFeelConfig/CCoyoteTime 而 inert。验收要查"真实体有没有挂对组件 + 真 TOML flag"，不能只看单测绿。
 
-## 明日计划
-- [ ] 提交推送本冲刺
-- [ ] 候选 A（补玩家 CInputFeelConfig/CCoyoteTime 激活 I4/coyote）或 B（I5 空闲门控闭环）
+## 会话后半段：候选A 接线 + 诚实降级
+- **候选A**：给 Godot 玩家 spawn 补挂 `CInputFeelConfig` + `CCoyoteTime`，代码路径全通，写集成测试 `coyote_grace_jump_after_walking_off_edge`（用 SkyVoid mock 强制 airborne）跑通 coyote→input_buffer→action 全链。顺带发现并消解 coyote_time_system 里**第 4 处** compute_locomotion（Sprint-066 主体只收了三处，handoff 已订正）。tests 1046→1047。
+- **用户一句话点醒**："整个世界都是曲线，没有棱角。"——查 `is_walkable`(terrain.rs:428)：`on_surface(|y-h|<1m)` + 坡度<45°。平滑 Perlin 高度场下 `movement_system` 每帧把 y 贴回地表、无 >1m 断崖、陡坡是"留原地"，`is_walkable` **永不因走路 flip false**。所以 coyote-jump 与 I4 边缘吸附**实机不可触发、不可验**——我之前"已激活"的说法过头了。
+- **诚实降级**（不改代码，只改措辞）：handoff/CLAUDE.md/代码注释统一改标"**已接线·休眠**（无棱角地形不可触发，待体素碰撞移动解锁）"，并在 §🚀 新增候选 E（体素碰撞移动里程碑）作为真开关。保留接线（零风险、就绪待解锁），不 overclaim。
+
+## 今日学到（补）
+- **代码通 ≠ 世界里能玩**：土狼跳/边缘吸附是"平台跳跃"手感，需要断崖/悬垂/台阶几何；平滑高度场根本没有触发条件。机制建好但世界喂不进输入 = 休眠。验收"实机可玩"必须连**世界几何能否产生触发态**一起查，不能只查组件挂对。
+
+## 明日计划（下一会话）
+- [x] Sprint-066 I1-4 + 候选A 全部提交推送（末端 `1db25a9`）
+- [ ] 🥇 候选 B：I5 空闲门控（忙碌时缓冲保留 + combo cancel_window 交互设计）
+- [ ] 🥈 候选 C：玩家接 Vitals + Block 键位（持续/充能动作实机可玩）
+- [ ] 🔭 候选 E（大件）：体素碰撞移动——一次点亮土狼跳/边缘吸附/多地形手感

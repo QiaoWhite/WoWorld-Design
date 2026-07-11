@@ -3,7 +3,7 @@
 > **冲刺**: Sprint-066 — 手感系统运行时（缓冲淘汰 / 物理重检 / 落地预输入 / 边缘吸附）
 > **日期**: 2026-07-11
 > **阶段**: Phase 2 — 垂直切片
-> **冲刺状态**: ✅ 完成（I1-4 达成 + 计划↔文档审计修正，1046 tests，clippy 零警告，**已提交推送 `bed70c8`**）
+> **冲刺状态**: ✅ 完成（I1-4 + 审计修正 + 候选A 接线[休眠]，1047 tests，clippy 零警告，**全部推送，末端 `1db25a9`**）
 
 ## 📊 冲刺回顾
 
@@ -26,25 +26,32 @@
 
 > ⚠️ 下一会话 AI 启动首先读这里。
 
-- **当前冲刺**: Sprint-066 — 已完成（I1-4 + 审计修正），**已提交推送 `bed70c8`**。
-- **机械门状态**: build ✅ / test ✅ **1046 passed** / clippy ✅ 零警告 / fmt ✅ clean
-- **上次提交**: `bed70c8`（Sprint-066，已推送）。工作区干净（仅 `.obsidian/workspace.json` 无关变动）。
-- **本冲刺改动清单**（已提交 `bed70c8`）:
+- **当前冲刺**: Sprint-066 — 已完成（I1-4 + 审计修正 + 候选A 接线），**全部提交推送，末端 `1db25a9`**。
+- **机械门状态**: build ✅ / test ✅ **1047 passed** / clippy ✅ 零警告 / fmt ✅ clean
+- **上次提交**: `1db25a9`（诚实降级 docs，已推送）。工作区干净（仅 `.obsidian/workspace.json` 无关变动），master 与 origin 同步。
+- **本会话提交链**（均已推送 origin/master）:
+  ```
+  bed70c8  feat  Sprint-066 手感 I1-4（缓冲淘汰/物理重检/落地预输入/边缘吸附，1046 tests）
+  124d693  docs  handoff 恢复点更新
+  3c89840  feat  候选A 玩家手感组件接线 + 消解第4处 compute_locomotion（1047 tests）
+  1db25a9  docs  诚实降级——coyote-jump/边缘吸附标"已接线·休眠"
+  ```
+- **改动清单**（跨上述提交）:
   ```
   woworld_core/src/kinematics.rs                   (+base_locomotion/resolve_effective_loco +5 测试)
   woworld_ecs/components/input_state.rs            (CInputBuffer::push_bounded + CInputFeelConfig 补 ledge 字段 + 测试)
   woworld_ecs/systems/input/input_buffer_system.rs (重写：新签名 terrain/registry/now + 过期 + 物理重检 drain + 测试)
   woworld_ecs/systems/input/action_resolver_system.rs (push→push_bounded)
-  woworld_ecs/systems/input/coyote_time_system.rs  (测试 ..Default::default() 适配新字段)
+  woworld_ecs/systems/input/coyote_time_system.rs  (消解第4处 compute_locomotion→base_locomotion + 测试适配)
   woworld_ecs/systems/action/action_system.rs      (用 resolve_effective_loco，删私有 compute_locomotion)
   woworld_ecs/systems/movement/movement_mode_system.rs (用 base_locomotion，删私有拷贝 + 冗余 _prev_loco)
-  woworld_ecs/systems/movement/movement_system.rs  (删死代码 compute_locomotion_mode + apply_ledge_snap + query 加 CInputFeelConfig + 测试)
-  woworld_ecs/tests/sprint066_feel.rs              (新增·I3 端到端集成)
+  woworld_ecs/systems/movement/movement_system.rs  (删死代码 + apply_ledge_snap + query 加 CInputFeelConfig + 测试)
+  woworld_ecs/tests/sprint066_feel.rs              (新增·I3 端到端 + coyote-jump 集成)
   woworld_ecs/tests/{sprint062_actionresolver,step5e_pipeline}.rs (适配新签名)
-  woworld_godot/src/terrain_chunk.rs               (input_buffer_system 调用点补参数)
-  文档: sprint-066 提案 / 本 handoff / DEVLOG
+  woworld_godot/src/terrain_chunk.rs               (input_buffer 调用点补参 + 玩家 spawn 补 CInputFeelConfig/CCoyoteTime[休眠] + 注释)
+  文档: sprint-066 提案 / 本 handoff / DEVLOG / 附录A术语表 / CLAUDE.md
   ```
-- **下一步**: Sprint-066 已闭环并推送（`bed70c8`）。下一冲刺候选见 §🚀。
+- **下一步**: Sprint-066 已全部闭环推送（末端 `1db25a9`）。下一冲刺候选见 §🚀——建议 🥇 B（I5 空闲门控）或 🥈 C（玩家接 Vitals+Block 键位使持续/充能动作实机可玩）。触及角色控制器先精读对应 00X 原文档。
 - **已知陷阱 / 待接线**:
   - ⚠️ **候选A 已接线但实机休眠（无棱角地形）**：Godot 玩家已补挂 `CInputFeelConfig` + `CCoyoteTime`，coyote-jump / I4 门控 / M4 可配土狼窗代码路径全通、ECS 集成测试（`coyote_grace_jump_after_walking_off_edge`，用 mock 强制 airborne）证明机制正确。**但当前平滑 Perlin 高度场无法触发**：`is_walkable`（terrain.rs:428）= `on_surface(|y-h|<1m)` + 坡度<45°，而 `movement_system` 每帧把 y 贴回地表 + 无 >1m 断崖 + 陡坡是"留原地"不是走下去 → `is_walkable` 永不因走路 flip false，土狼跳/边缘吸附**不可达、不可实机验**。二者同坑：需**体素碰撞移动**消费边缘几何才活。接线正确、零风险、零行为改变，就绪待解锁。顺带消解 coyote_time_system 的**第 4 处** compute_locomotion（主体漏收）。→ tests 1046→1047。
   - ✅ **I1-I3 在实机已激活**：玩家有 `CInputBuffer`，真 `[action.jump]` bufferable=true/physics_req=Grounded → 空中按跳跃现在**留缓冲、落地起跳**（此前被 drain+clear 丢弃）。这是本冲刺可见的手感修复。
@@ -55,8 +62,8 @@
 
 ### cargo test（真实输出）
 ```
-TOTAL PASSED: 1046   (core 402 + worldgen 58 + atmosphere 26 + ecs 558 + 集成 2 + godot 0)
-（净 +20：kinematics +5 / input_state +5 / input_buffer +2 / movement ledge +4 / sprint066_feel +2 / 其余适配）
+TOTAL PASSED: 1047   (core 407 + worldgen 58 + atmosphere 26 + ecs 553 + 集成 3 + godot 0)
+（净 +21：kinematics +5 / input_state +5 / input_buffer +2 / movement ledge +4 / sprint066_feel +3(含 coyote-jump) / 其余适配）
 ```
 
 ### cargo clippy

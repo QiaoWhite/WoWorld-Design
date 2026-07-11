@@ -697,9 +697,12 @@ impl INode3D for WorldDriver {
                         CActiveAction::default(),
                         CActionRequestBuf::default(),
                         CInputBuffer::default(),
-                        // Sprint-066 候选A：手感组件激活——CInputFeelConfig（土狼窗可配 +
+                        // Sprint-066 候选A：手感组件接线——CInputFeelConfig（土狼窗可配 +
                         //   I4 边缘吸附玩家门控）、CCoyoteTime（土狼跳 grace，coyote_time_system
                         //   写 remaining，action/input_buffer 的 effective_loco 据此放宽物理门）。
+                        //   ⚠️ 实机休眠：平滑 Perlin 高度场下 is_walkable 永不因走路 flip false
+                        //   （y 每帧贴地/无 >1m 断崖/陡坡留原地），土狼跳与边缘吸附不可触发——
+                        //   代码路径已通、ECS 集成测试证明机制正确，待体素碰撞移动消费边缘几何解锁。
                         CInputFeelConfig::default(),
                         CCoyoteTime::default(),
                         CMovementControl::default(),

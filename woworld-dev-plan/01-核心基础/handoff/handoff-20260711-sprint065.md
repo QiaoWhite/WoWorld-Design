@@ -29,23 +29,21 @@
 - **当前冲刺**: Sprint-065 — 已完成（P1-P6 + 审计），**已提交推送 `3d5ec72`**。
 - **机械门状态**: build ✅ / test ✅ **1026 passed** / clippy ✅ 零警告 / fmt ✅ clean
 - **上次提交**: `3d5ec72`（Sprint-065，已推送）。工作区干净（无未提交）。
-- **未提交文件**:
+- **本冲刺改动清单**（已提交 `3d5ec72` + 恢复点同步 `ababd79`）:
   ```
-   M woworld/assets/action_registry.toml            (block 补 006 字段 + aim_bow + 3 子动作)
-   M woworld/crates/woworld_core/src/action.rs       (ActionId::from_key + 双模 Deserialize + 测试)
-   M woworld/crates/woworld_ecs/src/components/action_state.rs   (CPendingFollowUp)
-   M woworld/crates/woworld_ecs/src/components/input_state.rs    (CInputFeelConfig)
-   M woworld/crates/woworld_ecs/src/resources/action_registry.rs (fnv_hash→from_key + 测试)
-   M woworld/crates/woworld_ecs/src/systems/action/action_controller.rs (移释放分支 + dispatch_release)
-   M woworld/crates/woworld_ecs/src/systems/action/action_system.rs     (sustain 运行时 + A3)
-   M woworld/crates/woworld_ecs/src/systems/input/coyote_time_system.rs  (M4 coyote 字段)
-   ?? woworld/crates/woworld_ecs/tests/sprint065_sustain.rs      (集成测试)
-   M woworld-dev-plan/附录A-术语表.md / 附录E-开发状态.md
-   ?? sprint-065 提案 / DEVLOG-2026-07-11-sprint065 / 本文件
-   # 附带（fmt 归一化，非本冲刺逻辑）:
-   M camera.rs / character_facing_system.rs / movement_mode_system.rs / possess.rs / terrain_chunk.rs
+  woworld/assets/action_registry.toml            (block 补 006 字段 + movement_lock Partial + aim_bow + 3 子动作)
+  woworld_core/src/action.rs                     (ActionId::from_key + 双模 Deserialize + 测试)
+  woworld_ecs/components/action_state.rs         (CPendingFollowUp)
+  woworld_ecs/components/input_state.rs          (CInputFeelConfig)
+  woworld_ecs/resources/action_registry.rs       (fnv_hash→from_key + 测试)
+  woworld_ecs/systems/action/action_controller.rs (移释放分支 + dispatch_release/select_charge_stage)
+  woworld_ecs/systems/action/action_system.rs     (sustain 运行时 + 取消窗口 + A3 + overcharge)
+  woworld_ecs/systems/input/coyote_time_system.rs (M4 coyote 字段)
+  woworld_ecs/tests/sprint065_sustain.rs          (集成测试·新增)
+  文档: sprint-065 提案 / DEVLOG / 本 handoff / 附录A术语表 / 附录E / CLAUDE.md
+  附带 fmt 归一化: camera.rs / character_facing_system.rs / movement_mode_system.rs / possess.rs / terrain_chunk.rs
   ```
-- **下一步**: 提交推送 Sprint-065 → 待用户审核 → 下一冲刺候选（见 §🚀）。
+- **下一步**: Sprint-065 已闭环。下一冲刺从 §🚀 候选选（🥇 I1-5 手感 / 🥈 玩家实体接 Vitals+Block 键位使实机可玩 / A2 中断语义）。触及角色控制器先精读对应 006/008 原文档。
 - **已知陷阱**:
   - ⚠️ Vitals 现由 `action_system`（sustain drain）+ regen + age **顺序写**（不同 Block，非并行）——铁律 #10 的文档化例外。新增写 Vitals 的 System 若进 par_iter 需重新审计。
   - ⚠️ block/aim_bow 在 TOML 就位但**无键位绑定**，实机不可触发；玩家实体**无 Vitals**，block 不消耗——这些是 input/战斗冲刺的接入项，非缺陷。

@@ -10,7 +10,9 @@ use crate::components::needs::{Desire, DesireKind, NeedSensitivity, Needs};
 // ── 调优参数 (设计文档 §9) ──────────
 
 const DECAY_RATE: f32 = 0.01; // 基础衰减率 / 帧
-const URGENCY_THRESHOLD: f32 = 0.8;
+/// 需求紧迫度阈值——最高 urgency ≥ 此值触发 Desire（设计 §9）。
+/// 公开供 goal_resolution 的漫游回落复用同一判据。
+pub const URGENCY_THRESHOLD: f32 = 0.8;
 const SLEEP_DEBT_HUNGER_MOD: f32 = 0.3; // 疲劳放大饥饿
 const THIRST_FATIGUE_MOD: f32 = 0.25; // 脱水放大疲惫
 const SOCIAL_ALL_URGENCY_MOD: f32 = 1.15; // 社交缺失放大全部 urgency
@@ -64,51 +66,59 @@ fn urgency_for(value: f32, sensitivity: f32) -> f32 {
     deviation * sensitivity
 }
 
-/// 评估需求紧急性——任意 urgency > 0.8 则插入 Desire
+/// 计算最高紧迫需求（含 social 耦合放大）——need_evaluation 与 goal_resolution 共用。
+///
+/// 返回 (最紧迫的 DesireKind, urgency)。`urgency < URGENCY_THRESHOLD` 视为无紧迫需求。
+pub fn evaluate_top_urgency(needs: &Needs, sens: &NeedSensitivity) -> (DesireKind, f32) {
+    let urgencies = [
+        (DesireKind::Eat, urgency_for(needs.hunger, sens.hunger_sens)),
+        (
+            DesireKind::Drink,
+            urgency_for(needs.thirst, sens.thirst_sens),
+        ),
+        (
+            DesireKind::Rest,
+            urgency_for(needs.fatigue, sens.fatigue_sens),
+        ),
+        (
+            DesireKind::SeekSafety,
+            urgency_for(needs.safety, sens.safety_sens),
+        ),
+        (
+            DesireKind::Socialize,
+            urgency_for(needs.social, sens.social_sens),
+        ),
+        (
+            DesireKind::BalanceElements,
+            urgency_for(needs.element_balance, sens.element_sens),
+        ),
+        (
+            DesireKind::ExpressLibido,
+            urgency_for(needs.libido, sens.libido_sens),
+        ),
+    ];
+
+    // 选最高 urgency
+    let (mut kind, mut urgency) = urgencies[0];
+    for &(k, u) in &urgencies[1..] {
+        if u > urgency {
+            kind = k;
+            urgency = u;
+        }
+    }
+
+    // 跨需求耦合: social > 0.7 使所有 urgency × 1.15
+    if needs.social > 0.7 {
+        urgency *= SOCIAL_ALL_URGENCY_MOD;
+    }
+
+    (kind, urgency)
+}
+
+/// 评估需求紧急性——最高 urgency ≥ 阈值则插入 Desire
 pub fn need_evaluation_system(world: &hecs::World, cmd: &mut CommandBuffer) {
     for (entity, (needs, sens)) in world.query::<(&Needs, &NeedSensitivity)>().iter() {
-        let urgencies = [
-            (DesireKind::Eat, urgency_for(needs.hunger, sens.hunger_sens)),
-            (
-                DesireKind::Drink,
-                urgency_for(needs.thirst, sens.thirst_sens),
-            ),
-            (
-                DesireKind::Rest,
-                urgency_for(needs.fatigue, sens.fatigue_sens),
-            ),
-            (
-                DesireKind::SeekSafety,
-                urgency_for(needs.safety, sens.safety_sens),
-            ),
-            (
-                DesireKind::Socialize,
-                urgency_for(needs.social, sens.social_sens),
-            ),
-            (
-                DesireKind::BalanceElements,
-                urgency_for(needs.element_balance, sens.element_sens),
-            ),
-            (
-                DesireKind::ExpressLibido,
-                urgency_for(needs.libido, sens.libido_sens),
-            ),
-        ];
-
-        // 选最高 urgency
-        let (mut kind, mut urgency) = urgencies[0];
-        for &(k, u) in &urgencies[1..] {
-            if u > urgency {
-                kind = k;
-                urgency = u;
-            }
-        }
-
-        // 跨需求耦合: social > 0.7 使所有 urgency × 1.15
-        if needs.social > 0.7 {
-            urgency *= SOCIAL_ALL_URGENCY_MOD;
-        }
-
+        let (kind, urgency) = evaluate_top_urgency(needs, sens);
         if urgency >= URGENCY_THRESHOLD {
             cmd.remove_one::<Desire>(entity);
             cmd.insert_one(entity, Desire { kind, urgency });

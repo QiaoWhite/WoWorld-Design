@@ -181,4 +181,43 @@ mod tests {
 
         assert!(world.get::<&HasInventory>(entity).is_ok());
     }
+
+    #[test]
+    fn test_spawn_shaped_npc_holds_and_reads_writes_inventory() {
+        // V0: 坐实 spawn 形状实体 → inventory_init_system → 持有 + 读写闭环。
+        // 审计发现：inventory 由 inventory_init_system 每帧幂等补挂（非 spawn_npc），
+        // 故 V0 走验证测试而非改 spawn。
+        use crate::systems::item::item_seed_system;
+
+        let mut world = World::new();
+        let mut cmd = CommandBuffer::new();
+        let mut reg = InventoryRegistry::new();
+        let mut item_reg = ItemRegistry::new();
+        item_seed_system(&mut item_reg); // 填充真实物品定义（读写闭环需要真实 def）
+
+        // 模拟 spawn_npc 形状（terrain_chunk.rs: EntityKind::Creature + BigFive）
+        let entity = world.spawn((EntityKind::Creature, BigFive::default()));
+
+        inventory_init_system(&world, &mut cmd, &mut reg, &item_reg);
+        cmd.run_on(&mut world);
+
+        let eid = EntityId(entity.to_bits().into());
+        // 持有：ECS 标签 + 注册表数据
+        assert!(world.get::<&HasInventory>(entity).is_ok());
+        assert!(reg.has_inventory(eid));
+        assert_eq!(
+            reg.get_inventory(eid).unwrap().total_slots(),
+            inventory_tuning::BASE_SLOTS
+        );
+
+        // 读写闭环：add_item 真实物品 → count_item 读回增量
+        let def = *item_reg
+            .all_def_ids()
+            .first()
+            .expect("item_seed_system should populate items");
+        let before = reg.count_item(eid, def);
+        let added = reg.add_item(eid, def, 3, &item_reg).unwrap();
+        assert!(added > 0, "should add at least 1 item");
+        assert_eq!(reg.count_item(eid, def), before + added);
+    }
 }

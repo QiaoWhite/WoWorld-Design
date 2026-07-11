@@ -1,8 +1,10 @@
-//! 行为权重 System — Phase 1 乘性权重链
+//! 行为权重 System — Phase 1 乘性权重链（6 因子子集）
 //!
-//! weight = need_action_match × emotion_modifier × personality_modifier × survival_suppression
+//! weight = need_action_match × emotion_modifier × personality_modifier
+//!        × survival_suppression × lifestage_restriction × time_modifier
 //!
-//! 参见: `NPC活人感开发文档ver2.0.md` lines 1626-1653
+//! 完整链见 `NPC活人感开发文档ver2.0.md` §select_action (lines 1607-1654)；
+//! time_modifier = 该链 v3「昼夜修正」因子，提前到 Phase-1 子集实现（垂直切片 V1）。
 
 use hecs::CommandBuffer;
 
@@ -171,13 +173,41 @@ fn lifestage_restriction(category: ActionCategory, stage: &LifeStage) -> f32 {
     }
 }
 
+/// time_modifier — 昼夜修正（设计 ver2.0 §select_action `time_modifier(&action, world)`, v3 因子）
+///
+/// 行动适宜度随世界时段**连续**调制——非门控、非日程、无「if 时间 then 意图」。
+/// 纯世界时驱动，**不含个人 chronotype**（chronotype 已在需求层 `circadian_factor`
+/// 以相位偏移生效，见 `components/circadian.rs`；R1 裁决遵设计 time_modifier 语义）。
+///
+/// 白昼度 `daylight = -cos(day_progress·TAU)` ∈ [-1, 1]：午夜 -1、正午 +1、日出/日落 0。
+/// Rest 夜偏好、Socialize/Explore 日偏好；进食/饮水/生存/战斗/漫游中性（时段不压制生存）。
+/// 返回 `1.0 ± TIME_AMPLITUDE`。
+fn time_modifier(category: ActionCategory, day_progress: f32) -> f32 {
+    const TIME_AMPLITUDE: f32 = 0.08; // ±8%（对齐需求层 circadian §3.4）
+    let daylight = -(day_progress * std::f32::consts::TAU).cos(); // [-1, 1]
+    let bias = match category {
+        // 白昼活动：白天适宜度↑
+        ActionCategory::Socialize | ActionCategory::Explore => daylight,
+        // 休息：夜晚适宜度↑（反相）
+        ActionCategory::Rest => -daylight,
+        // 进食/饮水/寻求安全/战斗/逃跑/漫游：不受时段压制（中性）
+        _ => 0.0,
+    };
+    1.0 + bias * TIME_AMPLITUDE
+}
+
 /// 行为权重引擎——计算当前最优 ActionIntent
 ///
 /// 查询 (&Goal, &Needs, &NeedSensitivity, &Emotion, &BigFive, &LifeStage)
 /// → 插入 ActionIntent
 ///
+/// `day_progress`: 世界日内进度 0-1（0=午夜），喂 time_modifier；None 则跳过昼夜修正。
 /// 调用者负责 `cmd.run_on(&mut world)`
-pub fn action_weight_system(world: &hecs::World, cmd: &mut CommandBuffer) {
+pub fn action_weight_system(
+    world: &hecs::World,
+    cmd: &mut CommandBuffer,
+    day_progress: Option<f32>,
+) {
     for (_entity, (goal, needs, sens, emotion, bf, stage)) in world
         .query::<(
             &Goal,
@@ -196,8 +226,12 @@ pub fn action_weight_system(world: &hecs::World, cmd: &mut CommandBuffer) {
         let personality_w = personality_modifier(category, bf);
         let survival_w = survival_suppression(&goal.goal_type, needs);
         let stage_w = lifestage_restriction(category, stage);
+        // ★ V1: 第 6 因子——昼夜修正（设计 ver2.0 time_modifier）。时间未知则中性 1.0。
+        let time_w = day_progress
+            .map(|dp| time_modifier(category, dp))
+            .unwrap_or(1.0);
 
-        let weight = need_w * emotion_w * personality_w * survival_w * stage_w;
+        let weight = need_w * emotion_w * personality_w * survival_w * stage_w * time_w;
 
         cmd.insert_one(
             _entity,
@@ -390,7 +424,7 @@ mod tests {
             ));
         }
 
-        action_weight_system(&world, &mut cmd);
+        action_weight_system(&world, &mut cmd, Some(0.5));
         cmd.run_on(&mut world);
 
         for (_, intent) in world.query::<&ActionIntent>().iter() {
@@ -406,6 +440,64 @@ mod tests {
     fn test_empty_world_no_panic() {
         let world = hecs::World::new();
         let mut cmd = CommandBuffer::new();
-        action_weight_system(&world, &mut cmd);
+        action_weight_system(&world, &mut cmd, None);
+    }
+
+    // ── V1: time_modifier（昼夜修正）单元测试 ──
+
+    #[test]
+    fn test_time_modifier_night_favors_rest() {
+        // 午夜 dp=0.0：Rest 适宜度 > 活动类，且 Rest>1.0、Explore<1.0
+        let rest = time_modifier(ActionCategory::Rest, 0.0);
+        let explore = time_modifier(ActionCategory::Explore, 0.0);
+        assert!(
+            rest > explore,
+            "night: rest {rest} should exceed explore {explore}"
+        );
+        assert!(rest > 1.0 && explore < 1.0);
+    }
+
+    #[test]
+    fn test_time_modifier_day_favors_activity() {
+        // 正午 dp=0.5：活动类 > Rest
+        let explore = time_modifier(ActionCategory::Explore, 0.5);
+        let rest = time_modifier(ActionCategory::Rest, 0.5);
+        assert!(
+            explore > rest,
+            "day: explore {explore} should exceed rest {rest}"
+        );
+        assert!(explore > 1.0 && rest < 1.0);
+    }
+
+    #[test]
+    fn test_time_modifier_range_and_survival_neutral() {
+        for i in 0..100 {
+            let dp = i as f32 / 100.0;
+            for cat in [
+                ActionCategory::Rest,
+                ActionCategory::Explore,
+                ActionCategory::Socialize,
+                ActionCategory::Eat,
+            ] {
+                let m = time_modifier(cat, dp);
+                assert!(
+                    (0.919..=1.081).contains(&m),
+                    "modifier {m} out of ±8% for {cat:?} @ {dp}"
+                );
+            }
+            // 生存类（Eat）时段中性——不被昼夜压制
+            assert!((time_modifier(ActionCategory::Eat, dp) - 1.0).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_time_modifier_continuous_no_gating() {
+        // 陡峭段(dp≈0.25)相邻时刻差值远小于满幅——连续调制，无离散门控/查表跳变
+        let a = time_modifier(ActionCategory::Rest, 0.24);
+        let b = time_modifier(ActionCategory::Rest, 0.26);
+        assert!(
+            (a - b).abs() < 0.05,
+            "should vary continuously, not snap (got {a} vs {b})"
+        );
     }
 }

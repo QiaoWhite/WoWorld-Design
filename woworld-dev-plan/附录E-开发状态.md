@@ -18,12 +18,12 @@
 | 有代码的模块 | **9 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、地形修改编排层、玩家系统 Phase 1、**★模型动作与物理（角色控制器）**） |
 | 零代码的模块 | **21 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **1026 tests 全绿** (core: 393 + worldgen: 58 + atmosphere: 26 + ecs: 548 + 集成: 1 + godot: 0), cargo clippy 零警告 |
+| Rust workspace | 5 crates, **1055 tests 全绿** (core: 398 + worldgen: 58 + atmosphere: 26 + ecs: 573（564 lib + 9 集成） + godot: 0), cargo clippy 零警告 |
 | ECS 架构 | **Phase 0/1/2/3 ✅** — 55 Components + 38 Systems + 1026 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + 角色控制器核心三层 + Step 5e 管线集成 + 第三人称相机 MVP + **★持续/充能动作运行时（006·SustainDrain 消耗+SustainPhase 迁移+ReleaseBehavior 分发+充能阶梯 follow-up+CPendingFollowUp/CInputFeelConfig+A3 interrupt_on_move+M4 coyote 字段）** 就位。 |
 | Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + NPC对话气泡 + 独立 CameraRig 第三人称相机 |
-| 当前冲刺 | **Sprint-065 持续/充能动作运行时完成**（1026 tests·clippy 零警告·未提交）— 解除 action_controller Discrete 硬门 + dispatch_release 释放分发归 wrapper + sustain drain 消耗 Vitals + 充能阶梯 follow-up 帧间接续 + block/aim_bow TOML + A3/M4。→ 下一步: I1-5 手感 mini-sprint / 玩家实体接 Vitals+Block 键位（实机可玩）/ A2 中断语义 |
+| 当前冲刺 | **Sprint-067 V0+V1 地基与昼夜涌现完成**（1055 tests·clippy/fmt 零警告·未提交）— V0 库存验证测试（审计:已由 `inventory_init_system` 幂等补挂，不改 spawn_npc）+ V1 `time_modifier` 昼夜第6因子（=设计 ver2.0 v3·纯世界时·白昼度曲线）+ 漫游回落（读 Needs 紧迫度防振荡）+ Vf 食物源 BACKLOG spike。→ 下一步: V4a 问候/情绪气泡（第 3/10 步） |
 | 最新 CHG | **CHG-069**（2026-07-11·第三人称相机与视角系统·玩家系统007 v1.2·实现已落地）— 前: CHG-067 物理运动学地基（仅设计） |
-| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260711-sprint065]]（2026-07-11·Sprint-065 持续/充能动作运行时·1026 tests） |
+| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260712-sprint067]]（2026-07-12·Sprint-067 V0+V1·1055 tests） |
 
 ---
 
@@ -32,7 +32,7 @@
 | Phase | 覆盖层 | 涉及模块数 | 代码状态 | 设计状态 |
 |-------|--------|----------|---------|---------|
 | Phase 1: 核心基础 | Layer 0-1 | 10 模块 | 5/10 🟡 | 10/10 ✅ |
-| Phase 2: 垂直切片（探针·活着的村庄） | Layer 1-2 子集 | 10 里程碑（V0/V1/V4a/Vf/V2/V3a/V3b/V4b/V5/V6） | 0 🟡 | ✅ 定稿 2026-07-12·A1纯涌现·食物源方案A（见 [[02-垂直切片/README]] §3-§5） |
+| Phase 2: 垂直切片（探针·活着的村庄） | Layer 1-2 子集 | 10 里程碑（V0/V1/V4a/Vf/V2/V3a/V3b/V4b/V5/V6） | 2/10 🟡 | ✅ 定稿 2026-07-12·A1纯涌现·食物源方案A（见 [[02-垂直切片/README]] §3-§5） |
 | Phase 3: 系统完形 | Layer 2-4 | ~17 模块 | 0 🔴 | 17/17 🟡 |
 | Phase 4: 世界填充 | — | 0 新模块 | 0 🔴 | — |
 | Phase 5: 打磨发布 | — | 0 新模块 | 0 🔴 | — |
@@ -244,18 +244,21 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 ## 三、近期冲刺
 
-**下一个冲刺**: **Sprint-067 — V0+V1 地基与昼夜涌现**（垂直切片「活着的村庄」第 1-2/10 步·A1 纯涌现·**合并跑**）——NPC 补 `HasInventory` + circadian→action_weight 昼夜涌现 + Vf 前置 spike。**本轮为纯规划会话，计划下一会话执行**。提案见 [[sprint-proposals/sprint-067-V0V1-地基与昼夜涌现-20260712]]，序列全景见 [[02-垂直切片/README]] §3-§4，交接见 [[01-核心基础/handoff/handoff-20260712-planning]]。
+**下一个冲刺**: **V4a 问候/情绪气泡**（垂直切片「活着的村庄」第 3/10 步）——桩串外移 TOML 片段表（按 `SpeechAct`）+ 3m 邻近触发（复用 `social.rs`）+ 对齐 `DialogueIntentType`。序列见 [[02-垂直切片/README]] §3-§4。上一冲刺 **Sprint-067（V0+V1）✅ 完成**（1055 tests），交接见 [[01-核心基础/handoff/handoff-20260712-sprint067]]。
 
 **待触发冲刺队列（防遗漏 backlog）**：
 
 | 冲刺 | 状态 | 暂缓依据 | 提案 |
 |------|------|---------|------|
 | ★ 物理运动学地基·实现 | 🟡 待触发 | CHG-067 Q-A2（设计已定，只留文档） | `sprint-proposals/BACKLOG-物理运动学地基-实现-20260709.md` |
+| ★ Vf 食物源落地（P2.25 采集植被） | 🟡 待触发（V2/V3a 前置） | Sprint-067 spike 已探底·建议路线B | `sprint-proposals/BACKLOG-Vf-食物源落地-20260712.md` |
 
 **冲刺历史**：
 
 | Sprint | 日期 | 目标 | 状态 |
 |--------|------|------|------|
+| Sprint-067 | 2026-07-12 | ★ V0+V1 垂直切片地基 — V0 库存验证测试(审计:已由 inventory_init_system 幂等补挂) + V1 time_modifier 昼夜第6因子(=设计 ver2.0 v3·纯世界时·白昼度曲线) + 漫游回落(读 Needs 紧迫度防振荡) + Vf 食物源 BACKLOG spike·1055 tests | ✅ 完成 |
+| Sprint-066 | 2026-07-11 | ★ 手感系统运行时 I1-4 — 缓冲淘汰/物理重检/落地预输入(实机激活)/边缘吸附 + coyote-jump 玩家组件接线(休眠)·1047 tests | ✅ 完成 |
 | Sprint-065 | 2026-07-11 | ★ 持续/充能动作运行时（006）— 解除 Discrete 硬门 + SustainDrain 消耗 + SustainPhase 迁移 + ReleaseBehavior 分发(dispatch_release) + 充能阶梯 follow-up + block/aim_bow TOML + A3(interrupt_on_move) + M4(coyote 字段)·1026 tests | ✅ 完成 |
 | 相机 MVP | 2026-07-11 | ★ 第三人称相机 MVP — 独立 CameraRig + SmoothDamp 跟随 + terrain_raycast 碰撞 + character_facing_system + CJustLanded + 夺舍 CC 管线统一（CHG-069·1001 tests·实机验证） | ✅ 完成 |
 | Sprint-062~064 | 2026-07-10~11 | ★ 角色控制器垂直切片 — ActionResolver + input_bridge + 玩家 Block A0 + 跳跃（977 tests） | ✅ 完成 |

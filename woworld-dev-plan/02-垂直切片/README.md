@@ -1,6 +1,6 @@
 # Phase 2: 垂直切片
 
-> **状态**: 🟡 探针式垂直切片进行中（正式 Phase 2 仍阻塞于 Phase 1 完成）
+> **状态**: 🟡 探针式垂直切片进行中（正式 Phase 2 仍阻塞于 Phase 1 完成）· 进度 `▓▓░░░░░░░░ 2/10`（V0+V1 ✅ Sprint-067）
 > **定位**: proof-of-fun 探针——**纯涌现、零脚手架**，先证核心体验成立
 > **旗子**: 「活着的村庄」——旁观 3-5 个 NPC 纯涌现地过完一天
 > **前置阶段**: Phase 1 — 核心基础（部分门有意识跳过，见 §2.1）
@@ -72,8 +72,8 @@
 
 | # | 里程碑 | 交付（A1 纯涌现） | 依赖 | 现状校准（审计后） | 可见成果 |
 |---|--------|------|------|------|------|
-| 1 | **V0 舞台搭建** | NPC spawn 补 `HasInventory`（地基·小）| 物品 Phase 2 库存组件 | NPC spawn 挂 20+ 组件但**缺 inventory**（`terrain_chunk.rs:2444`）| 点击 NPC 见其带（空）库存 |
-| 2 | **V1 昼夜涌现** | circadian 作为 `action_weight` 链**第 6 乘性因子** + 补"漫游"缺省意图 | 无强依赖 | needs→goal→intent 链**已通在跑**；circadian **已在 needs 衰减层**。半天级接线。**"工作"意图删除**（依赖零代码技能/AgentSnapshot，A1 不搭脚手架）| NPC 夜里倾向休息、白天倾向活动——从需求+节律涌现 |
+| 1 | **V0 舞台搭建** ✅ | ~~NPC spawn 补 `HasInventory`~~ → **审计更正**：inventory 已由 `inventory_init_system` 幂等补挂 → 降级为验证测试（Sprint-067）| 物品 Phase 2 库存组件 | ✅ 完成——测试坐实 spawn→持有→读写闭环 | 点击 NPC 见其带库存 |
+| 2 | **V1 昼夜涌现** ✅ | circadian 作 `action_weight` **第 6 乘性因子**（=设计 `time_modifier` v3，纯世界时·不含 chronotype）+ 漫游回落（防振荡）（Sprint-067）| 无强依赖 | ✅ 完成——`time_modifier` 白昼度曲线 + `goal_resolution` 回落 Idle。诚实边界：整村可见"夜里睡"待 V3a | NPC 夜倾向休息、昼倾向活动——从需求+节律涌现 |
 | 3 | **V4a 问候/情绪气泡** | 桩串外移 TOML 片段表（按 `SpeechAct`）+ 3m 邻近触发（复用 `social.rs`）+ 对齐 `DialogueIntentType` | 邻近/情绪/需求（今天就绪）| 气泡走 `UtteranceId` 瞬时车道、**不碰 `ExpressionRef`**；不需感官系统 | NPC 见面打招呼、饿了互相嘟囔——真短句非桩 |
 | 4 | **Vf 食物源落地** | 实现 P2.25 植被 Phase-2 **最小子集**：Poisson disc 放置可采集物，令 `VegetationProvider::query_harvestable` 返回真实 `HarvestableInfo`（Berry/Mushroom/Nut）| 世界生成 P2.25 设计 | `query_harvestable` 恒返回 `vec![]`（`worldgen/vegetation.rs:168`）；`HarvestableInfo` 类型已定义（`core/vegetation.rs:127`）；**是独立中等 worldgen 冲刺**，非接线 | 世界里有真实可采集浆果/蘑菇点 |
 | 5 | **V2 牵引移动** | `Goal.target_pos` 解析到最近可采集食物点（复用 `query_harvestable`）/ 水（`OceanProvider`）| Vf, V1 | `npc/movement.rs` 已走 Goal.target_pos；缺"资源点作为 Goal 目标"解析。需求**牵引**，非排班 | 饿的 NPC 走向浆果丛，渴的走向水 |

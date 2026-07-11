@@ -2187,7 +2187,7 @@ impl WorldDriver {
                 bigfive_derive_system(&self.ecs, &mut cmd);
                 woworld_ecs::systems::npc::needs::need_evaluation_system(&self.ecs, &mut cmd);
                 woworld_ecs::systems::npc::goal::goal_resolution_system(&self.ecs, &mut cmd);
-                action_weight_system(&self.ecs, &mut cmd);
+                action_weight_system(&self.ecs, &mut cmd, day_progress);
                 // Economy: cognition + wallet init
                 woworld_ecs::systems::economy::economic_cognition_update_system(
                     &self.ecs,

@@ -32,7 +32,7 @@
 | Phase | 覆盖层 | 涉及模块数 | 代码状态 | 设计状态 |
 |-------|--------|----------|---------|---------|
 | Phase 1: 核心基础 | Layer 0-1 | 10 模块 | 5/10 🟡 | 10/10 ✅ |
-| Phase 2: 垂直切片 | Layer 1-2 子集 | 待定 | 0 🟡 | 待 Phase 1 完成后细化 |
+| Phase 2: 垂直切片（探针·活着的村庄） | Layer 1-2 子集 | 10 里程碑（V0/V1/V4a/Vf/V2/V3a/V3b/V4b/V5/V6） | 0 🟡 | ✅ 定稿 2026-07-12·A1纯涌现·食物源方案A（见 [[02-垂直切片/README]] §3-§5） |
 | Phase 3: 系统完形 | Layer 2-4 | ~17 模块 | 0 🔴 | 17/17 🟡 |
 | Phase 4: 世界填充 | — | 0 新模块 | 0 🔴 | — |
 | Phase 5: 打磨发布 | — | 0 新模块 | 0 🔴 | — |
@@ -244,7 +244,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 ## 三、近期冲刺
 
-**下一个冲刺**: 待定——CHG-065 ECS Systems 实现 / Clipmap 重生成 / SpatialEventBus / 保存接口。详见最新交接摘要 `01-核心基础/handoff/handoff-20260706-031.md`。
+**下一个冲刺**: **Sprint-067 — V0+V1 地基与昼夜涌现**（垂直切片「活着的村庄」第 1-2/10 步·A1 纯涌现·**合并跑**）——NPC 补 `HasInventory` + circadian→action_weight 昼夜涌现 + Vf 前置 spike。**本轮为纯规划会话，计划下一会话执行**。提案见 [[sprint-proposals/sprint-067-V0V1-地基与昼夜涌现-20260712]]，序列全景见 [[02-垂直切片/README]] §3-§4，交接见 [[01-核心基础/handoff/handoff-20260712-planning]]。
 
 **待触发冲刺队列（防遗漏 backlog）**：
 

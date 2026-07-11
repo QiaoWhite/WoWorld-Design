@@ -47,6 +47,8 @@ pub enum InputAction {
 
 ~40 个动作，5 组。Godot 侧 `input_bridge.gd` 映射 `InputMap` 到此枚举→通过 GDExtension 传 Rust。
 
+> **注（整数编码契约·实现新增）**：跨 GDExtension 边界传枚举用整数对 `(code: u16, payload: u8)`，由 `InputAction::from_code(code, payload)` 路由回枚举——分段：移动 1-5 / 战斗 10-19 / 交互 20-29 / 热键 30-39 / 视角 40-49 / 系统 50-56（`SpecialSkill`/`HotbarSlot` 用 payload 携带序号）。这是 `input_bridge.gd ↔ Rust` 的**稳定契约**：改动此编码表须同步两侧。详见 `woworld_core::input`。
+
 ---
 
 ## 二、六层输入映射

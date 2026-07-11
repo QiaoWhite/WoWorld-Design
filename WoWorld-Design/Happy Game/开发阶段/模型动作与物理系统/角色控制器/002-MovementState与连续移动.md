@@ -208,9 +208,13 @@ glide_accel = 4.0
 glide_stamina_rate = 3.0
 jump_horizontal_speed = 3.0
 knockback_recover_secs = 0.4
-coyote_time_secs = 0.15
+coyote_time_secs = 0.15            # ⚠️ 已迁出——见下方注（土狼时间现属 InputFeelConfig / 008，非 MovementProfile）
 mounted_accel = 5.0
 mounted_friction = 4.0
+# ── 垂直积分与骑乘（实现新增，标 Provisional·CHG-067 后并入正式运动学）──
+gravity = 20.0                     # 腾空垂直积分重力（m/s²）
+jump_speed = 7.0                   # 起跳垂直初速（m/s）——跳跃高度 = jump_speed²/(2·gravity) ≈ 1.225m
+mounted_speed = 7.0                # 骑乘态 max_speed 分支
 
 [profile.wolf]
 label = "狼（四足）"
@@ -379,10 +383,14 @@ pub struct CMovementControl { pub movement_lock: MovementLock, pub rotation_lock
 | 地面加速度 | 10.0 m/s²（人形行走） | `movement_profiles.toml` |
 | 冲刺最高速度 | 5.5 m/s（人形） | 同上 |
 | 冲刺体力消耗 | 8.0 单位/秒 | 同上 |
-| 土狼时间 | 0.15s | `coyote_time_secs` |
+| 土狼时间 | 0.15s | ⚠️ 现属 `CInputFeelConfig.coyote_time_secs`（M4 迁出 MovementProfile）；当前 `movement_mode_system` 硬编码 0.15，读配置待 I1-5 手感冲刺接线 |
 | 恢复栈容量 | 3 层 | `SmallVec<[MovementState; 3]>` |
+| 恢复栈溢出 | FIFO——满栈 push 丢弃 stack[0]（保护最近层） | `MovementRecoveryStack::push`（实现新增语义） |
+| 可行走坡度上限 | 45°（`MAX_WALKABLE_SLOPE_COS = 0.707`） | `movement_system`（实现新增参数，陡坡阻挡水平位移） |
+| 重力 / 起跳初速 | 20.0 m/s² / 7.0 m/s（跳高 ≈1.225m） | `gravity` / `jump_speed`（Provisional·CHG-067） |
 | 介质切换延迟 | 无——同帧切换 | MovementModeSystem |
-| 体力冷却 | 1.5s（体力耗尽后禁止冲刺） | StaminaGateSystem |
+| 体力冷却 | 1.5s（体力耗尽后禁止冲刺） | StaminaGateSystem（常量 `EXHAUSTION_COOLDOWN`，非 profile 字段） |
+| 冲刺起步最低体力 | 8.0 | `sprint_min_stamina_to_start`（profile 有此字段，当前系统用同值常量 `SPRINT_MIN_STAMINA`，未读 profile） |
 
 ---
 

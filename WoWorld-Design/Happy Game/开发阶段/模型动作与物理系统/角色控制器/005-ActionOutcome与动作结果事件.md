@@ -161,6 +161,9 @@ if def.active_ms == 0 && current.phase == Active {
 
 `Interrupted { by: InputReleased }` 只用于不正常的释放（如被击飞时被迫松键——但那时已经是 PhysicsKnockback 中断，不是 InputReleased）。
 
+> **注（阶段维度澄清）**：本节伪代码聚焦**事件类型**（正常释放发 `Completed` 而非 `Interrupted`），为突出这一点省略了 Recovery 步骤。**阶段机以 [[006-持续动作与充能动作]] §〇 为权威**——持续动作松键后仍走短暂 Recovery 收尾（如 block `recovery_ms=100`，此间 cancel_set 内动作可取消），`Completed` 在 Recovery 末尾发出。两文档不矛盾：005 定"发什么事件"，006 定"走哪些阶段"。
+> ⚠️ **实现状态**（Sprint-065 审计·2026-07-11）：当前代码松键→立即 `Completed`，**尚未走 Recovery**。因 block/aim_bow 无键位绑定、实机不可触发，零现时影响。Recovery 阶段实现延后至 block 绑键冲刺（需重置 `elapsed` 计时基线）。
+
 ---
 
 > **下一篇**: [[006-持续动作与充能动作]]

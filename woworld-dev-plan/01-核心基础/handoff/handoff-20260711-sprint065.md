@@ -117,13 +117,15 @@ Finished `dev` profile [unoptimized + debuginfo] target(s)（.dll 已更新）
 - **ForceCancel 失败原因**：原 `ContextInvalidated`（外部上下文），改 `SelfStateInvalidated`（自身力竭，更贴 overcharge 语义）。
 - **分支覆盖**：补 Trigger 释放 / AutoRelease / ForceCancel 三条此前无测试的路径（+4 测试→1026）。
 
-**待用户确认（需设计裁决，未擅改）**：
-- ⚠️ **Q1 持续动作 Recovery**：006 §〇 表列持续动作 Recovery="有（松键后短暂收尾）"，block recovery_ms=100；但当前松键→立即 Completed，**跳过 Recovery**。005 §六 又显示松键直接 Completed（无 Recovery 步）——两文档张力。修复需重置 recovery 计时基线（elapsed 在无限 Active 已累积），非平凡。block 尚不可触发，零现时影响。**建议延后到 block 绑键时**。
-- ⚠️ **Q2 combat_params 遗漏**：006 §三 block 含 stability/damage_reduction——属战斗域数据（ActionDef 无此字段），故未纳入。确认属战斗冲刺范畴。
-- ⚠️ **Q3 aim_bow movement_lock_speed=0.5**：006 §四 要求半速慢走，但 `MovementLockDef::Partial` 的 speed_cap 硬编码 1.0（Sprint-1 TOML 限制，非本冲刺引入）。确认延后到 Partial speed 可配置。
-- ⚠️ **Q4 SustainPhase::Critical{forced_release_in} 恒 0.0**：数据仅一个 critical 阈值，无"进入 Critical→倒计时→强制"的两段窗口，故到阈值即强制（forced_release_in=0）。确认此解读。
-- ⚠️ **Q5 ActionId 双模 Deserialize（超设计增补）**：006 用字符串键 `action_id="quick_shot"`，但 ActionId 是 u32——新增 `from_key`(FNV) + str/int Visitor 是工程必需。确认接受此增补。
-- ⚠️ **Q6 006 TOML 外部标签**：`[action.aim_bow.release_behavior.Charged]` 用 serde 默认外部标签，非 006 示例的内部标签 `{kind="Charged"}`。确认接受（TOML 已注释）。
+**待用户确认（需设计裁决，未擅改）** → ✅ **已全部裁决（2026-07-11 会话）**：
+- ✅ **Q1 持续动作 Recovery**：**采纳 006 为权威**（松键→Recovery(100ms)→Completed）。代码实现**延后到 block 绑键冲刺**（需重置 elapsed 计时基线）。005 §六 已补澄清注（005 定事件类型、006 定阶段机，不矛盾）。
+- ✅ **Q2 combat_params 遗漏**：**确认属战斗域**，不入 ActionDef。006 §三 补域分离标注。
+- ✅ **Q3 aim_bow movement_lock_speed=0.5**：**确认延后**到 aim_bow 绑键冲刺。目标设计已记于 006 §四（加 `movement_lock_speed: Option<f32>` 字段接线 speed_cap，替换 3 处硬编码 1.0）。注：该字段现仅存于 TOML 注释，非静默丢弃陷阱。
+- ✅ **Q4 SustainPhase::Critical{forced_release_in} 恒 0.0**：**确认现状**——Overextended 承担渐进警告区，Critical 为硬停，f32 作预留字段。006 §二 补三段语义标注。
+- ✅ **Q5 ActionId 双模 Deserialize**：**确认接受**（FNV-1a 工程必需）。006 §四 补序列化说明。
+- ✅ **Q6 006 TOML 外部标签**：**确认接受，并改 006 §四示例对齐实现**（外部标签 `[..release_behavior.Charged]`）。
+
+> **裁决产物**：本次零代码改动，仅 2 个设计文档打澄清/对齐注——`角色控制器/005`（Q1）+ `角色控制器/006`（Q2-Q6）。Q1/Q3 为真缺口但零现时影响，已挂到 block/aim_bow 绑键冲刺。
 
 ## 🚀 下一步候选
 | 候选 | 依赖前提 | 优先级 |

@@ -136,3 +136,18 @@ Finished `dev` profile [unoptimized + debuginfo] target(s)（.dll 已更新）
 | D: M3 滑翔 glide 字段接线 | 垂直移动子系统 | — |
 
 **建议**: 🥇 A（I1-5 手感）——`CInputFeelConfig` 已建，手感项是自洽 mini-sprint，可复用本冲刺组件；或 🥈 B 让防御/瞄准实机可玩（更有体感回报但依赖 input 绑定）。
+
+## 🔎 代码↔文档审计追踪待办（2026-07-11·commit 54503f1+1ad1498）
+
+角色控制器 001-012 全量审计（三切片 vs action/movement/input）。已修：aim_draw→aim_bow 死键 / 死亡NPC Without<&Corpse> 门控 / coyote grace-jump 接线（+2 测试）+ 5 处文档登记。**遗留追踪项**（下一会话勿遗忘）：
+
+| 追踪项 | 性质 | 归属冲刺 |
+|--------|------|---------|
+| 手感余 3 项：缓冲 pop_if 物理重检 / 满容量淘汰 · 落地预输入着地帧消费 · 边缘吸附 ledge_snap | 真缺口（参数就位无消费者） | 候选 A（I1-5 手感） |
+| Instinct→DodgeCancel 一刀切映射（action_controller.rs:57） | 中断语义不准 | 候选 C（A2） |
+| **DeathCause 命名撞车**：vitals.rs 生物层 `DeathCause{category,specific}` vs 009 控制器层 `DeathCause` 枚举——结构不同 | 未来消歧陷阱 | 009 立项时 |
+| 死亡门控 stopgap 待升级：`Without<&Corpse>` → 009 `CDead` 全局门控（13 System） | stopgap 待正解取代 | 009 |
+| possess.rs 无条件拍平 MovementState=Standing/Walking，违反 012"身体状态全保留" | 前身系统 vs 未来规格 | 012 立项时重写 |
+| character_facing 仅 `with::<PlayerComponent>`，NPC rotation_lock 未生效（NPC 走旧 movement 路径） | 绞杀迁移过渡态 | NPC 迁移完成时 |
+| SPRINT_MIN_STAMINA / EXHAUSTION_COOLDOWN 硬编码不读 profile（值一致，无 bug） | 死数据漂移风险 | 低优先，已在 002 §十三标注 |
+| AirState::Falling.coyote_time_remaining 为 vestigial 字段（无读取者） | 可择机移除 | 低优先 |

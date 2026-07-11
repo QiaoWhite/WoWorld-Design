@@ -57,6 +57,39 @@ impl Default for CInputBuffer {
     }
 }
 
+impl CInputBuffer {
+    /// 环形缓冲区固定容量（008 §二）。
+    pub const CAPACITY: usize = 4;
+
+    /// 满容量优先级淘汰入队（008 §二）。
+    ///
+    /// - 未满 → 直接压入。
+    /// - 已满 → 定位最低优先级现存条目：
+    ///   - 新条目优先级 **严格高于** 最低现存 → 淘汰该最低条目、写入新条目。
+    ///   - 否则（新条目 ≤ 最低现存）→ 丢弃新条目（"新输入优先级更低→丢弃"）。
+    ///
+    /// 平级时保留旧条目（先到先得）——与 008 §二"淘汰最低优先级的**旧**条目"一致。
+    pub fn push_bounded(&mut self, entry: BufferedInput) {
+        if self.entries.len() < Self::CAPACITY {
+            self.entries.push(entry);
+            return;
+        }
+        // 已满——定位最低优先级现存条目
+        if let Some((min_idx, min_prio)) = self
+            .entries
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, e)| e.buffer_priority)
+            .map(|(i, e)| (i, e.buffer_priority))
+        {
+            if entry.buffer_priority > min_prio {
+                self.entries[min_idx] = entry;
+            }
+            // else: 新条目优先级 ≤ 最低现存 → 丢弃
+        }
+    }
+}
+
 /// 土狼时间——"踩空后短暂时间仍可起跳"。
 ///
 /// 触发: was_grounded → not_grounded 且非主动跳跃。
@@ -82,19 +115,27 @@ impl Default for CCoyoteTime {
 /// 手感配置——`InputFeelConfig` 的 ECS 组件承载（008 §一）。
 ///
 /// **M4**: 承载 `coyote_time_secs`，替换 `coyote_time_system` 中的硬编码 `0.15`。
+/// **Sprint-066**: 补 `ledge_snap_distance`/`ledge_snap_angle_deg`（008 §七 边缘吸附）。
 ///
-/// ⚠️ 当前仅 `coyote_time_secs` 接线——跳跃/闪避/连招缓冲窗、边缘吸附等
-///    其余手感字段留待手感系统 I1-5 冲刺扩展。缺此组件时系统回退默认值 0.15s。
+/// ⚠️ 缓冲窗口（跳跃/闪避/连招过期）**不在此**——权威是 action registry 的
+///    per-action `def.buffer_window_ms`（`action_resolver` 已读入 `BufferedInput.expires_at`）。
+///    此处只承载非动作类手感参数（土狼窗、边缘吸附）。缺此组件时系统回退默认值。
 #[derive(Debug, Clone, Copy)]
 pub struct CInputFeelConfig {
     /// 土狼时间 (s)——离地后仍可起跳的宽限窗（008 §一 `coyote_time duration_ms=150`）
     pub coyote_time_secs: f32,
+    /// 边缘吸附最大距离 (m)——超过此距离视为真悬崖，不吸附（008 §七 `max_snap_distance=0.3`）
+    pub ledge_snap_distance: f32,
+    /// 边缘吸附最大坡度角 (度)——超过此角度不吸附（008 §七 `max_snap_angle_deg=45`）
+    pub ledge_snap_angle_deg: f32,
 }
 
 impl Default for CInputFeelConfig {
     fn default() -> Self {
         Self {
             coyote_time_secs: 0.15,
+            ledge_snap_distance: 0.3,
+            ledge_snap_angle_deg: 45.0,
         }
     }
 }
@@ -136,5 +177,88 @@ mod tests {
     fn test_cinput_buffer_capacity() {
         let buf = CInputBuffer::default();
         assert!(buf.entries.capacity() >= 4);
+    }
+
+    #[test]
+    fn test_cinput_feel_config_default_ledge() {
+        let cfg = CInputFeelConfig::default();
+        assert!((cfg.ledge_snap_distance - 0.3).abs() < 1e-6);
+        assert!((cfg.ledge_snap_angle_deg - 45.0).abs() < 1e-6);
+    }
+
+    // ── push_bounded（I1 满容量优先级淘汰，008 §二）──
+
+    use woworld_core::action::{ActionId, ActionParams, ActionRequest, ActionSource};
+    use woworld_core::input::BufferPriority;
+
+    fn buffered(prio: BufferPriority) -> BufferedInput {
+        BufferedInput::new(
+            ActionRequest {
+                action_id: ActionId(1),
+                priority: 0,
+                source: ActionSource::Player,
+                params: ActionParams::default(),
+            },
+            0.0,
+            200.0,
+            prio,
+        )
+    }
+
+    #[test]
+    fn test_push_bounded_under_capacity_appends() {
+        let mut buf = CInputBuffer::default();
+        buf.push_bounded(buffered(BufferPriority::Movement));
+        buf.push_bounded(buffered(BufferPriority::Combat));
+        assert_eq!(buf.entries.len(), 2);
+    }
+
+    #[test]
+    fn test_push_bounded_full_evicts_lowest_when_new_higher() {
+        let mut buf = CInputBuffer::default();
+        // 填满 4 条：Interaction(最低) + 3×Combat
+        buf.push_bounded(buffered(BufferPriority::Interaction));
+        for _ in 0..3 {
+            buf.push_bounded(buffered(BufferPriority::Combat));
+        }
+        assert_eq!(buf.entries.len(), CInputBuffer::CAPACITY);
+        // 新的 Defensive（高于最低 Interaction）→ 淘汰 Interaction
+        buf.push_bounded(buffered(BufferPriority::Defensive));
+        assert_eq!(buf.entries.len(), CInputBuffer::CAPACITY);
+        assert!(
+            !buf.entries
+                .iter()
+                .any(|e| e.buffer_priority == BufferPriority::Interaction),
+            "最低优先级 Interaction 应被淘汰"
+        );
+    }
+
+    #[test]
+    fn test_push_bounded_full_drops_new_when_not_higher() {
+        let mut buf = CInputBuffer::default();
+        // 填满 4×Movement
+        for _ in 0..4 {
+            buf.push_bounded(buffered(BufferPriority::Movement));
+        }
+        // 新的 Interaction（低于现存）→ 丢弃
+        buf.push_bounded(buffered(BufferPriority::Interaction));
+        assert_eq!(buf.entries.len(), CInputBuffer::CAPACITY);
+        assert!(
+            buf.entries
+                .iter()
+                .all(|e| e.buffer_priority == BufferPriority::Movement),
+            "更低优先级新条目应被丢弃，现存全为 Movement"
+        );
+    }
+
+    #[test]
+    fn test_push_bounded_full_tie_keeps_old() {
+        let mut buf = CInputBuffer::default();
+        for _ in 0..4 {
+            buf.push_bounded(buffered(BufferPriority::Movement));
+        }
+        // 平级 Movement → 丢弃新条目（先到先得），长度不变
+        buf.push_bounded(buffered(BufferPriority::Movement));
+        assert_eq!(buf.entries.len(), CInputBuffer::CAPACITY);
     }
 }

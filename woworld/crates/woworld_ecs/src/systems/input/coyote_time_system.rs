@@ -297,6 +297,7 @@ mod tests {
             Position(Vec3::ZERO),
             CInputFeelConfig {
                 coyote_time_secs: 0.3,
+                ..Default::default()
             },
         ));
 

@@ -19,9 +19,8 @@ use woworld_core::action::{
     action_priority, ActionDef, ActionFailureReason, ActionKind, ActionLifecycleEvent,
     ActiveAction, InterruptSource, OverchargeBehavior, ReleaseBehavior, ResourceType, SustainPhase,
 };
-use woworld_core::kinematics::LocomotionMode;
+use woworld_core::kinematics::resolve_effective_loco;
 use woworld_core::spatial::TerrainQuery;
-use woworld_core::types::WorldPos;
 
 use super::action_controller::dispatch_release;
 
@@ -66,14 +65,13 @@ pub fn action_system(
     )>() {
         let eid = entity_id_from_hecs(entity);
 
-        // 计算 LocomotionMode
-        let loco = compute_locomotion(pos.0, terrain);
-        // ★ 土狼时间 grace（008 §四）：离地后 coyote 窗口内，physics_req 判定仍视为
-        //   Grounded——让"踩空瞬间仍可起跳"成立。仅放宽物理门，不改其余运行时。
-        let effective_loco = match (loco, coyote_opt) {
-            (LocomotionMode::PhysicsBody, Some(c)) if c.remaining > 0.0 => LocomotionMode::Grounded,
-            _ => loco,
-        };
+        // ★ 有效 LocomotionMode——单一权威 helper（008 §四 土狼 grace 已内联）：
+        //   离地后 coyote 窗口内，physics_req 判定仍视为 Grounded，"踩空瞬间仍可起跳"。
+        let effective_loco = resolve_effective_loco(
+            pos.0,
+            terrain,
+            coyote_opt.map(|c| c.remaining).unwrap_or(0.0),
+        );
 
         // ── 0. 注入上一帧的充能子动作（CPendingFollowUp → 请求缓冲）──
         //   一帧间隙：上一帧 dispatch_release 写入 follow-up，本帧灌入请求缓冲，
@@ -427,19 +425,6 @@ fn movement_lock_from_def(def: woworld_core::action::MovementLockDef) -> Movemen
     }
 }
 
-fn compute_locomotion(pos: glam::Vec3, terrain: &dyn TerrainQuery) -> LocomotionMode {
-    let wp = WorldPos {
-        x: pos.x as f64,
-        y: pos.y as f64,
-        z: pos.z as f64,
-    };
-    if terrain.is_walkable(wp) {
-        LocomotionMode::Grounded
-    } else {
-        LocomotionMode::PhysicsBody
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -451,7 +436,7 @@ mod tests {
     };
     use woworld_core::kinematics::PhysicsRequirement;
     use woworld_core::material::{Medium, SurfaceMaterial};
-    use woworld_core::types::TerrainHit;
+    use woworld_core::types::{TerrainHit, WorldPos};
 
     struct FlatGround;
     impl TerrainQuery for FlatGround {

@@ -6,11 +6,12 @@
 //! 参见: `WoWorld-Design/.../角色控制器/001-角色控制器总纲.md` §四
 
 use glam::Vec3;
-use woworld_core::kinematics::{LocomotionMode, MovementLock, RotationLock};
+use woworld_core::kinematics::{MovementLock, RotationLock};
 use woworld_core::movement::{AirState, SpecialMode};
 use woworld_core::spatial::TerrainQuery;
 use woworld_core::types::WorldPos;
 
+use crate::components::input_state::CInputFeelConfig;
 use crate::components::movement_state::{CMoveIntent, CMovementControl, CMovementState};
 use crate::components::transform::{Position, Velocity};
 use crate::resources::movement_profile_registry::MovementProfileRegistry;
@@ -30,21 +31,6 @@ fn max_speed_from_lock(lock: MovementLock, base_max: f32) -> f32 {
     }
 }
 
-/// 计算给定位置和地形的 LocomotionMode（Sprint 1 stub）。
-#[allow(dead_code)]
-fn compute_locomotion_mode(pos: Vec3, terrain: &dyn TerrainQuery) -> LocomotionMode {
-    let wp = WorldPos {
-        x: pos.x as f64,
-        y: pos.y as f64,
-        z: pos.z as f64,
-    };
-    if terrain.is_walkable(wp) {
-        LocomotionMode::Grounded
-    } else {
-        LocomotionMode::PhysicsBody
-    }
-}
-
 /// 连续执行层——加速度积分 + 地形跟随 + 坡度检测。
 ///
 /// 仅处理带 `CMovementState` 但无旧 `Movement` 组件的实体（绞杀者模式）。
@@ -57,13 +43,14 @@ pub fn movement_system(
 ) {
     let profile = profiles.default_profile();
 
-    for (_, (move_intent, move_state, move_control, pos, vel)) in world
+    for (_, (move_intent, move_state, move_control, pos, vel, feel_opt)) in world
         .query_mut::<(
             &CMoveIntent,
             &CMovementState,
             &CMovementControl,
             &mut Position,
             &mut Velocity,
+            Option<&CInputFeelConfig>,
         )>()
         .with::<&CMovementState>()
         .without::<&crate::components::movement::Movement>()
@@ -209,6 +196,47 @@ pub fn movement_system(
         }
 
         pos.0 = Vec3::new(new_xz.x, terrain_y, new_xz.z);
+
+        // ── 边缘吸附（008 §七，I4）——仅玩家（CInputFeelConfig 在场）手感辅助 ──
+        //   在纯高度场下与 height_at 落点重合（几近无操作）；待体素碰撞移动接管后，
+        //   raycast 会命中体素边缘几何，让"刚好踩在边缘"贴地而非悬浮。
+        if let Some(feel) = feel_opt {
+            if let Some(snapped_y) = apply_ledge_snap(
+                pos.0,
+                terrain,
+                feel.ledge_snap_distance,
+                feel.ledge_snap_angle_deg,
+            ) {
+                pos.0.y = snapped_y;
+            }
+        }
+    }
+}
+
+/// 边缘吸附（008 §七）——角色刚好踩在边缘（≤ `snap_distance` 内向下有地面）时贴地。
+///
+/// 从 `pos + 0.1Y` 向下 raycast `snap_distance + 0.1`；命中且坡度角 ≤ `max_angle_deg`
+/// → 返回吸附后的 Y（`hit.point.y`）。不处理真悬崖（> `snap_distance` 向下无地面 → `None`）。
+///
+/// 坡度角 = 命中法线与 +Y 的夹角。纯函数——调用点以 `CInputFeelConfig` 在场做玩家门控。
+fn apply_ledge_snap(
+    pos: Vec3,
+    terrain: &dyn TerrainQuery,
+    snap_distance: f32,
+    max_angle_deg: f32,
+) -> Option<f32> {
+    let origin = WorldPos {
+        x: pos.x as f64,
+        y: (pos.y + 0.1) as f64,
+        z: pos.z as f64,
+    };
+    let hit = terrain.terrain_raycast(origin, Vec3::NEG_Y, snap_distance + 0.1)?;
+    let cos_angle = hit.normal.normalize_or_zero().dot(Vec3::Y).clamp(-1.0, 1.0);
+    let angle_deg = cos_angle.acos().to_degrees();
+    if angle_deg <= max_angle_deg {
+        Some(hit.point.y as f32)
+    } else {
+        None
     }
 }
 
@@ -267,6 +295,83 @@ mod tests {
         fn sample_horizon(&self, _p: WorldPos, _d: &[Vec3]) -> Vec<f32> {
             vec![]
         }
+    }
+
+    // ── 边缘吸附 mock（I4，008 §七）──
+    //   hit=Some((y, normal)) → raycast 命中；None → 向下无地面（真悬崖）。
+    struct LedgeTerrain {
+        hit: Option<(f32, Vec3)>,
+    }
+    impl TerrainQuery for LedgeTerrain {
+        fn height_at(&self, _p: WorldPos) -> f32 {
+            0.0
+        }
+        fn normal_at(&self, _p: WorldPos) -> Vec3 {
+            Vec3::Y
+        }
+        fn terrain_raycast(&self, o: WorldPos, _d: Vec3, _m: f32) -> Option<TerrainHit> {
+            self.hit.map(|(y, n)| TerrainHit {
+                point: WorldPos {
+                    x: o.x,
+                    y: y as f64,
+                    z: o.z,
+                },
+                normal: n,
+                material: SurfaceMaterial::Grass,
+                distance: (o.y as f32 - y).abs(),
+            })
+        }
+        fn density_at(&self, _p: WorldPos) -> f32 {
+            0.0
+        }
+        fn is_walkable(&self, _p: WorldPos) -> bool {
+            true
+        }
+        fn surface_material_at(&self, _p: WorldPos) -> SurfaceMaterial {
+            SurfaceMaterial::Grass
+        }
+        fn medium_at(&self, _p: WorldPos) -> Medium {
+            Medium::Air
+        }
+        fn light_level_at(&self, _p: WorldPos) -> f32 {
+            1.0
+        }
+        fn sample_horizon(&self, _p: WorldPos, _d: &[Vec3]) -> Vec<f32> {
+            vec![]
+        }
+    }
+
+    /// 陡坡法线（约 60°）——y 分量小于 cos(45°)。
+    fn steep_normal() -> Vec3 {
+        Vec3::new(0.87, 0.5, 0.0).normalize()
+    }
+
+    #[test]
+    fn test_ledge_snap_on_edge_snaps() {
+        // 踩在边缘：0.2m 内有平地面 → 吸附到 hit.y
+        let terrain = LedgeTerrain {
+            hit: Some((0.5, Vec3::Y)),
+        };
+        let snapped = apply_ledge_snap(Vec3::new(0.0, 0.7, 0.0), &terrain, 0.3, 45.0);
+        assert_eq!(snapped, Some(0.5));
+    }
+
+    #[test]
+    fn test_ledge_snap_true_cliff_no_snap() {
+        // 真悬崖：向下无地面（raycast None）→ 不吸附
+        let terrain = LedgeTerrain { hit: None };
+        let snapped = apply_ledge_snap(Vec3::new(0.0, 0.7, 0.0), &terrain, 0.3, 45.0);
+        assert_eq!(snapped, None);
+    }
+
+    #[test]
+    fn test_ledge_snap_steep_slope_no_snap() {
+        // 命中但坡度 >45° → 不吸附
+        let terrain = LedgeTerrain {
+            hit: Some((0.5, steep_normal())),
+        };
+        let snapped = apply_ledge_snap(Vec3::new(0.0, 0.7, 0.0), &terrain, 0.3, 45.0);
+        assert_eq!(snapped, None);
     }
 
     fn airborne_state() -> MovementState {
@@ -388,5 +493,40 @@ mod tests {
         movement_system(&mut world, 1.0 / 60.0, &terrain, &profiles);
         let pos = world.get::<&Position>(e).unwrap();
         assert_eq!(pos.0.y, 5.0, "带旧 Movement 的实体不应被处理");
+    }
+
+    #[test]
+    fn test_ledge_snap_wired_player_only() {
+        // I4 + Q4 裁决：带 CInputFeelConfig 的玩家被边缘吸附；无此组件的 NPC 不吸附。
+        // LedgeTerrain：height_at=0（正常落点）vs raycast 命中 y=0.5 → 可观测吸附差异。
+        let mut world = hecs::World::new();
+        let profiles = MovementProfileRegistry::new();
+        let terrain = LedgeTerrain {
+            hit: Some((0.5, Vec3::Y)),
+        };
+        let player = world.spawn((
+            CMoveIntent::default(),
+            CMovementState(MovementState::default()),
+            CMovementControl::default(),
+            Position(Vec3::ZERO),
+            Velocity(Vec3::ZERO),
+            CInputFeelConfig::default(),
+        ));
+        let npc = world.spawn((
+            CMoveIntent::default(),
+            CMovementState(MovementState::default()),
+            CMovementControl::default(),
+            Position(Vec3::ZERO),
+            Velocity(Vec3::ZERO),
+        ));
+        movement_system(&mut world, 1.0 / 60.0, &terrain, &profiles);
+        assert!(
+            (world.get::<&Position>(player).unwrap().0.y - 0.5).abs() < 1e-6,
+            "玩家（有 CInputFeelConfig）应被边缘吸附到 0.5"
+        );
+        assert!(
+            (world.get::<&Position>(npc).unwrap().0.y - 0.0).abs() < 1e-6,
+            "NPC（无 CInputFeelConfig）不吸附，停在 height_at=0.0"
+        );
     }
 }

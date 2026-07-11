@@ -71,7 +71,7 @@ fn emit(
     let bufferable = def.map(|d| d.bufferable).unwrap_or(false);
     if bufferable {
         let window_ms = def.map(|d| d.buffer_window_ms).unwrap_or(0) as f32;
-        in_buf.entries.push(BufferedInput::new(
+        in_buf.push_bounded(BufferedInput::new(
             req,
             now,
             window_ms,

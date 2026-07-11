@@ -52,8 +52,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **写/读 Rust 代码** | `woworld/` — workspace 结构见下方「代码架构」 |
 | **构建项目** | `cd woworld && cargo build --workspace` |
 | **启动 Godot 编辑器** | `tools/godot/Godot_v4.7-stable_win64.exe woworld/godot/project.godot` |
-| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-11-sprint065.md` (Sprint-065 持续/充能动作运行时·006 激活·dispatch_release·1026 tests) |
-| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260711-sprint065.md` (Sprint-065 持续/充能动作运行时·1026 tests·clippy 零警告·未提交) |
+| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-11-sprint066.md` (Sprint-066 手感系统运行时·I1-4 缓冲淘汰/物理重检/落地预输入/边缘吸附·1046 tests) |
+| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260711-sprint066.md` (Sprint-066 手感 I1-4·1046 tests·clippy 零警告·未提交) |
 | **🐛 查已知 bug/陷阱** | `woworld-dev-plan/bugs/INDEX.md` — 调试前必须先查 |
 
 ## 文档结构
@@ -179,7 +179,7 @@ cargo check --workspace && cargo test --workspace && cargo clippy --workspace --
 - **Godot 编辑器缓存**：修改 `.gdshader` 后有时需重启编辑器才能生效。
 - **VoxelChunk vs Clipmap 材质一致性**：两者必须用相同的材质分类路径（biome 分类器），不能一个用纯高度分类一个用群系分类——否则 LOD 边界有色差（Sprint 032-G 根因 1）。
 
-> **当前状态**（2026-07-11）：`cargo check --workspace` 通过。`cargo test` **1026 个测试全部通过**, clippy 零警告。★ **Sprint-065 持续/充能动作运行时（006）**——解除 action_controller Discrete 硬门，激活 Continuous/Charge：SustainDrain 消耗 Vitals + SustainPhase 迁移 + ReleaseBehavior 分发（dispatch_release 归 wrapper）+ 充能阶梯 follow-up 帧间接续（CPendingFollowUp）+ block/aim_bow TOML + A3(interrupt_on_move) + M4(coyote 字段 CInputFeelConfig)。★ 第三人称相机 MVP 完成——**独立 CameraRig + SmoothDamp 跟随 + SNAP + terrain_raycast 碰撞 + character_facing_system + CJustLanded 落地下沉 + 疾跑 FOV**。★ 化身走 entity_renderer 统一路径（controlled 字段）。★ CameraState 生产者接入已在线的 LOD 管线（替换硬编码 70°/body-yaw）。★ camera_transform 来源改写为 CameraRig。★ player.gd 收缩为纯物理脚本。★ 四大社会系统/物品/经济全 Phase 1-3 就位。GPU-Driven Clipmap 8 层 LOD + Gerstner 海洋 + 昼夜循环 + 5 群系系统 + OceanProvider trait + Transvoxel 骨架 + LODCoordinator Phase2 + 天气系统 Phase1。ECS 架构（55 Components + 38 Systems + 548 tests）。CHG-065 地形修改编排层就位。最新状态见 `woworld-dev-plan/01-核心基础/devlogs/`。
+> **当前状态**（2026-07-11）：`cargo check --workspace` 通过。`cargo test` **1046 个测试全部通过**, clippy 零警告。★ **Sprint-066 手感系统运行时（008·I1-4）**——缓冲满容量优先级淘汰（push_bounded）+ 过期清理 + pop_if 物理重检 drain（复用 physics_req 单一权威，抽 `resolve_effective_loco` 消解三处 compute_locomotion 重复）+ 落地预输入（空中 Jump 留缓冲、落地起跳，**实机已激活**）+ 边缘吸附 apply_ledge_snap（仅玩家）。I5 空闲门控单独立项。★ **Sprint-065 持续/充能动作运行时（006）**——解除 action_controller Discrete 硬门，激活 Continuous/Charge：SustainDrain 消耗 Vitals + SustainPhase 迁移 + ReleaseBehavior 分发（dispatch_release 归 wrapper）+ 充能阶梯 follow-up 帧间接续（CPendingFollowUp）+ block/aim_bow TOML + A3(interrupt_on_move) + M4(coyote 字段 CInputFeelConfig)。★ 第三人称相机 MVP 完成——**独立 CameraRig + SmoothDamp 跟随 + SNAP + terrain_raycast 碰撞 + character_facing_system + CJustLanded 落地下沉 + 疾跑 FOV**。★ 化身走 entity_renderer 统一路径（controlled 字段）。★ CameraState 生产者接入已在线的 LOD 管线（替换硬编码 70°/body-yaw）。★ camera_transform 来源改写为 CameraRig。★ player.gd 收缩为纯物理脚本。★ 四大社会系统/物品/经济全 Phase 1-3 就位。GPU-Driven Clipmap 8 层 LOD + Gerstner 海洋 + 昼夜循环 + 5 群系系统 + OceanProvider trait + Transvoxel 骨架 + LODCoordinator Phase2 + 天气系统 Phase1。ECS 架构（55 Components + 38 Systems + 548 tests）。CHG-065 地形修改编排层就位。最新状态见 `woworld-dev-plan/01-核心基础/devlogs/`。
 
 ### 测试分布
 

@@ -8,6 +8,9 @@
 
 use glam::Vec3;
 
+use crate::spatial::TerrainQuery;
+use crate::types::WorldPos;
+
 // ── LocomotionMode ──────────────────────────────────────────────
 // CHG-067-SHIM: 仅 Grounded 和 PhysicsBody 两态。
 // 待 CHG-067 实现后替换为完整三态机（含 Attached + ImpulseQueue）。
@@ -22,6 +25,45 @@ pub enum LocomotionMode {
     Grounded,
     /// 物理体——空中/被击飞/水中。Sprint 1 仅作标记，无 COM 积分
     PhysicsBody,
+}
+
+/// 位置 + 地形 → 基础 LocomotionMode（不含土狼 grace）。
+///
+/// `terrain.is_walkable(pos)` → Grounded 否则 PhysicsBody。连续移动层要的就是
+/// 这个原始判定（土狼窗口内实体物理上仍腾空，移动应视作 PhysicsBody）。
+///
+/// **单一权威**——movement_mode_system / action_system / input_buffer_system 共用，
+/// 消解此前三处 byte-identical 的私有 compute_locomotion。
+pub fn base_locomotion(pos: Vec3, terrain: &dyn TerrainQuery) -> LocomotionMode {
+    let wp = WorldPos {
+        x: pos.x as f64,
+        y: pos.y as f64,
+        z: pos.z as f64,
+    };
+    if terrain.is_walkable(wp) {
+        LocomotionMode::Grounded
+    } else {
+        LocomotionMode::PhysicsBody
+    }
+}
+
+/// 有效 LocomotionMode——`base_locomotion` + 土狼 grace（008 §四）。
+///
+/// 基础判 PhysicsBody 但 `coyote_remaining > 0` → 上调 Grounded（"踩空瞬间仍可
+/// 起跳"）。**动作物理门控**（action_controller / input_buffer 物理重检）要的是
+/// 这个——放宽物理门，让土狼跳/落地预输入成立。传 `coyote_remaining = 0.0` 时
+/// 退化为 `base_locomotion`。
+pub fn resolve_effective_loco(
+    pos: Vec3,
+    terrain: &dyn TerrainQuery,
+    coyote_remaining: f32,
+) -> LocomotionMode {
+    let base = base_locomotion(pos, terrain);
+    if base == LocomotionMode::PhysicsBody && coyote_remaining > 0.0 {
+        LocomotionMode::Grounded
+    } else {
+        base
+    }
 }
 
 // ── MovementLock ────────────────────────────────────────────────
@@ -119,6 +161,88 @@ mod tests {
     fn test_locomotion_mode_eq() {
         assert_eq!(LocomotionMode::Grounded, LocomotionMode::Grounded);
         assert_ne!(LocomotionMode::Grounded, LocomotionMode::PhysicsBody);
+    }
+
+    // ── base_locomotion / resolve_effective_loco ──
+
+    use crate::material::{Medium, SurfaceMaterial};
+    use crate::types::TerrainHit;
+
+    /// 可参数化 walkable 的地形 mock。
+    struct Ground {
+        walkable: bool,
+    }
+    impl TerrainQuery for Ground {
+        fn height_at(&self, _p: WorldPos) -> f32 {
+            0.0
+        }
+        fn normal_at(&self, _p: WorldPos) -> Vec3 {
+            Vec3::Y
+        }
+        fn terrain_raycast(&self, _o: WorldPos, _d: Vec3, _m: f32) -> Option<TerrainHit> {
+            None
+        }
+        fn density_at(&self, _p: WorldPos) -> f32 {
+            0.0
+        }
+        fn is_walkable(&self, _p: WorldPos) -> bool {
+            self.walkable
+        }
+        fn surface_material_at(&self, _p: WorldPos) -> SurfaceMaterial {
+            SurfaceMaterial::Grass
+        }
+        fn medium_at(&self, _p: WorldPos) -> Medium {
+            Medium::Air
+        }
+        fn light_level_at(&self, _p: WorldPos) -> f32 {
+            1.0
+        }
+        fn sample_horizon(&self, _p: WorldPos, _d: &[Vec3]) -> Vec<f32> {
+            vec![]
+        }
+    }
+
+    #[test]
+    fn test_base_locomotion_walkable_grounded() {
+        assert_eq!(
+            base_locomotion(Vec3::ZERO, &Ground { walkable: true }),
+            LocomotionMode::Grounded
+        );
+    }
+
+    #[test]
+    fn test_base_locomotion_unwalkable_physicsbody() {
+        assert_eq!(
+            base_locomotion(Vec3::ZERO, &Ground { walkable: false }),
+            LocomotionMode::PhysicsBody
+        );
+    }
+
+    #[test]
+    fn test_effective_loco_no_coyote_equals_base() {
+        // coyote_remaining=0 → 退化为 base（不可行走→PhysicsBody）
+        assert_eq!(
+            resolve_effective_loco(Vec3::ZERO, &Ground { walkable: false }, 0.0),
+            LocomotionMode::PhysicsBody
+        );
+    }
+
+    #[test]
+    fn test_effective_loco_coyote_upgrades_physicsbody() {
+        // 空中（不可行走）但 coyote>0 → 上调 Grounded（"踩空瞬间仍可起跳"）
+        assert_eq!(
+            resolve_effective_loco(Vec3::ZERO, &Ground { walkable: false }, 0.1),
+            LocomotionMode::Grounded
+        );
+    }
+
+    #[test]
+    fn test_effective_loco_coyote_does_not_downgrade_grounded() {
+        // 已在地面 → coyote 与否都是 Grounded
+        assert_eq!(
+            resolve_effective_loco(Vec3::ZERO, &Ground { walkable: true }, 0.1),
+            LocomotionMode::Grounded
+        );
     }
 
     // ── MovementLock ──

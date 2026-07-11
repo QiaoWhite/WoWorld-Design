@@ -93,10 +93,12 @@ fn step5e_full_pipeline_moves_entity_forward() {
     ));
 
     let dt = 0.016_f32;
+    let mut elapsed = 0.0_f32;
     for _ in 0..60 {
         // 与 Block A0 逐字同序（此实体不带 input/action 组件 → 那两步对其 no-op，
         // 但仍执行以证明六系统同帧共存无 panic）。
         events.begin_frame();
+        elapsed += dt;
         woworld_ecs::systems::input::coyote_time_system::coyote_time_system(
             &mut world, dt, &terrain,
         );
@@ -104,7 +106,9 @@ fn step5e_full_pipeline_moves_entity_forward() {
         woworld_ecs::systems::movement::movement_mode_system::movement_mode_system(
             &mut world, &terrain,
         );
-        woworld_ecs::systems::input::input_buffer_system::input_buffer_system(&mut world, dt);
+        woworld_ecs::systems::input::input_buffer_system::input_buffer_system(
+            &mut world, &terrain, &registry, elapsed,
+        );
         woworld_ecs::systems::action::action_system::action_system(
             &mut world,
             dt,

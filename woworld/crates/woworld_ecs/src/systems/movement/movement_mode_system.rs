@@ -4,8 +4,7 @@
 //!
 //! 参见: `WoWorld-Design/.../角色控制器/002-MovementState与连续移动.md` §二/§三
 
-use glam::Vec3;
-use woworld_core::kinematics::LocomotionMode;
+use woworld_core::kinematics::{base_locomotion, LocomotionMode};
 use woworld_core::movement::{AirState, SpecialMode, SwimPace};
 use woworld_core::spatial::TerrainQuery;
 use woworld_core::types::WorldPos;
@@ -14,21 +13,6 @@ use crate::components::movement_state::{
     CJustLanded, CMovementRecovery, CMovementState, CPrevMovementState,
 };
 use crate::components::transform::{Position, Velocity};
-
-/// 计算给定位置的 LocomotionMode（Sprint 1 stub）。
-/// 与 movement_system.rs 中的实现一致——CHG-067 会统一为 CLocomotionMode Component。
-fn compute_locomotion_mode(pos: Vec3, terrain: &dyn TerrainQuery) -> LocomotionMode {
-    let wp = WorldPos {
-        x: pos.x as f64,
-        y: pos.y as f64,
-        z: pos.z as f64,
-    };
-    if terrain.is_walkable(wp) {
-        LocomotionMode::Grounded
-    } else {
-        LocomotionMode::PhysicsBody
-    }
-}
 
 /// 介质切换检测——每帧检测状态变化，自动修正 MovementState。
 ///
@@ -58,8 +42,7 @@ pub fn movement_mode_system(world: &mut hecs::World, terrain: &dyn TerrainQuery)
         &Velocity,
     )>() {
         let current_pos = pos.0;
-        let current_loco = compute_locomotion_mode(current_pos, terrain);
-        let _prev_loco = compute_locomotion_mode(pos.0, terrain);
+        let current_loco = base_locomotion(current_pos, terrain);
 
         // 保存上一帧状态（在修改 move_state 之前）
         let prev_ms = move_state.0;

@@ -119,7 +119,7 @@ fn run_frame(
     coyote_time_system(world, dt, terrain);
     stamina_gate_system(world, dt);
     movement_mode_system(world, terrain);
-    input_buffer_system(world, dt);
+    input_buffer_system(world, terrain, registry, now);
     action_resolver_system(world, input, hotbar, registry, now);
     interact_context_system(world, input, nearby, wheel);
     action_system(world, dt, registry, counter, events, terrain);

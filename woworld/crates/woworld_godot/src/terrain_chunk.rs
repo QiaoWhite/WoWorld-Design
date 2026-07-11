@@ -2088,7 +2088,12 @@ impl WorldDriver {
                 coyote_time_system(&mut self.ecs, cc_dt, &self.terrain);
                 stamina_gate_system(&mut self.ecs, cc_dt);
                 movement_mode_system(&mut self.ecs, &self.terrain);
-                input_buffer_system(&mut self.ecs, cc_dt);
+                input_buffer_system(
+                    &mut self.ecs,
+                    &self.terrain,
+                    &self.action_registry,
+                    self.game_time_secs,
+                );
                 action_resolver_system(
                     &mut self.ecs,
                     &self.input_state,

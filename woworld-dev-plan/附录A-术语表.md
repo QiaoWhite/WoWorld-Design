@@ -139,7 +139,11 @@
 | 维持阶段 | `SustainPhase` | woworld_core::action（Normal/Overextended/Critical·持续动作过久迁移） |
 | 动作key哈希 | `ActionId::from_key` | woworld_core::action（FNV-1a 字符串键→ActionId·单一 hash 源·Sprint-065） |
 | 待接续子动作 | `CPendingFollowUp` | woworld_ecs::components::action_state（充能子动作帧间载体·006 §五·Sprint-065） |
-| 手感配置 | `CInputFeelConfig` | woworld_ecs::components::input_state（coyote_time_secs·008 InputFeelConfig·M4） |
+| 手感配置 | `CInputFeelConfig` | woworld_ecs::components::input_state（coyote_time_secs + ledge_snap_distance/angle_deg·008 InputFeelConfig·M4/Sprint-066） |
+| 缓冲优先级淘汰 | `CInputBuffer::push_bounded` | woworld_ecs::components::input_state（满容量淘汰最低优先级·008 §二·Sprint-066） |
+| 基础运动模式解算 | `base_locomotion` | woworld_core::kinematics（位置+地形→LocomotionMode·单一权威·Sprint-066） |
+| 有效运动模式解算 | `resolve_effective_loco` | woworld_core::kinematics（base + 土狼 grace 上调·动作物理门谓词数据源·Sprint-066） |
+| 边缘吸附 | `apply_ledge_snap` | woworld_ecs::systems::movement（raycast+坡度门贴地·仅玩家·008 §七·Sprint-066） |
 | 释放分发 | `dispatch_release` | woworld_ecs::systems::action（纯函数·按 ReleaseBehavior 分发释放+返回子动作请求·Sprint-065） |
 | 地形修改编排层 | Terrain Modification Orchestration | CHG-065——内核不转ECS·编排层入ECS |
 | 开发阶段 | Phase | 开发治理——模块从设计到交付的宏观阶段划分 |

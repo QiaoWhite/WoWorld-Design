@@ -3,7 +3,7 @@
 > **冲刺**: Sprint-066 — 手感系统运行时（缓冲淘汰 / 物理重检 / 落地预输入 / 边缘吸附）
 > **日期**: 2026-07-11
 > **阶段**: Phase 2 — 垂直切片
-> **冲刺状态**: ✅ 完成（I1-4 达成 + 计划↔文档审计修正，1046 tests，clippy 零警告，**未提交**）
+> **冲刺状态**: ✅ 完成（I1-4 达成 + 计划↔文档审计修正，1046 tests，clippy 零警告，**已提交推送 `bed70c8`**）
 
 ## 📊 冲刺回顾
 
@@ -26,10 +26,10 @@
 
 > ⚠️ 下一会话 AI 启动首先读这里。
 
-- **当前冲刺**: Sprint-066 — 已完成（I1-4 + 审计修正），**未提交**（工作区有改动）。
+- **当前冲刺**: Sprint-066 — 已完成（I1-4 + 审计修正），**已提交推送 `bed70c8`**。
 - **机械门状态**: build ✅ / test ✅ **1046 passed** / clippy ✅ 零警告 / fmt ✅ clean
-- **上次提交**: `796afb9`（handoff-sprint065 审计追踪待办）。本冲刺**尚未提交**。
-- **本冲刺改动清单**（未提交）:
+- **上次提交**: `bed70c8`（Sprint-066，已推送）。工作区干净（仅 `.obsidian/workspace.json` 无关变动）。
+- **本冲刺改动清单**（已提交 `bed70c8`）:
   ```
   woworld_core/src/kinematics.rs                   (+base_locomotion/resolve_effective_loco +5 测试)
   woworld_ecs/components/input_state.rs            (CInputBuffer::push_bounded + CInputFeelConfig 补 ledge 字段 + 测试)
@@ -44,7 +44,7 @@
   woworld_godot/src/terrain_chunk.rs               (input_buffer_system 调用点补参数)
   文档: sprint-066 提案 / 本 handoff / DEVLOG
   ```
-- **下一步**: Sprint-066 已闭环但**未提交**——先跑一遍机械门确认，`git add` + commit + push。下一冲刺候选见 §🚀。
+- **下一步**: Sprint-066 已闭环并推送（`bed70c8`）。下一冲刺候选见 §🚀。
 - **已知陷阱 / 待接线**:
   - ⚠️ **I4 边缘吸附 + M4 土狼时间在实机不激活**：Godot 玩家实体（`terrain_chunk.rs:652+`）**未挂 `CInputFeelConfig` / `CCoyoteTime`**——I4 ledge snap 不触发（且纯高度场本就无操作），M4 coyote 用 fallback 0.15。激活需在玩家配方补这两组件（**会一并打开 coyote-jump 行为**，是 input/玩家配方定稿冲刺的决定，本冲刺不擅动）。
   - ✅ **I1-I3 在实机已激活**：玩家有 `CInputBuffer`，真 `[action.jump]` bufferable=true/physics_req=Grounded → 空中按跳跃现在**留缓冲、落地起跳**（此前被 drain+clear 丢弃）。这是本冲刺可见的手感修复。

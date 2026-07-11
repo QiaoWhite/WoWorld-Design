@@ -53,7 +53,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **构建项目** | `cd woworld && cargo build --workspace` |
 | **启动 Godot 编辑器** | `tools/godot/Godot_v4.7-stable_win64.exe woworld/godot/project.godot` |
 | **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-11-sprint066.md` (Sprint-066 手感系统运行时·I1-4 缓冲淘汰/物理重检/落地预输入/边缘吸附·1046 tests) |
-| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260711-sprint066.md` (Sprint-066 手感 I1-4·1046 tests·clippy 零警告·未提交) |
+| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260711-sprint066.md` (Sprint-066 手感 I1-4·1046 tests·clippy 零警告·已推送 bed70c8) |
 | **🐛 查已知 bug/陷阱** | `woworld-dev-plan/bugs/INDEX.md` — 调试前必须先查 |
 
 ## 文档结构

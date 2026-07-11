@@ -53,7 +53,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **构建项目** | `cd woworld && cargo build --workspace` |
 | **启动 Godot 编辑器** | `tools/godot/Godot_v4.7-stable_win64.exe woworld/godot/project.godot` |
 | **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-12-sprint067.md` (Sprint-067 V0+V1·V0库存验证测试 + V1 time_modifier昼夜第6因子(设计ver2.0 v3·纯世界时·白昼度曲线) + 漫游回落(读Needs防振荡) + Vf spike·1055 tests) |
-| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260712-sprint067.md` (2026-07-12 Sprint-067 执行·村庄切片2/10·下一步 V4a 问候气泡·1055 tests·未提交) |
+| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260712-sprint067.md` (2026-07-12 Sprint-067 执行·村庄切片2/10·下一步 V4a 问候气泡·1055 tests·已推送72fa780) |
 | **🐛 查已知 bug/陷阱** | `woworld-dev-plan/bugs/INDEX.md` — 调试前必须先查 |
 
 ## 文档结构

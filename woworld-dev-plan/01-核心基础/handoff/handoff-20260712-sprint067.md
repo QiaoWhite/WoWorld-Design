@@ -3,7 +3,7 @@
 > **会话类型**: 冲刺执行（场景 B）
 > **日期**: 2026-07-12
 > **阶段**: Phase 2 探针切片「活着的村庄」·进度 `▓▓░░░░░░░░ 2/10`
-> **状态**: ✅ Sprint-067 完成·1055 tests 全绿·clippy/fmt 零警告·**未提交**
+> **状态**: ✅ Sprint-067 完成·1055 tests 全绿·clippy/fmt 零警告·**已推送 `72fa780`**（+ 本收尾提交）
 
 ## 📊 本会话做了什么
 
@@ -31,7 +31,7 @@
 - **当前阶段**: Phase 2 切片「活着的村庄」·`2/10`（V0+V1 ✅）·10 步序列见 [[../../02-垂直切片/README]] §3
 - **下一步**: **V4a 问候/情绪气泡**（第 3/10 步）——桩串外移 TOML 片段表（按 `SpeechAct`）+ 3m 邻近触发（复用 `systems/npc/social.rs`）+ 对齐 `DialogueIntentType`；气泡走 `UtteranceId` 瞬时车道、**不碰 `ExpressionRef`**。执行前逐字精读 `开发阶段/语言表达/` + 复核 §4 现状校准。
 - **机械门状态**: `1055 tests 全绿`（core 398 + worldgen 58 + atmosphere 26 + ecs 573 + godot 0），clippy/fmt 零警告，build 通过（DLL 已更新）。
-- **未提交/未推送**: 本会话所有改动（`woworld/` 代码 + `woworld-dev-plan/` 文档）**均未提交**。承接基线 `1db25a9`。可选：提交本冲刺（代码 + 治理文档）。
+- **提交状态**: Sprint-067 主体已推送 `72fa780`（`origin/master`），本收尾提交紧随其后。**新会话承接基线 = 最新 `master`**（跑 `git log --oneline -3` 确认）。唯一未提交项：`.obsidian/workspace.json`（Obsidian UI 状态·无关本工作·有意保留）。
 - **A1 铁律**: 纯涌现，涌现不出的如实呈现空白，禁脚手架/假坐标/占位驱动/平行 trait。
 
 ## ⚠️ 遗留 / 诚实边界（探针前哨）

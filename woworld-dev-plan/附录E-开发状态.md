@@ -21,7 +21,7 @@
 | Rust workspace | 5 crates, **1055 tests 全绿** (core: 398 + worldgen: 58 + atmosphere: 26 + ecs: 573（564 lib + 9 集成） + godot: 0), cargo clippy 零警告 |
 | ECS 架构 | **Phase 0/1/2/3 ✅** — 55 Components + 38 Systems + 1026 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + 角色控制器核心三层 + Step 5e 管线集成 + 第三人称相机 MVP + **★持续/充能动作运行时（006·SustainDrain 消耗+SustainPhase 迁移+ReleaseBehavior 分发+充能阶梯 follow-up+CPendingFollowUp/CInputFeelConfig+A3 interrupt_on_move+M4 coyote 字段）** 就位。 |
 | Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + NPC对话气泡 + 独立 CameraRig 第三人称相机 |
-| 当前冲刺 | **Sprint-067 V0+V1 地基与昼夜涌现完成**（1055 tests·clippy/fmt 零警告·未提交）— V0 库存验证测试（审计:已由 `inventory_init_system` 幂等补挂，不改 spawn_npc）+ V1 `time_modifier` 昼夜第6因子（=设计 ver2.0 v3·纯世界时·白昼度曲线）+ 漫游回落（读 Needs 紧迫度防振荡）+ Vf 食物源 BACKLOG spike。→ 下一步: V4a 问候/情绪气泡（第 3/10 步） |
+| 当前冲刺 | **Sprint-067 V0+V1 地基与昼夜涌现完成**（1055 tests·clippy/fmt 零警告·**已推送 `72fa780`**）— V0 库存验证测试（审计:已由 `inventory_init_system` 幂等补挂，不改 spawn_npc）+ V1 `time_modifier` 昼夜第6因子（=设计 ver2.0 v3·纯世界时·白昼度曲线）+ 漫游回落（读 Needs 紧迫度防振荡）+ Vf 食物源 BACKLOG spike。→ 下一步: V4a 问候/情绪气泡（第 3/10 步） |
 | 最新 CHG | **CHG-069**（2026-07-11·第三人称相机与视角系统·玩家系统007 v1.2·实现已落地）— 前: CHG-067 物理运动学地基（仅设计） |
 | 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260712-sprint067]]（2026-07-12·Sprint-067 V0+V1·1055 tests） |
 

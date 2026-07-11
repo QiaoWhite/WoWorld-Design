@@ -1047,3 +1047,35 @@ CHG-057/058 在 06-认知与智慧系统中引入根本性架构变更后，CHG-
 | **NPC 活人感** | 消费者——GOAP 通过 GoapIntentDispatch → CNpcMovementBehavior → PathFollowing → MoveIntent |
 | **动画系统** | 消费者——MovementState::gait_params() 产出 9 个步态参数；ActionLifecycleEvent 驱动 Layer 0/8 姿态切换 |
 | **Godot 桥接** | Godot CharacterBody3D **已移除**——所有移动物理在 Rust 侧。Godot 仅 Transform3D 定位 + InputMap 采集 |
+
+## CHG-069 — 第三人称相机与视角系统（2026-07-11）
+
+> **完整规格**: [[WoWorld-Design/Happy Game/开发阶段/玩家系统/007-第三人称相机与视角系统|玩家系统 007]]（v1.2）
+> **设计**: /grill-me + 三阶段质量保证循环 + 两轮审计
+> **实现**: 2026-07-11 MVP 完整实现（A+B+C）· 1001 tests · 待实机走查
+
+自由环绕相机（角色朝移动方向）。独立顶层 CameraRig 读**被控实体 ECS Position**，玩家=NPC 化身走 entity_renderer 统一路径。相机跟随 SmoothDamp + SNAP + 碰撞用 **Rust `terrain_raycast`**（地形无 Godot 碰撞体，守 CHG-033）+ Zoom SmoothDamp。相机手感：CJustLanded 落地下沉 + 疾跑 FOV kick。
+
+### 核心契约
+
+| 概念 | 权威 Owner | 消费方（引用权威） | 关键约定 |
+|------|-----------|-------------------|---------|
+| **CameraState**（复用 `woworld_core::lod`） | 相机系统 `007`（生产者） | LodCoordinator/视锥剔除/音频 LOD | `{position:DVec3, forward:DVec3, fov_radians:f32}`。**不新造**——LOD 视点=相机位（非角色位） |
+| **PlayerAttention** | LOD 系统（`lod.rs`） | LodCoordinator | 相机仅为 `聚焦方向` **提供数据源**，不拥有此结构 |
+| **camera_transform**（yaw basis） | 相机系统 `007` | 角色控制器 `004`（player_input_system）· RotationLock::CameraForward | 来源从 body **改为 CameraRig**（载重修复）；逻辑不变只换源 |
+| **RotationLock 落地** | 角色控制器 `002`（契约）/ 相机系统 `007`（实现 character_facing_system） | movement/entity_visual | 填补 movement_system 空 stub。玩家休息态 Free→InputDirection；复用 008 turn_smoothing |
+| **EntityVisual.controlled** | 相机系统 `007`（经 entity_visual_system 打标） | EntityRenderer（模型动作与物理 `007`） | 被控角色抑制头顶名字/气泡 + 近距/FP 隐藏胶囊。`entity_visual_system` 从排除改打标（`test_visual_system_excludes_player` 须更新） |
+| **CJustLanded** | 角色控制器 movement（movement_mode_system 着地分支写入） | 相机系统 `007`（落地下沉） | 一次性事件携冲击 `vel.y`，相机消费后清除 |
+| **resolve_camera_arm** | 相机系统 `007`（`woworld_core` 纯函数） | — | `terrain_raycast` 夹紧臂长，可单测 |
+
+### 跨模块影响
+
+| 受影响模块 | 影响 |
+|-----------|------|
+| **角色控制器 002/004/008** | 落地 RotationLock；消费 turn_smoothing；camera_transform 来源改写（逻辑不变） |
+| **模型动作与物理（EntityRenderer 007）** | EntityVisual +controlled；停止排除玩家改打标 |
+| **LOD 系统（lod.rs）** | 相机为 CameraState 生产者；视点=相机位。✅ 已确认 `WorldLodCoordinator::compute_lod` 每帧调用，CameraState 替换硬编码 70°/body-yaw |
+| **UI/UX 002/004** | 相机 yaw→小地图朝向；FOV 设置 60-120 |
+| **玩家系统 003/005 · 夺舍 012** | 相机换目标（SNAP 不 SmoothDamp）；死亡留机预留 |
+| **存档系统** | 相机视图状态（yaw/zoom/FP）持久化——预留 |
+| **Godot 桥接** | Player 节点剥离 Camera3D 与 mesh；新增独立 CameraRig；player.gd 收缩为纯物理 |

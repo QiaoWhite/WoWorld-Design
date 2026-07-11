@@ -12,6 +12,7 @@ use hecs::CommandBuffer;
 
 use crate::components::entity_kind::EntityKind as EcsEntityKind;
 use crate::components::goal::Goal;
+use crate::components::movement::Movement;
 use crate::components::movement::Wander;
 use crate::components::player::{ControlModeComponent, PlayerComponent};
 use crate::components::transform::Position;
@@ -124,9 +125,45 @@ pub fn possess_entity(
     let pos = world.get::<&Position>(entity).ok()?.0;
     let _kind = world.get::<&EcsEntityKind>(entity).ok()?;
 
-    // 移除 Goal + Wander（movement_system 自动跳过）
+    // ★ 007 修复: 移除 Goal + Wander + 旧 Movement (绞杀者门控)——
+    //   movement_system 用 `Without<Movement>` 过滤旧管线实体——NPC 带着它
+    //   即使有其他 CC 组件也被跳过。必须移除才能进入 Block A0 CC 管线。
     cmd.remove_one::<Goal>(entity);
     cmd.remove_one::<Wander>(entity);
+    cmd.remove_one::<Movement>(entity);
+
+    // ★ 007: 添加完整 Block A0 CC + action 组件束——
+    //   player_input_system: CMoveIntent + CMovementState (pace 直写)
+    //   movement_system: CMoveIntent + CMovementState + CMovementControl + Velocity + Position
+    //   action_system: CActiveAction + CActionRequestBuf + CMovementControl + Position
+    //   jump_launch_system: CActiveAction + CMovementState + CMovementRecovery + Velocity
+    //   character_facing_system: CMovementControl + CMoveIntent + Rotation
+    //   input_buffer_system: CInputBuffer
+    use crate::components::action_state::{CActionRequestBuf, CActiveAction};
+    use crate::components::input_state::CInputBuffer;
+    use crate::components::movement_state::{
+        CMoveIntent, CMovementControl, CMovementRecovery, CMovementState, CPrevMovementState,
+    };
+    use crate::components::transform::{Rotation, Velocity};
+    use woworld_core::movement::{MovementState, Pace, Stance};
+
+    cmd.insert_one(entity, CMoveIntent::default());
+    cmd.insert_one(entity, CMovementControl::default());
+    cmd.insert_one(entity, CMovementRecovery::default());
+    cmd.insert_one(entity, CActiveAction::default());
+    cmd.insert_one(entity, CActionRequestBuf::default());
+    cmd.insert_one(entity, CInputBuffer::default());
+    cmd.insert_one(entity, Velocity(glam::Vec3::ZERO));
+    if world.get::<&Rotation>(entity).is_err() {
+        cmd.insert_one(entity, Rotation(glam::Quat::IDENTITY));
+    }
+    let ms = MovementState {
+        stance: Stance::Standing,
+        pace: Pace::Walking,
+        ..Default::default()
+    };
+    cmd.insert_one(entity, CMovementState(ms));
+    cmd.insert_one(entity, CPrevMovementState(ms));
 
     // 添加玩家标记
     cmd.insert_one(
@@ -306,7 +343,7 @@ mod tests {
     }
 
     #[test]
-    fn test_possess_removes_goal_and_wander() {
+    fn test_possess_removes_goal_wander_and_movement() {
         let mut world = hecs::World::new();
         let mut cmd = CommandBuffer::new();
         let npc = world.spawn((
@@ -318,6 +355,7 @@ mod tests {
                 direction: Vec3::X,
                 remaining: 1.0,
             },
+            Movement::default(),
         ));
 
         possess_entity(&world, &mut cmd, npc);
@@ -325,6 +363,7 @@ mod tests {
 
         assert!(world.get::<&Goal>(npc).is_err());
         assert!(world.get::<&Wander>(npc).is_err());
+        assert!(world.get::<&Movement>(npc).is_err(), "old Movement must be removed for CC pipeline");
     }
 
     #[test]

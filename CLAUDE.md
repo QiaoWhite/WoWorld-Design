@@ -23,7 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 >
 > **仓库构成**：设计文档（`WoWorld-Design/`）+ Rust workspace（`woworld/`）+ 开发治理（`woworld-dev-plan/`）。设计文档用 **Obsidian** 编辑（`[[wikilink]]` 导航），Rust 代码用标准 Cargo 工具链。
 
-**当前规格版本**: v4.0。模块累计 **~26 个独立系统** + 1 个子模块（家具与放置物品）+ 交互配方表系统 + 存档系统 v2.0（CHG-055/056）。★ 2026-06-22 Loop Audit 全量审计完成。★ NPC 认知系统 v1.1（CHG-057/058/059）。★ 开发路线图优化（CHG-060）。★ 轨C 孤儿接口修复（CHG-061）。★ UI/UX 系统创建（CHG-062）。★ 玩家系统新建（CHG-063·6篇~1,448行）。★ 轨A 昼夜循环 + 5群系系统（CHG-064）。★ 宪法 v1.5（已审批生效）。最新 CHG 序列见 `WoWorld-Design/Change/`。
+**当前规格版本**: v4.0。模块累计 **~26 个独立系统** + 1 个子模块（家具与放置物品）+ 交互配方表系统 + 存档系统 v2.0（CHG-055/056）。★ 2026-06-22 Loop Audit 全量审计完成。★ NPC 认知系统 v1.1（CHG-057/058/059）。★ 开发路线图优化（CHG-060）。★ 轨C 孤儿接口修复（CHG-061）。★ UI/UX 系统创建（CHG-062）。★ 玩家系统新建（CHG-063·6篇~1,448行）。★ 轨A 昼夜循环 + 5群系系统（CHG-064）。★ 宪法 v1.5（已审批生效）。★ 第三人称相机与视角系统（CHG-069·玩家系统007·v1.2）。最新 CHG 序列见 `WoWorld-Design/Change/`。
 
 ## 快速导航
 
@@ -52,8 +52,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **写/读 Rust 代码** | `woworld/` — workspace 结构见下方「代码架构」 |
 | **构建项目** | `cd woworld && cargo build --workspace` |
 | **启动 Godot 编辑器** | `tools/godot/Godot_v4.7-stable_win64.exe woworld/godot/project.godot` |
-| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-10-sprint064.md` (Sprint-064 跳跃腾空积分·gravity/jump_speed+jump_launch_system+腾空分支·977 tests) |
-| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260711-sprint064.md` (Sprint-063+064·input_bridge+玩家Block A0+跳跃·均实机验证·977 tests·未提交·下一步 第三人称相机) |
+| **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-11-camera-mvp.md` (第三人称相机 MVP 实现·夺舍 CC 管线统一·四轮修复·1001 tests) |
+| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260711-camera-mvp.md` (相机 MVP+夺舍修复完成·1001 tests·实机验证通过·未提交) |
 | **🐛 查已知 bug/陷阱** | `woworld-dev-plan/bugs/INDEX.md` — 调试前必须先查 |
 
 ## 文档结构
@@ -82,9 +82,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### `WoWorld-Design/Change/` — 设计变更追踪
 
-> ⚠️ **Change 文件夹约定**：编号大的覆盖编号小的。以 `开发阶段/` 实际内容为权威。最新 CHG 序列（053-067）详见 `WoWorld-Design/Change/README.md`。
+> ⚠️ **Change 文件夹约定**：编号大的覆盖编号小的。以 `开发阶段/` 实际内容为权威。最新 CHG 序列（053-069）详见 `WoWorld-Design/Change/README.md`。
 
-近期关键变更：**CHG-053**（Godot 4.7·12子系统）→ **CHG-054**（世界生成 v2.1）→ **CHG-055/056**（存档系统 v1.0→v2.0）→ **CHG-057**（NPC认知 v1.1·PatternExpression数学地基）→ **CHG-058**（NPC认知系统自审修正）→ **CHG-059**（NPC认知v1.1全模块传播审计）→ **CHG-060**（开发路线图优化·四轨重定义·孤儿接口修复）→ **CHG-061**（轨C孤儿接口修复·CHG-063前置）→ **CHG-062**（UI与UX系统创建）→ **CHG-063**（玩家系统新建·6篇~1,448行·28-玩家系统登记）→ **CHG-065**（地形修改编排层·~800行代码+50测试·内核不转ECS编排层入ECS）→ **CHG-066**（对话气泡术语消歧+Bark MVP·807 tests）→ **CHG-067**（物理运动学地基·质量→冲量→单体COM涌现·不引擎·仅文档）。
+近期关键变更：**CHG-053**（Godot 4.7·12子系统）→ **CHG-054**（世界生成 v2.1）→ **CHG-055/056**（存档系统 v1.0→v2.0）→ **CHG-057**（NPC认知 v1.1·PatternExpression数学地基）→ **CHG-058**（NPC认知系统自审修正）→ **CHG-059**（NPC认知v1.1全模块传播审计）→ **CHG-060**（开发路线图优化·四轨重定义·孤儿接口修复）→ **CHG-061**（轨C孤儿接口修复·CHG-063前置）→ **CHG-062**（UI与UX系统创建）→ **CHG-063**（玩家系统新建·6篇~1,448行·28-玩家系统登记）→ **CHG-065**（地形修改编排层·~800行代码+50测试·内核不转ECS编排层入ECS）→ **CHG-066**（对话气泡术语消歧+Bark MVP·807 tests）→ **CHG-067**（物理运动学地基·质量→冲量→单体COM涌现·不引擎·仅文档）→ **CHG-068**（视距扩展与海洋升级）→ **CHG-069**（第三人称相机与视角系统·玩家系统007·自由环绕+独立CameraRig+Rust terrain_raycast碰撞+RotationLock落地+CameraState生产者·仅文档）。
 
 近期冲刺：**Sprint 031-033**（性能优化+LOD+天气+PBR法线）→ **Sprint 035-057**（ECS Phase 0-2·生命·NPC人格·BigFive·行为链·Godot可视化·21 NPC）→ **Sprint 058**（Gompertz死亡·社交深度·地形移动·审计修复·381 tests）→ **物品 Phase 1 + 经济 Phase 2**（ItemCategory/Registry/TOML + Market/OrderBook撮合/Pareto钱包/需求驱动订单·624 tests）→ **物品 Phase 2**（PersonalInventory/装备/Assembly stub·705 tests）→ **经济 Phase 3**（NeedCategory/Urgency/ListingType/Partial fill/Scarcity bonus/Needs连接·737 tests）。
 
@@ -179,16 +179,16 @@ cargo check --workspace && cargo test --workspace && cargo clippy --workspace --
 - **Godot 编辑器缓存**：修改 `.gdshader` 后有时需重启编辑器才能生效。
 - **VoxelChunk vs Clipmap 材质一致性**：两者必须用相同的材质分类路径（biome 分类器），不能一个用纯高度分类一个用群系分类——否则 LOD 边界有色差（Sprint 032-G 根因 1）。
 
-> **当前状态**（2026-07-08）：`cargo check --workspace` 通过。`cargo test` **737 个测试全部通过**, clippy 零警告。★ 四大社会系统 Phase 1 全部完成 (Culture/Economy/Faith/Power)。★ **物品系统 Phase 1+2** 完成 (ItemCategory/Registry/TOML + PersonalInventory/装备/Assembly stub)。★ **经济系统 Phase 2+3** 完成 (Market/OrderBook/Partial fill/Pareto钱包/需求驱动订单/NeedCategory/Urgency/ListingType/Scarcity bonus/Bootstrap/Needs连接)。GPU-Driven Clipmap 8 层 LOD + Gerstner 海洋 + 昼夜循环 + 5 群系系统 + OceanProvider trait + Transvoxel 骨架 + **LODCoordinator Phase2（完整8步算法）** + **天气系统 Phase1** 就位。**ECS 架构——`woworld_ecs` crate 已就位（42 Components + 28 Systems + 383 tests）**。★ **CHG-065 地形修改编排层已就位**（`woworld_core::edit_terrain`）。最新状态见 `woworld-dev-plan/01-核心基础/devlogs/`。
+> **当前状态**（2026-07-11）：`cargo check --workspace` 通过。`cargo test` **1001 个测试全部通过**, clippy 零警告。★ 第三人称相机 MVP 完成——**独立 CameraRig + SmoothDamp 跟随 + SNAP + terrain_raycast 碰撞 + character_facing_system + CJustLanded 落地下沉 + 疾跑 FOV**。★ 化身走 entity_renderer 统一路径（controlled 字段）。★ CameraState 生产者接入已在线的 LOD 管线（替换硬编码 70°/body-yaw）。★ camera_transform 来源改写为 CameraRig。★ player.gd 收缩为纯物理脚本。★ 四大社会系统/物品/经济全 Phase 1-3 就位。GPU-Driven Clipmap 8 层 LOD + Gerstner 海洋 + 昼夜循环 + 5 群系系统 + OceanProvider trait + Transvoxel 骨架 + LODCoordinator Phase2 + 天气系统 Phase1。ECS 架构（42 Components + 29 Systems + 520 tests）。CHG-065 地形修改编排层就位。最新状态见 `woworld-dev-plan/01-核心基础/devlogs/`。
 
 ### 测试分布
 
 | Crate | 测试数 | 说明 |
 |-------|--------|------|
-| `woworld_core` | 270 | culture + economy + faith + power + item + time + density + lod + weather_types + edit_terrain + inventory + equipment + assembly + listing + bootstrap |
+| `woworld_core` | 392 | culture + economy + faith + power + item + time + density + lod + weather_types + edit_terrain + inventory + equipment + assembly + listing + bootstrap + **camera (smooth_damp + resolve_camera_arm)** |
 | `woworld_worldgen` | 58 | biome + cave + clipmap + noise_gen + ocean + terrain + transvoxel + vegetation |
 | `woworld_atmosphere` | 26 | time_curve + synthesizer + weather |
-| `woworld_ecs` | 383 | 42 Components + 28 Systems (life/npc/lod + culture/economy/faith/power + item/inventory + needs) |
+| `woworld_ecs` | 520 | 42 Components + 29 Systems (life/npc/lod + culture/economy/faith/power + item/inventory + needs + **character_facing** + **CJustLanded** + **entity_visual controlled**) |
 | `woworld_godot` | 0 | cdylib 不便于单元测试——已迁移至 worldgen/ecs |
 
 > 详细模块状态见 [`附录E-开发状态.md`](woworld-dev-plan/附录E-开发状态.md)。
@@ -216,6 +216,7 @@ woworld/
 │   │       ├── time.rs         #   WorldTime, WorldClock, TimeOfDay — 昼夜循环权威定义
 │   │       ├── vegetation.rs   #   VegetationProvider trait + PlantCommunitySnapshot + 植被类型
 │   │       ├── lod.rs          #   LodPrescription + LodCoordinator — 场景8层×角色5层距离映射
+│   │       ├── camera.rs       #   ★ 007 相机工具——smooth_damp 家族 + resolve_camera_arm
 │   │       └── weather_types.rs#   WeatherState, Season — 天气/季节枚举 + 调试快捷键 1-6
 │   ├── woworld_worldgen/       # GPU-Driven Clipmap 世界生成 (8 级 LOD + 海洋 + 洞穴)
 │   │   └── src/

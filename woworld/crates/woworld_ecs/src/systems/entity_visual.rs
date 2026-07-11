@@ -20,7 +20,7 @@ type NameCache = HashMap<hecs::Entity, String>;
 
 /// 每帧收集所有实体的 (Entity, EntityVisual) 对
 ///
-/// - 排除 `player_entity`（有独立 Godot CharacterBody3D 渲染）
+/// - `player_entity` 被**标记** `controlled=true`（不再排除；007 §九"玩家=NPC"统一路径）
 /// - 从 LodLevel.render_lod 读取裁剪等级
 /// - 从 Emotion PAD 计算 color_hint
 /// - 从 NameCache 或 generate_name() 获取 display_name
@@ -34,10 +34,8 @@ pub fn entity_visual_system(
     let mut visuals = Vec::new();
 
     for (entity, (pos, kind, lod)) in world.query::<(&Position, &EntityKind, &LodLevel)>().iter() {
-        // 排除 Player ECS 实体
-        if player_entity == Some(entity) {
-            continue;
-        }
+        // ★ 007 §九：不再排除玩家——改为打标 controlled，走 entity_renderer 统一路径
+        let controlled = player_entity == Some(entity);
 
         let rotation = world
             .get::<&Rotation>(entity)
@@ -73,6 +71,7 @@ pub fn entity_visual_system(
                 render_lod: lod.render_lod,
                 bubble_text,
                 bubble_color,
+                controlled,
             },
         ));
     }
@@ -422,10 +421,13 @@ mod tests {
         let mut cache = NameCache::new();
         let visuals = entity_visual_system(&world, None, &mut cache, &SpeechBubbleState::default());
         assert_eq!(visuals.len(), 2);
+        // player_entity=None → both should be controlled=false
+        assert!(visuals.iter().all(|(_, v)| !v.controlled));
     }
 
     #[test]
-    fn test_visual_system_excludes_player() {
+    fn test_visual_system_marks_controlled() {
+        // 007 §九: player entity is now included, marked controlled=true
         let world = test_world();
         let player = world.query::<&Position>().iter().next().unwrap().0;
         let mut cache = NameCache::new();
@@ -435,7 +437,14 @@ mod tests {
             &mut cache,
             &SpeechBubbleState::default(),
         );
-        assert_eq!(visuals.len(), 1);
+        // 2 entities total: player is now included
+        assert_eq!(visuals.len(), 2);
+        // Exactly one is controlled
+        let controlled_count = visuals.iter().filter(|(_, v)| v.controlled).count();
+        assert_eq!(controlled_count, 1);
+        // The controlled entity should be the player entity
+        let (controlled_entity, _) = visuals.iter().find(|(_, v)| v.controlled).unwrap();
+        assert_eq!(*controlled_entity, player);
     }
 
     #[test]

@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "WoWorld-Design/Change/hand/0-提示词考量角度.md",
+                "file": "woworld-dev-plan/01-核心基础/handoff/handoff-20260711-camera-mvp.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "0-提示词考量角度"
+              "title": "handoff-20260711-camera-mvp"
             }
           }
         ],
@@ -89,8 +89,7 @@
               "title": "书签"
             }
           }
-        ],
-        "currentTab": 1
+        ]
       }
     ],
     "direction": "horizontal",
@@ -202,17 +201,32 @@
   },
   "active": "a975d58bb0c46398",
   "lastOpenFiles": [
-    "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-10-role-controller.md.tmp.37812.21245ca27f20",
-    "woworld-dev-plan/01-核心基础/handoff/handoff-20260710-role-controller.md.tmp.37812.c291edd33052",
-    "woworld-dev-plan/01-核心基础/handoff/handoff-20260710-role-controller.md.tmp.37812.2f6bc690567a",
-    "woworld-dev-plan/01-核心基础/handoff/handoff-20260710-role-controller.md.tmp.37812.ac21936a80c2",
-    "woworld-dev-plan/01-核心基础/handoff/handoff-20260710-role-controller.md.tmp.37812.bea1f9db5f26",
-    "woworld-dev-plan/01-核心基础/handoff/handoff-20260710-role-controller.md.tmp.37812.e4ec8418658f",
-    "woworld/target/debug/incremental/woworld_godot-1citondobeh58/s-hk9eqxnaez-07ccxe8-bt5i89nlxgn2us7z0n5wklrwk/work-products.bin",
-    "woworld/target/debug/incremental/woworld_godot-1citondobeh58/s-hk9eqxnaez-07ccxe8-bt5i89nlxgn2us7z0n5wklrwk/query-cache.bin",
-    "woworld/target/debug/incremental/woworld_godot-1citondobeh58/s-hk9eqxnaez-07ccxe8-bt5i89nlxgn2us7z0n5wklrwk/ex9nzi8mzm34w448g1zxn0gr6.o",
-    "woworld/target/debug/incremental/woworld_godot-1citondobeh58/s-hk9eqxnaez-07ccxe8-bt5i89nlxgn2us7z0n5wklrwk/eyr4zcu4hpdlosdagjhh6ap9m.o",
-    "woworld/target/debug/incremental/woworld_godot-1citondobeh58/s-hk9eqxnaez-07ccxe8-bt5i89nlxgn2us7z0n5wklrwk/evgemdb2pmvkeyr684hqo7u7i.o",
+    "woworld-dev-plan/附录E-开发状态.md.tmp.37812.9fd02a412945",
+    "woworld-dev-plan/附录E-开发状态.md.tmp.37812.5ffb4a381b3b",
+    "woworld-dev-plan/附录E-开发状态.md.tmp.37812.1e89527a5deb",
+    "woworld-dev-plan/附录E-开发状态.md.tmp.37812.eac9ab150940",
+    "woworld-dev-plan/附录E-开发状态.md.tmp.37812.fe6d1738580b",
+    "woworld/target/debug/incremental/woworld_atmosphere-2nb18enzjmyhy/s-hkadnoym7m-1r6aoea.lock",
+    "woworld/target/debug/incremental/woworld_atmosphere-2is4zez63i4a3/s-hkadnoyl24-1tmiotw-working/cccc3eq9c7xsja0o8qz9c6u9h.o",
+    "woworld/target/debug/incremental/woworld_atmosphere-2is4zez63i4a3/s-hkadnoyl24-1tmiotw-working/dk4oowk4d79fvrg9xcqq5inea.o",
+    "woworld/target/debug/incremental/woworld_atmosphere-2is4zez63i4a3/s-hkadnoyl24-1tmiotw-working/dep-graph.bin",
+    "woworld/target/debug/incremental/woworld_atmosphere-2is4zez63i4a3/s-hkadnoyl24-1tmiotw-working/cvvqm1l5xskjnarkf6pj70uta.o",
+    "woworld/target/debug/incremental/woworld_atmosphere-2is4zez63i4a3/s-hkadnoyl24-1tmiotw-working/dee4jg1tbhe8yfx5hg9140ei4.o",
+    "woworld-dev-plan/01-核心基础/handoff/handoff-20260711-camera-design.md",
+    "woworld-dev-plan/01-核心基础/handoff/handoff-20260711-sprint064.md",
+    "woworld-dev-plan/01-核心基础/handoff/handoff-20260711-camera-mvp.md",
+    "WoWorld-Design/Change/hand/0-提示词考量角度.md",
+    "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-11-camera-mvp.md",
+    "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-11-camera-design.md",
+    "WoWorld-Design/Change/CHG-069-第三人称相机系统创建-20260711.md",
+    "WoWorld-Design/Happy Game/开发阶段/玩家系统/007-第三人称相机与视角系统.md",
+    "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-10-sprint064.md",
+    "woworld-dev-plan/bugs/Godot桥接/GD-002-camera-pos-uses-body-not-camera.md",
+    "woworld-dev-plan/01-核心基础/handoff/handoff-20260710-sprint063.md",
+    "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-10-sprint063.md",
+    "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-10-sprint062.md",
+    "woworld-dev-plan/01-核心基础/handoff/handoff-20260710-sprint062.md",
+    "woworld-dev-plan/sprint-proposals/sprint-062-actionresolver-20260710.md",
     "woworld-dev-plan/01-核心基础/handoff/handoff-20260710-role-controller.md",
     "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-10-role-controller.md",
     "woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-10.md",
@@ -223,21 +237,6 @@
     "WoWorld-Design/Change/CHG-068-视距扩展与海洋升级-20260710.md",
     "woworld-dev-plan/01-核心基础/handoff/handoff-20260709-evening.md",
     "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/012-夺舍过渡.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/011-SurfaceAnchor与挂载态.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/010-NPC移动行为.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/009-死亡与控制器关闭.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/008-手感系统.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/007-攀爬系统.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/006-持续动作与充能动作.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/005-ActionOutcome与动作结果事件.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/004-ActionResolver与输入解析.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/003-ActionController与离散动作.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/002-MovementState与连续移动.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/001-角色控制器总纲.md",
-    "WoWorld-Design/Happy Game/开发阶段/模型动作与物理系统/角色控制器/README.md",
-    "开发文档/01-世界框架/01-世界生成.md",
-    "WoWorld-Design/Happy Game/开发阶段/世界生成/README.md",
-    "woworld-dev-plan/DEVELOPMENT_STATUS.md",
     "素材/人物参考/5dcc0f26d460066567fb39e6b4f3a68f.png",
     "woworld/target/doc/static.files/rust-logo-9a9549ea.svg",
     "woworld/target/doc/static.files/favicon-32x32-eab170b8.png",

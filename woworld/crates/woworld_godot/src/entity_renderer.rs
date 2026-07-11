@@ -111,7 +111,9 @@ impl EntityRenderer {
                     root.set_quaternion(Quaternion::new(rot.x, rot.y, rot.z, rot.w));
                     if let Some(ref label) = node.label {
                         let mut lbl = label.clone();
+                        // ★ 007 §九.3: 被控实体不显示头顶名字
                         let show = name_vis
+                            && !visual.controlled
                             && visual.show_label()
                             && visual.position.distance(player) <= LABEL_MAX_DISTANCE;
                         lbl.set_visible(show);
@@ -121,8 +123,10 @@ impl EntityRenderer {
                     if let Some(ref bubble) = node.bubble_label {
                         let mut b = bubble.clone();
                         match &visual.bubble_text {
+                            // ★ 007 §九.3: 被控实体不显示头顶气泡
                             Some(text)
-                                if visual.show_label()
+                                if !visual.controlled
+                                    && visual.show_label()
                                     && visual.position.distance(player) <= LABEL_MAX_DISTANCE =>
                             {
                                 b.set_text(text);
@@ -309,8 +313,9 @@ impl EntityRenderer {
         node.root
             .set_quaternion(Quaternion::new(rot.x, rot.y, rot.z, rot.w));
 
-        // Label3D 可见性：name_visible + LOD + 距离
+        // Label3D 可见性：name_visible + LOD + 距离 + 非被控 (★ 007 §九.3)
         let show_label = self.name_visible
+            && !visual.controlled
             && visual.show_label()
             && visual.position.distance(self.player_pos) <= LABEL_MAX_DISTANCE;
         if let Some(ref mut label) = node.label {

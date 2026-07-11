@@ -14,20 +14,27 @@
 //!   实际 pace 生效待 MovementModeSystem 扩展读取 desired_state（后续 sprint）。
 //!   `direction` 有真实效果：movement_system 立即消费。
 
-use crate::components::movement_state::CMoveIntent;
+use crate::components::movement_state::{CMoveIntent, CMovementState};
 use crate::components::player::{ControlModeComponent, PlayerComponent};
 use woworld_core::input::{InputAction, InputState};
 use woworld_core::movement::{MovementState, Pace, Stance};
 use woworld_core::player::ActionDomain;
 
 /// PlayerInputSystem —— InputState.move_direction（相机相对）→ CMoveIntent.direction（世界空间）。
+///
+/// ★ 007 修复：除了写 `CMoveIntent.desired_state`（前瞻契约），也直接写 `CMovementState.0.pace`。
+/// 因为 `movement_system` 只读 `CMovementState`——若无此直写，`desired_state.pace=Sprinting` 永远不生效。
 pub fn player_input_system(world: &mut hecs::World, input: &InputState) {
-    for (_, (ctrl, intent)) in world
-        .query_mut::<(&ControlModeComponent, &mut CMoveIntent)>()
+    for (_, (ctrl, intent, move_state)) in world
+        .query_mut::<(&ControlModeComponent, &mut CMoveIntent, &mut CMovementState)>()
         .with::<&PlayerComponent>()
     {
-        // Auto（或未手控 Movement 域）→ 由 GOAP 驱动移动，玩家不接管
+        // Auto（或未手控 Movement 域）→ 由 GOAP 驱动移动，玩家不接管。
+        // ★ 007: 夺舍期裸玩家设为 Auto，必须显式零化 direction——
+        //   否则 CMoveIntent 保留夺舍前最后一帧的非零方向，
+        //   movement_system 会让裸玩家实体持续漂移。
         if !ctrl.mode.controls_domain(ActionDomain::Movement) {
+            intent.direction = glam::Vec3::ZERO;
             continue;
         }
 
@@ -40,7 +47,7 @@ pub fn player_input_system(world: &mut hecs::World, input: &InputState) {
         intent.direction = dir.normalize_or_zero();
         intent.camera_transform = input.camera_transform;
 
-        // ── pace/stance 意图（前瞻契约，desired_state 暂无消费者）──
+        // ── pace/stance（★ 007: 直写 CMovementState —— desired_state 仍无消费者）──
         let stance = if input.is_held(InputAction::Crawl) {
             Stance::Prone
         } else if input.is_held(InputAction::Crouch) {
@@ -57,6 +64,8 @@ pub fn player_input_system(world: &mut hecs::World, input: &InputState) {
         } else {
             Pace::Running
         };
+        move_state.0.stance = stance;
+        move_state.0.pace = pace;
         intent.desired_state = Some(MovementState {
             stance,
             pace,
@@ -78,6 +87,7 @@ mod tests {
             PlayerComponent::default(),
             ControlModeComponent { mode },
             CMoveIntent::default(),
+            CMovementState::default(),
         ))
     }
 

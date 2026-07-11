@@ -30,6 +30,10 @@ pub struct EntityVisual {
     pub bubble_text: Option<String>,
     /// 对话气泡文字颜色（RGB 0.0-1.0，None=无气泡）
     pub bubble_color: Option<[f32; 3]>,
+    /// 是否为当前被控角色（player_ecs_entity == 本实体）。
+    /// 相机模块据此抑制头顶名字/气泡，并在近距/FP 时隐藏化身胶囊。
+    /// 见 玩家系统 007 §九。
+    pub controlled: bool,
 }
 
 impl EntityVisual {
@@ -127,6 +131,7 @@ mod tests {
             render_lod: 3,
             bubble_text: None,
             bubble_color: None,
+            controlled: false,
         };
         assert!(v.is_visible());
         assert!(!v.show_label());
@@ -143,6 +148,7 @@ mod tests {
             render_lod: 4,
             bubble_text: None,
             bubble_color: None,
+            controlled: false,
         };
         assert!(!v.is_visible());
     }
@@ -158,8 +164,41 @@ mod tests {
             render_lod: 0,
             bubble_text: None,
             bubble_color: None,
+            controlled: false,
         };
         assert!(v.show_label());
+    }
+
+    #[test]
+    fn test_entity_visual_controlled_default_false() {
+        let v = EntityVisual {
+            position: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
+            display_name: String::new(),
+            color_hint: [1.0, 1.0, 1.0],
+            kind: EntityKind::Creature,
+            render_lod: 0,
+            bubble_text: None,
+            bubble_color: None,
+            controlled: false,
+        };
+        assert!(!v.controlled);
+    }
+
+    #[test]
+    fn test_entity_visual_controlled_true() {
+        let v = EntityVisual {
+            position: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
+            display_name: String::new(),
+            color_hint: [1.0, 1.0, 1.0],
+            kind: EntityKind::Creature,
+            render_lod: 0,
+            bubble_text: None,
+            bubble_color: None,
+            controlled: true,
+        };
+        assert!(v.controlled);
     }
 
     #[test]

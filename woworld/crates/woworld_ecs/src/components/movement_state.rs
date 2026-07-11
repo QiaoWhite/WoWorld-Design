@@ -16,6 +16,15 @@ pub struct CMovementState(pub MovementState);
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CPrevMovementState(pub MovementState);
 
+/// 落地瞬间单帧信号——movement_mode_system 在着地分支写入，WorldDriver 消费。
+/// 存活 1 帧：写入后在下一 tick 的 movement_mode_system 开头被清理。
+/// 参见: 玩家系统 007 §十一/§十四
+#[derive(Debug, Clone, Copy)]
+pub struct CJustLanded {
+    /// 着地时的垂直速度绝对值 (m/s)
+    pub impact_speed: f32,
+}
+
 /// 介质变迁恢复栈——MovementModeSystem 管理。
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CMovementRecovery(pub MovementRecoveryStack);

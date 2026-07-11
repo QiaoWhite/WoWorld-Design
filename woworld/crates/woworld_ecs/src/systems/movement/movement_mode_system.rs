@@ -10,7 +10,9 @@ use woworld_core::movement::{AirState, SpecialMode, SwimPace};
 use woworld_core::spatial::TerrainQuery;
 use woworld_core::types::WorldPos;
 
-use crate::components::movement_state::{CMovementRecovery, CMovementState, CPrevMovementState};
+use crate::components::movement_state::{
+    CJustLanded, CMovementRecovery, CMovementState, CPrevMovementState,
+};
 use crate::components::transform::{Position, Velocity};
 
 /// 计算给定位置的 LocomotionMode（Sprint 1 stub）。
@@ -35,7 +37,20 @@ pub fn movement_mode_system(world: &mut hecs::World, terrain: &dyn TerrainQuery)
     /// 腾空着地接触容差 (m)——真实触地才判着地，避免起跳上升段 1m 可行走带内误着地。
     const LANDING_CONTACT_EPS: f32 = 0.15;
 
-    for (_, (move_state, prev_state, recovery, pos, vel)) in world.query_mut::<(
+    // ── 清除上一 tick 的 CJustLanded（单帧信号） ──
+    {
+        let mut to_clear: Vec<hecs::Entity> = Vec::new();
+        for (entity, _) in world.query::<&CJustLanded>().iter() {
+            to_clear.push(entity);
+        }
+        for entity in to_clear {
+            world.remove_one::<CJustLanded>(entity).ok();
+        }
+    }
+
+    let mut just_landed: Vec<(hecs::Entity, f32)> = Vec::new();
+
+    for (e, (move_state, prev_state, recovery, pos, vel)) in world.query_mut::<(
         &mut CMovementState,
         &mut CPrevMovementState,
         &mut CMovementRecovery,
@@ -79,6 +94,11 @@ pub fn movement_mode_system(world: &mut hecs::World, terrain: &dyn TerrainQuery)
             });
             let recovered = recovery.0.pop_compatible(current_loco, medium);
             move_state.0 = recovered;
+
+            // ★ 007 落地下沉：着地帧写入 CJustLanded 单帧信号
+            if was_airborne {
+                just_landed.push((e, vel.0.y.abs()));
+            }
         }
 
         // ── 踩空/入水: was Grounded → now PhysicsBody ──
@@ -109,6 +129,11 @@ pub fn movement_mode_system(world: &mut hecs::World, terrain: &dyn TerrainQuery)
 
         // ── 更新 CPrevMovementState ──
         prev_state.0 = move_state.0;
+    }
+
+    // ── 写入本 tick 的 CJustLanded ──
+    for (entity, impact) in just_landed {
+        world.insert_one(entity, CJustLanded { impact_speed: impact }).ok();
     }
 }
 
@@ -325,5 +350,92 @@ mod tests {
             assert!(ms.0.special.is_none());
             assert_eq!(ms.0.pace, Pace::Running); // 恢复自愿状态
         }
+    }
+
+    #[test]
+    fn test_landing_writes_just_landed() {
+        let mut world = hecs::World::new();
+        let terrain = FlatTerrain::ground(); // walkable + air
+
+        // 上一帧腾空下降态，当前触地
+        let e = world.spawn((
+            CMovementState(MovementState {
+                special: Some(SpecialMode::Airborne(AirState::Falling {
+                    coyote_time_remaining: 0.0,
+                })),
+                ..Default::default()
+            }),
+            CPrevMovementState(MovementState {
+                special: Some(SpecialMode::Airborne(AirState::Falling {
+                    coyote_time_remaining: 0.0,
+                })),
+                ..Default::default()
+            }),
+            CMovementRecovery::default(),
+            Position(Vec3::new(0.0, 0.05, 0.0)), // 触地容差内
+            Velocity(Vec3::new(0.0, -5.0, 0.0)), // 下降 5 m/s
+        ));
+
+        movement_mode_system(&mut world, &terrain);
+
+        let jl = world.get::<&CJustLanded>(e).expect("CJustLanded should be written");
+        assert!((jl.impact_speed - 5.0).abs() < 0.001, "impact={}", jl.impact_speed);
+    }
+
+    #[test]
+    fn test_just_landed_cleared_next_tick() {
+        let mut world = hecs::World::new();
+        let terrain = FlatTerrain::ground();
+
+        let e = world.spawn((
+            CMovementState(MovementState {
+                special: Some(SpecialMode::Airborne(AirState::Falling {
+                    coyote_time_remaining: 0.0,
+                })),
+                ..Default::default()
+            }),
+            CPrevMovementState(MovementState {
+                special: Some(SpecialMode::Airborne(AirState::Falling {
+                    coyote_time_remaining: 0.0,
+                })),
+                ..Default::default()
+            }),
+            CMovementRecovery::default(),
+            Position(Vec3::new(0.0, 0.05, 0.0)),
+            Velocity(Vec3::new(0.0, -5.0, 0.0)),
+        ));
+
+        // 第一 tick 写入 CJustLanded
+        movement_mode_system(&mut world, &terrain);
+        assert!(world.get::<&CJustLanded>(e).is_ok());
+
+        // 第二 tick：实体已着地（special=None），CJustLanded 应被清除，且不重写
+        movement_mode_system(&mut world, &terrain);
+        assert!(world.get::<&CJustLanded>(e).is_err(), "CJustLanded should be cleared next tick");
+    }
+
+    #[test]
+    fn test_no_just_landed_when_grounded() {
+        let mut world = hecs::World::new();
+        let terrain = FlatTerrain::ground();
+
+        let e = world.spawn((
+            CMovementState(MovementState {
+                stance: Stance::Standing,
+                pace: Pace::Walking,
+                ..Default::default()
+            }),
+            CPrevMovementState(MovementState {
+                stance: Stance::Standing,
+                pace: Pace::Walking,
+                ..Default::default()
+            }),
+            CMovementRecovery::default(),
+            Position(Vec3::ZERO),
+            Velocity(Vec3::ZERO),
+        ));
+
+        movement_mode_system(&mut world, &terrain);
+        assert!(world.get::<&CJustLanded>(e).is_err(), "grounded entity should not get CJustLanded");
     }
 }

@@ -1,5 +1,5 @@
 extends CharacterBody3D
-## 玩家控制器 — WASD 移动 + 鼠标环顾 + Space 跳跃 + G 键飞行
+## 玩家飞行/G 键/夺舍物理 (★ 007 收缩——相机逻辑已迁至 CameraRig)
 ## 用 Input.get_vector 配合 UI action，不依赖 Input Map 预配置
 ## INPUT TUNING: CharacterBody3D 物理参数，非世界模拟常量 (§14.1 合规)
 
@@ -8,15 +8,9 @@ const SPRINT_MULTIPLIER: float = 3.0
 const FLY_SPEED: float = 30.0
 const FLY_FAST_MULTIPLIER: float = 3.0   # Shift 加速飞行 = 90 m/s
 const JUMP_VELOCITY: float = 8.0
-const MOUSE_SENS: float = 0.003
 const GRAVITY: float = 9.8
 
-var _mouse_captured: bool = false
 var _flying: bool = false
-
-func _ready():
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	_mouse_captured = true
 
 func _input(event):
 	# Sprint-059: 控制台开启时跳过所有玩家输入
@@ -24,20 +18,7 @@ func _input(event):
 	if driver and driver.has_method("is_console_open") and driver.is_console_open():
 		return
 
-	if event is InputEventMouseMotion and _mouse_captured:
-		rotate_y(-event.relative.x * MOUSE_SENS)
-		var cam = $Camera3D
-		cam.rotate_x(-event.relative.y * MOUSE_SENS)
-		cam.rotation.x = clamp(cam.rotation.x, deg_to_rad(-89), deg_to_rad(89))
-
 	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_ESCAPE:
-			if _mouse_captured:
-				Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-				_mouse_captured = false
-			else:
-				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-				_mouse_captured = true
 		if event.keycode == KEY_G:
 			_flying = not _flying
 			# Sprint-063: 飞行 = Block A0 让权（Godot 节点权威旁路）；落地 = 交回 Block A0

@@ -40,10 +40,10 @@ func _process(_delta: float) -> void:
 		_release_all(driver)
 		return
 
-	# 相机变换：玩家 body 的 global_transform（仅 yaw；pitch 在 Camera 子节点）
-	var player = get_node_or_null("../Player")
-	if player != null:
-		driver.input_set_camera_transform(player.global_transform)
+	# ★ 007: 相机变换来源改为 CameraRig（仅 yaw；pitch 隔离在 PitchArm 子节点）
+	var camera_rig = get_node_or_null("../CameraRig")
+	if camera_rig != null:
+		driver.input_set_camera_transform(camera_rig.global_transform)
 
 	# WASD → 相机相对移动（x = 右移, z = 前进）
 	var mx: float = 0.0

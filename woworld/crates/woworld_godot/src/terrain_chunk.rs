@@ -235,6 +235,28 @@ pub struct WorldDriver {
     tab_was_pressed: bool,
     f_key_was_pressed: bool,
 
+    // ── ★ 007 第三人称相机系统 ──
+    /// CameraRig 节点引用（ready() 获取——独立相机 rig）
+    camera_rig_node: Option<Gd<Node3D>>,
+    /// Camera3D 节点引用（位于 CameraRig/PitchArm/Camera3D）
+    camera_3d_node: Option<Gd<godot::classes::Camera3D>>,
+    /// 相机跟随 SmoothDamp 位置（ECS 步进后更新）
+    camera_follow_position: glam::Vec3,
+    /// 相机跟随 SmoothDamp 速度
+    camera_follow_velocity: glam::Vec3,
+    /// CameraRig 推送的缩放目标臂长
+    camera_arm_target: f32,
+    /// 当前平滑臂长（Zoom SmoothDamp + collision 后）
+    camera_arm_distance: f32,
+    /// 缩放平滑速度
+    camera_arm_velocity: f32,
+    /// CameraRig 发布的最近一帧相机状态（LOD 消费）
+    latest_camera_state: Option<CameraState>,
+    /// 被控实体变更追踪（SNAP 检测——夺舍/瞬移跳变时重置 SmoothDamp）
+    last_player_ecs_entity: Option<hecs::Entity>,
+    /// 近距/FP 化身隐藏标记（arm < 1.0m → 隐藏自身胶囊）
+    player_avatar_hidden: bool,
+
     #[base]
     base: Base<Node3D>,
 }
@@ -314,6 +336,16 @@ impl INode3D for WorldDriver {
             mouse_left_was_pressed: false,
             tab_was_pressed: false,
             f_key_was_pressed: false,
+            camera_rig_node: None,
+            camera_3d_node: None,
+            camera_follow_position: glam::Vec3::ZERO,
+            camera_follow_velocity: glam::Vec3::ZERO,
+            camera_arm_target: 4.0,
+            camera_arm_distance: 4.0,
+            camera_arm_velocity: 0.0,
+            latest_camera_state: None,
+            last_player_ecs_entity: None,
+            player_avatar_hidden: false,
             base,
         }
     }
@@ -351,6 +383,11 @@ impl INode3D for WorldDriver {
             .try_get_node_as::<WorldEnvironment>("../WorldEnvironment");
         self.terrain_parent = Some(self.base().clone().cast::<Node3D>());
         self.player_node = self.base().try_get_node_as::<Node3D>("../Player");
+        // ★ 007 相机：获取独立 CameraRig 节点引用
+        self.camera_rig_node = self.base().try_get_node_as::<Node3D>("../CameraRig");
+        self.camera_3d_node = self
+            .base()
+            .try_get_node_as::<godot::classes::Camera3D>("../CameraRig/PitchArm/Camera3D");
         self.ocean_mesh = self
             .base()
             .try_get_node_as::<Node3D>("../OceanPlane")
@@ -698,7 +735,7 @@ impl INode3D for WorldDriver {
         // Sprint-059: 初始化调试控制台
         let camera: Option<Gd<godot::classes::Camera3D>> = self
             .base()
-            .try_get_node_as::<godot::classes::Camera3D>("../Player/Camera3D");
+            .try_get_node_as::<godot::classes::Camera3D>("../CameraRig/PitchArm/Camera3D");
         if let Some(ref mut terrain_parent) = self.terrain_parent {
             self.debug_console = Some(crate::debug_console::DebugConsole::new(
                 terrain_parent,
@@ -842,12 +879,17 @@ impl INode3D for WorldDriver {
             });
         }
 
-        let lod_input = LodCoordinatorInput {
-            camera: CameraState {
+        // ★ 007: 优先用 CameraRig 发布的真实 CameraState；回退 body forward（CameraRig 未就绪）
+        let lod_camera = self.latest_camera_state.clone().unwrap_or_else(|| {
+            CameraState {
                 position: DVec3::new(player_pos.x, player_pos.y, player_pos.z),
                 forward: camera_forward,
                 fov_radians: 70.0_f32.to_radians(),
-            },
+            }
+        });
+
+        let lod_input = LodCoordinatorInput {
+            camera: lod_camera,
             attention: PlayerAttention::default(),
             frame_budget: FrameBudget {
                 remaining_ms: (16.67 - delta * 1000.0).max(0.0) as f32,
@@ -1334,9 +1376,15 @@ impl INode3D for WorldDriver {
                     );
                 }
             }
-            let visuals_refs: Vec<(hecs::Entity, &woworld_core::entity_visual::EntityVisual)> =
-                entity_visuals.iter().map(|(e, v)| (*e, v)).collect();
-            renderer.sync(&visuals_refs);
+            // ★ 007: 过滤被控实体——近距/FP (arm < 1.0m) 隐藏自身化身胶囊
+            let hide_controlled = self.player_avatar_hidden;
+            let filtered: Vec<(hecs::Entity, &woworld_core::entity_visual::EntityVisual)> =
+                entity_visuals
+                    .iter()
+                    .filter(|(_, v)| !(v.controlled && hide_controlled))
+                    .map(|(e, v)| (*e, v))
+                    .collect();
+            renderer.sync(&filtered);
         } else {
             if self.frame_count == 60 {
                 godot_print!("[EntityRenderer] WARN: entity_renderer is None!");
@@ -1382,8 +1430,6 @@ impl INode3D for WorldDriver {
         }
         self.f_key_was_pressed = f_key_pressed;
 
-        // 夺舍模式下：CharacterBody3D 位置 → ECS Position 同步
-        self.sync_possessed_position();
         // Sprint-063: 裸玩家飞行旁路时，节点 → ECS（pre-ECS，保持 Block A0 起点一致）
         self.sync_bare_player_render(false);
 
@@ -1539,6 +1585,102 @@ fn execute_console_cmd(
 // ── 内部方法 ──────────────────────────
 
 impl WorldDriver {
+    /// 相机跟随 Phase 2：SNAP → SmoothDamp 跟随 → 碰撞夹紧 → Zoom 平滑 → 设节点 → 发布 CameraState。
+    /// 参见: 玩家系统 007 §四/§五/§八/§十一
+    fn camera_follow_and_publish(&mut self, delta: f64) {
+        // Gd 是引用计数句柄，clone 廉价——克隆出来避免与 &self 方法调用的借用冲突。
+        let (Some(mut rig), Some(mut cam)) =
+            (self.camera_rig_node.clone(), self.camera_3d_node.clone())
+        else {
+            return;
+        };
+        let dt = delta as f32;
+
+        // 1. 跟随目标
+        let target = self.get_camera_target();
+
+        // 2. SNAP 检测（夺舍/瞬移跳变时跳过平滑）
+        let entity_changed = self.player_ecs_entity != self.last_player_ecs_entity;
+        self.last_player_ecs_entity = self.player_ecs_entity;
+        let tgt_glam = glam::Vec3::new(target.x, target.y, target.z);
+        let displacement = (self.camera_follow_position - tgt_glam).length();
+        if entity_changed || displacement > 5.0 {
+            self.camera_follow_position = tgt_glam;
+            self.camera_follow_velocity = glam::Vec3::ZERO;
+        }
+
+        // 3. SmoothDamp 跟随 (follow_smooth_time = 0.08s)
+        let current = self.camera_follow_position;
+        let result = woworld_core::camera::smooth_damp_vec3(
+            current,
+            tgt_glam,
+            &mut self.camera_follow_velocity,
+            0.08,
+            dt,
+            None,
+        );
+        self.camera_follow_position = result;
+
+        // 4. 落地下沉——pending 实机调参（暂禁：SmoothDamp 恢复产生弹跳感）
+        //   见 spec §XI.1；当前直接改 rig Y 会产生"角色弹一下"体感。
+        //   正确实现需把 dip 叠加到 follow **target** Y（非 output Y），让 SmoothDamp
+        //   同时平滑 onset 与 recovery——待后续冲刺。
+        let rig_y = result.y;
+
+        // 5. 设 CameraRig 世界位（保留旋转，仅改位置）
+        rig.set_global_position(Vector3::new(result.x, rig_y, result.z));
+
+        // 6. 碰撞夹紧 arm（射线沿 Camera3D +Z = 身后方向，含 pitch）
+        let pivot_world = woworld_core::types::WorldPos {
+            x: result.x as f64,
+            y: rig_y as f64,
+            z: result.z as f64,
+        };
+        let cam_basis = cam.get_global_basis();
+        let r = cam_basis.rows;
+        let arm_dir = glam::Vec3::new(r[0].z, r[1].z, r[2].z); // +Z column = 身后
+        let arm_desired = self.camera_arm_target;
+        let arm_resolved = woworld_core::camera::resolve_camera_arm(
+            &self.terrain,
+            pivot_world,
+            arm_dir,
+            arm_desired,
+            0.3,
+        );
+
+        // 7. Zoom SmoothDamp (zoom_smooth_time = 0.12s)
+        let arm_smooth = woworld_core::camera::smooth_damp(
+            self.camera_arm_distance,
+            arm_resolved,
+            &mut self.camera_arm_velocity,
+            0.12,
+            dt,
+            None,
+        );
+        self.camera_arm_distance = arm_smooth;
+
+        // 8. 设 Camera3D 局部 z (= +arm, Godot +Z = 身后)
+        cam.set_position(Vector3::new(0.0, 0.0, arm_smooth));
+
+        // 9. 近距/FP 化身隐藏标记
+        self.player_avatar_hidden = arm_smooth < woworld_core::camera::HIDE_ARM_THRESHOLD;
+
+        // 10. publish CameraState（用于 LOD 块消费）
+        let cam_world = cam.get_global_position();
+        let cam_basis2 = cam.get_global_basis();
+        let rows2 = cam_basis2.rows;
+        let cam_fwd = glam::Vec3::new(-rows2[0].z, -rows2[1].z, -rows2[2].z); // forward = -Z
+        self.latest_camera_state = Some(CameraState {
+            position: glam::DVec3::new(
+                cam_world.x as f64,
+                cam_world.y as f64,
+                cam_world.z as f64,
+            ),
+            forward: glam::DVec3::new(cam_fwd.x as f64, cam_fwd.y as f64, cam_fwd.z as f64),
+            fov_radians: cam.get_fov().to_radians(),
+        });
+    }
+
     /// 读取玩家位置
     fn get_player_position(&self) -> WorldPos {
         if let Some(ref player) = self.player_node {
@@ -1557,11 +1699,26 @@ impl WorldDriver {
     fn handle_possess_tab(&mut self) {
         use woworld_ecs::systems::player::possess::{find_possessable_entities, possess_entity};
 
-        // 获取摄像机位置和朝向
-        let cam_pos = self.get_player_position();
-        let cam_forward = self.get_camera_forward();
+        // ★ 007 修复: 使用真实 Camera3D 的位置和朝向（非 body 节点），使夺舍目标按"视野内目测最近"
+        //   排列。旧代码用 body 的 world pos + body yaw forward——眼高差 ~1.5m 且无 pitch。
+        let (cam_pos, cam_forward) = {
+            if let Some(ref cam) = self.camera_3d_node {
+                let p = cam.get_global_position();
+                let basis = cam.get_global_basis();
+                let rows = &basis.rows;
+                // Camera3D forward = -Z column
+                let fwd = glam::Vec3::new(-rows[0].z, -rows[1].z, -rows[2].z);
+                (glam::Vec3::new(p.x, p.y, p.z), fwd)
+            } else {
+                let pp = self.get_player_position();
+                (
+                    glam::Vec3::new(pp.x as f32, pp.y as f32, pp.z as f32),
+                    self.get_camera_forward(),
+                )
+            }
+        };
 
-        let camera_pos_glam = glam::Vec3::new(cam_pos.x as f32, cam_pos.y as f32, cam_pos.z as f32);
+        let camera_pos_glam = cam_pos;
 
         let candidates = find_possessable_entities(
             &self.ecs,
@@ -1650,19 +1807,22 @@ impl WorldDriver {
         }
     }
 
-    /// 夺舍模式下：CharacterBody3D.global_position → ECS Position
+    /// ★ 007: 夺舍并入 CC 管线——post-ECS 方向反转：ECS Position → CharacterBody3D。
+    ///   旧方向（节点→ECS）是 legacy walk 时代的残留——player.gd 驱动节点位置，
+    ///   ECS 被动跟随。现在 Block A0 CC 管线是实体位置的唯一权威，节点应跟踪 ECS。
     fn sync_possessed_position(&mut self) {
         if !self.is_possessing() {
             return;
         }
-        if let Some(player_entity) = self.player_ecs_entity {
-            let pos = self.get_player_position();
-            use woworld_ecs::systems::player::possess::sync_player_position;
-            sync_player_position(
-                &mut self.ecs,
-                player_entity,
-                glam::Vec3::new(pos.x as f32, pos.y as f32, pos.z as f32),
-            );
+        if let Some(entity) = self.player_ecs_entity {
+            use woworld_ecs::components::transform::Position;
+            if let Ok(pos) = self.ecs.get::<&Position>(entity) {
+                if let Some(ref mut node) = self.player_node {
+                    node.set_global_position(godot::builtin::Vector3::new(
+                        pos.0.x, pos.0.y, pos.0.z,
+                    ));
+                }
+            }
         }
     }
 
@@ -1954,6 +2114,13 @@ impl WorldDriver {
                     &self.terrain,
                 );
                 self.action_events.mid_phase_flush();
+                // ★ 007: character_facing_system — rotation_lock → Rotation (smooth damp)
+                // 位置: mid_phase_flush 之后 (action_system 已写 rotation_lock)，
+                //       jump_launch 之前 (facing 不依赖跳跃结果)
+                woworld_ecs::systems::movement::character_facing_system::character_facing_system(
+                    &mut self.ecs,
+                    cc_dt,
+                );
                 // Sprint-064: jump 起跳——动作激活后、移动积分前注入垂直速度 + 置腾空态
                 woworld_ecs::systems::movement::jump_launch_system::jump_launch_system(
                     &mut self.ecs,
@@ -2052,6 +2219,11 @@ impl WorldDriver {
 
         // Sprint-063: 裸玩家走 Block A0 时，ECS Position → 渲染节点（post-ECS，ECS 权威）
         self.sync_bare_player_render(true);
+        // ★ 007: 夺舍并入 CC 管线——post-ECS 把 ECS Position 推给节点（方向反转）
+        self.sync_possessed_position();
+
+        // ── ★ 007 相机跟随 + 碰撞 + 发布（ECS 步进后，spec §V.3 step ③） ──
+        self.camera_follow_and_publish(delta);
     }
 }
 
@@ -2137,13 +2309,69 @@ impl WorldDriver {
     /// 或 G 飞行旁路时返回 false，player.gd 自行驱动节点。
     #[func]
     fn is_block_a0_driving(&self) -> bool {
-        self.block_a0_driving && !self.is_possessing()
+        // ★ 007: 夺舍并入 CC 管线——夺舍时也让 Block A0 权威，player.gd 保持 idle。
+        //   （旧代码 `&& !is_possessing()` 会让夺舍走 player.gd legacy walk，
+        //    body basis 未旋转 → WASD 固定方向 + 吸附 +1.7 → 浮空。）
+        self.block_a0_driving
     }
 
     /// 设置 Block A0 渲染权威开关（player.gd 切 G 飞行时调用）。
     #[func]
     fn set_block_a0_driving(&mut self, driving: bool) {
         self.block_a0_driving = driving;
+    }
+
+    // ── ★ 007 相机系统 #[func] ──────────────────
+
+    /// CameraRig.gd 消费：返回被控实体 ECS Position + 眼高（pivot）。
+    #[func]
+    fn get_camera_target(&self) -> Vector3 {
+        const PIVOT_HEIGHT: f32 = 1.5;
+        if let Some(entity) = self.player_ecs_entity {
+            use woworld_ecs::components::transform::Position;
+            if let Ok(pos) = self.ecs.get::<&Position>(entity) {
+                return Vector3::new(pos.0.x, pos.0.y + PIVOT_HEIGHT, pos.0.z);
+            }
+        }
+        let pp = self.get_player_position();
+        Vector3::new(pp.x as f32, pp.y as f32 + PIVOT_HEIGHT, pp.z as f32)
+    }
+
+    /// CameraRig 消费：上一帧着地冲击速度（m/s），无事件则 0.0。
+    #[func]
+    fn get_just_landed_impact(&self) -> f32 {
+        if let Some(entity) = self.player_ecs_entity {
+            use woworld_ecs::components::movement_state::CJustLanded;
+            if let Ok(jl) = self.ecs.get::<&CJustLanded>(entity) {
+                return jl.impact_speed;
+            }
+        }
+        0.0
+    }
+
+    /// CameraRig 消费：被控实体是否正在冲刺。
+    #[func]
+    fn is_player_sprinting(&self) -> bool {
+        if let Some(entity) = self.player_ecs_entity {
+            use woworld_ecs::components::movement_state::CMovementState;
+            if let Ok(ms) = self.ecs.get::<&CMovementState>(entity) {
+                return ms.0.pace == woworld_core::movement::Pace::Sprinting;
+            }
+        }
+        false
+    }
+
+    /// CameraRig 消费：UI 是否捕获输入（阻止相机旋转）。
+    /// MVP stub——始终返回 false。Phase 2 接入实际 UI 面板焦点。
+    #[func]
+    fn is_ui_capturing(&self) -> bool {
+        false
+    }
+
+    /// CameraRig._input 推送：缩放 / FP 切换的目标臂长。
+    #[func]
+    fn set_target_arm_distance(&mut self, d: f32) {
+        self.camera_arm_target = d;
     }
 
     /// 创建完整 NPC Entity（全 Component bundle），返回 hecs Entity

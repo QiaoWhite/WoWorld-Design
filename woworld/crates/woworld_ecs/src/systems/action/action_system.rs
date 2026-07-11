@@ -8,6 +8,7 @@ use smallvec::SmallVec;
 use woworld_core::kinematics::{MovementLock, RotationLock};
 
 use crate::components::action_state::{CActionRequestBuf, CActiveAction, CPendingFollowUp};
+use crate::components::input_state::CCoyoteTime;
 use crate::components::movement_state::{CMoveIntent, CMovementControl};
 use crate::components::vitals::Vitals;
 use crate::entity_id::entity_id_from_hecs;
@@ -43,7 +44,16 @@ pub fn action_system(
 ) {
     for (
         entity,
-        (active_action, request_buf, move_control, pos, vitals_opt, mut follow_opt, move_intent),
+        (
+            active_action,
+            request_buf,
+            move_control,
+            pos,
+            vitals_opt,
+            mut follow_opt,
+            move_intent,
+            coyote_opt,
+        ),
     ) in world.query_mut::<(
         &mut CActiveAction,
         &mut CActionRequestBuf,
@@ -52,11 +62,18 @@ pub fn action_system(
         Option<&mut Vitals>,
         Option<&mut CPendingFollowUp>,
         Option<&CMoveIntent>,
+        Option<&CCoyoteTime>,
     )>() {
         let eid = entity_id_from_hecs(entity);
 
         // 计算 LocomotionMode
         let loco = compute_locomotion(pos.0, terrain);
+        // ★ 土狼时间 grace（008 §四）：离地后 coyote 窗口内，physics_req 判定仍视为
+        //   Grounded——让"踩空瞬间仍可起跳"成立。仅放宽物理门，不改其余运行时。
+        let effective_loco = match (loco, coyote_opt) {
+            (LocomotionMode::PhysicsBody, Some(c)) if c.remaining > 0.0 => LocomotionMode::Grounded,
+            _ => loco,
+        };
 
         // ── 0. 注入上一帧的充能子动作（CPendingFollowUp → 请求缓冲）──
         //   一帧间隙：上一帧 dispatch_release 写入 follow-up，本帧灌入请求缓冲，
@@ -249,7 +266,7 @@ pub fn action_system(
             &mut active_action.0,
             &requests,
             registry,
-            loco,
+            effective_loco,
             counter,
             eid,
         );
@@ -471,6 +488,38 @@ mod tests {
     const AIM_ID: ActionId = ActionId(600);
     const AIMED_SHOT_ID: ActionId = ActionId(602);
 
+    /// 腾空地形——is_walkable 恒 false（用于 coyote grace-jump 测试）。
+    struct NoGround;
+    impl TerrainQuery for NoGround {
+        fn height_at(&self, _p: WorldPos) -> f32 {
+            0.0
+        }
+        fn normal_at(&self, _p: WorldPos) -> Vec3 {
+            Vec3::Y
+        }
+        fn terrain_raycast(&self, _o: WorldPos, _d: Vec3, _m: f32) -> Option<TerrainHit> {
+            None
+        }
+        fn density_at(&self, _p: WorldPos) -> f32 {
+            0.0
+        }
+        fn is_walkable(&self, _p: WorldPos) -> bool {
+            false
+        }
+        fn surface_material_at(&self, _p: WorldPos) -> SurfaceMaterial {
+            SurfaceMaterial::Grass
+        }
+        fn medium_at(&self, _p: WorldPos) -> Medium {
+            Medium::Air
+        }
+        fn light_level_at(&self, _p: WorldPos) -> f32 {
+            1.0
+        }
+        fn sample_horizon(&self, _p: WorldPos, _d: &[Vec3]) -> Vec<f32> {
+            vec![]
+        }
+    }
+
     /// block——Continuous + Stamina 消耗 + Complete 释放。
     fn block_def() -> ActionDef {
         ActionDef {
@@ -628,6 +677,84 @@ mod tests {
         );
         // 仍在防御（未强制结束）
         assert!(world.get::<&CActiveAction>(e).unwrap().0.is_some());
+    }
+
+    #[test]
+    fn test_coyote_grace_allows_grounded_action_when_airborne() {
+        // ★ 008 §四：离地后 coyote 窗口内，physics_req=Grounded 的动作仍可起（踩空仍可跳）。
+        let registry = registry_with(&[(BLOCK_ID, block_def())]); // block: physics_req=Grounded
+        let mut world = hecs::World::new();
+        let mut buf = CActionRequestBuf::default();
+        buf.0.push(ActionRequest {
+            action_id: BLOCK_ID,
+            priority: 20,
+            source: ActionSource::Player,
+            params: ActionParams::default(),
+        });
+        let e = world.spawn((
+            CActiveAction::default(),
+            buf,
+            CMovementControl::default(),
+            Position(Vec3::ZERO),
+            CCoyoteTime {
+                remaining: 0.1, // 仍在土狼窗口内
+                left_ground_at: Vec3::ZERO,
+            },
+        ));
+        let mut counter = ActionInstanceCounter::new();
+        let mut events = EventChannel::new();
+        events.begin_frame();
+        action_system(
+            &mut world,
+            0.016,
+            &registry,
+            &mut counter,
+            &mut events,
+            &NoGround,
+        );
+        assert!(
+            world.get::<&CActiveAction>(e).unwrap().0.is_some(),
+            "coyote 窗口内腾空应接受 Grounded 动作"
+        );
+    }
+
+    #[test]
+    fn test_no_coyote_rejects_grounded_action_when_airborne() {
+        // 对照：coyote 耗尽后腾空不能起 Grounded 动作。
+        let registry = registry_with(&[(BLOCK_ID, block_def())]);
+        let mut world = hecs::World::new();
+        let mut buf = CActionRequestBuf::default();
+        buf.0.push(ActionRequest {
+            action_id: BLOCK_ID,
+            priority: 20,
+            source: ActionSource::Player,
+            params: ActionParams::default(),
+        });
+        let e = world.spawn((
+            CActiveAction::default(),
+            buf,
+            CMovementControl::default(),
+            Position(Vec3::ZERO),
+            CCoyoteTime {
+                remaining: 0.0, // 窗口已耗尽
+                left_ground_at: Vec3::ZERO,
+            },
+        ));
+        let mut counter = ActionInstanceCounter::new();
+        let mut events = EventChannel::new();
+        events.begin_frame();
+        action_system(
+            &mut world,
+            0.016,
+            &registry,
+            &mut counter,
+            &mut events,
+            &NoGround,
+        );
+        assert!(
+            world.get::<&CActiveAction>(e).unwrap().0.is_none(),
+            "coyote 耗尽后腾空应拒绝 Grounded 动作"
+        );
     }
 
     #[test]

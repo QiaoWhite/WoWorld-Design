@@ -145,7 +145,7 @@ pub fn action_resolver_system(
         // ── 第二层：装备相关动作（优雅降级：CHeldItem stub，缺省 Empty）──
         if input.was_pressed(InputAction::LightAttack) && controls(mode, InputAction::LightAttack) {
             let name = match held_kind {
-                HeldItemKind::Ranged => "aim_draw", // 弓→拉弓（暂无 TOML def，降级发出）
+                HeldItemKind::Ranged => "aim_bow", // 弓→拉弓充能（Sprint-065 006 §四 [action.aim_bow]）
                 // Tool 采集需上下文（第四层 P4）——此处退化为通用攻击
                 _ => "light_attack",
             };

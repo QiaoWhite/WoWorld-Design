@@ -120,6 +120,9 @@ pub fn movement_mode_system(world: &mut hecs::World, terrain: &dyn TerrainQuery)
                 }
                 _ => {
                     // 空中——踩空/坠落
+                    // ⚠️ AirState::Falling.coyote_time_remaining 为 vestigial 字段（无读取者）——
+                    //   权威土狼时间是 CCoyoteTime（coyote_time_system 读 CInputFeelConfig 管理，
+                    //   action_system 消费其 grace-jump）。此处 0.15 仅占位，不参与判定。
                     move_state.0.special = Some(SpecialMode::Airborne(AirState::Falling {
                         coyote_time_remaining: 0.15,
                     }));

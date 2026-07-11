@@ -17,6 +17,7 @@ use crate::components::goal::Goal;
 use crate::components::movement::{Movement, Wander};
 use crate::components::needs::Needs;
 use crate::components::transform::{Position, Rotation};
+use crate::components::vitals::Corpse;
 use crate::prng::pseudo_random_f32;
 
 /// 漫游方向变更间隔 (s)
@@ -69,14 +70,22 @@ pub fn movement_system(
     tick: u64,
     terrain: &dyn TerrainQuery,
 ) {
-    for (entity, (pos, mov, goal, needs, wander_opt, mut rot_opt)) in world.query_mut::<(
-        &mut Position,
-        &Movement,
-        &Goal,
-        &mut Needs,
-        Option<&mut Wander>,
-        Option<&mut Rotation>,
-    )>() {
+    // ⚠️ Without<&Corpse> 门控（审计 stopgap·2026-07-11）：death_watch 死亡时仅 remove Vitals
+    //   + 插 Corpse，保留 Goal/Needs/Movement——不过滤则带目标的尸体会被继续驱动滑向目标点。
+    //   009 控制器关闭层的 CDead 全局门控（13 System Without<CDead>）落地后取代此补丁。
+    for (entity, (pos, mov, goal, needs, wander_opt, mut rot_opt)) in world
+        .query_mut::<hecs::Without<
+            (
+                &mut Position,
+                &Movement,
+                &Goal,
+                &mut Needs,
+                Option<&mut Wander>,
+                Option<&mut Rotation>,
+            ),
+            &Corpse,
+        >>()
+    {
         let current = pos.0;
 
         let (direction, new_wander) = if let Some(target) = goal.target_pos {

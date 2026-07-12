@@ -73,6 +73,16 @@ impl From<Wallet> for woworld_core::economy::WalletSnapshot {
     }
 }
 
+impl From<woworld_core::economy::WalletSnapshot> for Wallet {
+    fn from(s: woworld_core::economy::WalletSnapshot) -> Self {
+        Self {
+            copper: s.copper,
+            silver: s.silver,
+            gold: s.gold,
+        }
+    }
+}
+
 /// 经济认知 — 6 维经济决策缓存
 ///
 /// 所有字段从 BigFive + 技能 + 经验派生（纯函数，零新人格维度）。

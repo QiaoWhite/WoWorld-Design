@@ -2274,11 +2274,12 @@ impl WorldDriver {
                 &mut self.encounter_state,
             );
 
-            // ── Block A5: Economy systems (registry-only, no CommandBuffer) ──
+            // ── Block A5: Economy systems ──
             {
                 woworld_ecs::systems::economy::order_creation_system(
                     &self.ecs,
                     &mut self.economy_registry,
+                    &self.inventory_registry,
                     &self.item_registry,
                     self.frame_count,
                 );
@@ -2286,6 +2287,14 @@ impl WorldDriver {
                     &mut self.economy_registry,
                     self.frame_count,
                 );
+                // ★ V3b: 成交后同步 registry wallet → ECS Wallet component
+                let mut wallet_cmd = CommandBuffer::new();
+                woworld_ecs::systems::economy::wallet_sync_system(
+                    &self.ecs,
+                    &mut wallet_cmd,
+                    &self.economy_registry,
+                );
+                wallet_cmd.run_on(&mut self.ecs);
             }
         }
 

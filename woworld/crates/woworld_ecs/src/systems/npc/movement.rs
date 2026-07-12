@@ -13,7 +13,7 @@ use hecs::CommandBuffer;
 use woworld_core::spatial::TerrainQuery;
 use woworld_core::types::WorldPos;
 
-use crate::components::goal::Goal;
+use crate::components::goal::{Goal, GoalType};
 use crate::components::movement::{Movement, Wander};
 use crate::components::needs::Needs;
 use crate::components::transform::{Position, Rotation};
@@ -104,7 +104,20 @@ pub fn movement_system(
                         rot.0 = glam::Quat::from_rotation_arc(glam::Vec3::Z, to_target_xz / dist);
                     }
                 }
-                satisfy_goal(goal, needs);
+                // ★ V3a: FindFood → 插入 ArrivedAtTarget 标记（harvest_on_arrival 消费）
+                //   其他 GoalType → 保持原 satisfy_goal（Phase 3+ 逐一改造）
+                if goal.goal_type == GoalType::FindFood {
+                    use crate::components::goal::ArrivedAtTarget;
+                    cmd.insert_one(
+                        entity,
+                        ArrivedAtTarget {
+                            goal_type: goal.goal_type,
+                            target_pos: target,
+                        },
+                    );
+                } else {
+                    satisfy_goal(goal, needs);
+                }
                 cmd.remove_one::<Goal>(entity);
                 cmd.remove_one::<Wander>(entity);
                 continue;

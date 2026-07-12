@@ -4,6 +4,8 @@ pub mod bigfive_derive;
 pub mod emotion;
 pub mod encounter;
 pub mod goal;
+pub mod harvest;
+pub mod metabolism;
 pub mod movement;
 pub mod needs;
 pub mod social;

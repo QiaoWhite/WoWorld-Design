@@ -2192,6 +2192,19 @@ impl WorldDriver {
                 move_cmd.run_on(&mut self.ecs);
             }
 
+            // ── Block A2.5: 到达采集（movement 写入 ArrivedAtTarget，harvest 消费）──
+            {
+                let mut harvest_cmd = CommandBuffer::new();
+                woworld_ecs::systems::npc::harvest::harvest_on_arrival_system(
+                    &self.ecs,
+                    &mut harvest_cmd,
+                    &mut self.inventory_registry,
+                    self.vegetation_provider.as_deref(),
+                    &self.item_registry,
+                );
+                harvest_cmd.run_on(&mut self.ecs);
+            }
+
             // ── Block A3: age_system (&mut World + cmd) ──
             {
                 let mut age_cmd = CommandBuffer::new();
@@ -2201,6 +2214,18 @@ impl WorldDriver {
                     delta as f32 / self.clock.seconds_per_day as f32,
                 );
                 age_cmd.run_on(&mut self.ecs);
+            }
+
+            // ── Block A3.5: 代谢消费（独立 cmd——立即 flush，need_evaluation 看到更新后 hunger）──
+            {
+                let mut consume_cmd = CommandBuffer::new();
+                woworld_ecs::systems::npc::metabolism::consume_system(
+                    &self.ecs,
+                    &mut consume_cmd,
+                    &mut self.inventory_registry,
+                    &self.item_registry,
+                );
+                consume_cmd.run_on(&mut self.ecs);
             }
 
             // ── Block A4: &World systems via CommandBuffer batch ──

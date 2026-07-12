@@ -9,7 +9,8 @@
 
 use glam::{Vec2, Vec3};
 
-use crate::id::SpeciesId;
+use crate::id::{ItemDefId, SpeciesId};
+use crate::item::ItemCategory;
 
 // ── VegetationProvider trait ──────────────────────────────
 
@@ -151,6 +152,50 @@ pub enum ProductCategory {
     Fiber,
     Resin,
     Flower,
+}
+
+/// V3a MVP yield resolver 产物——ProductCategory → 可采集物品。
+///
+/// 遵循交互配方表 `yield.resolver = "plant_harvest"` 模式。
+/// Phase 3 迁移到 TOML `config/acquisition/forage_plant.toml`。
+#[derive(Debug, Clone)]
+pub struct PlantYield {
+    pub item_def_id: ItemDefId,
+    pub hunger_restore: f32,
+    pub hp_restore: f32,
+}
+
+impl ProductCategory {
+    /// V3a MVP: 硬编码 yield resolver——ProductCategory → 可采集产物。
+    ///
+    /// 设计对应：交互配方表 `yield.resolver = "plant_harvest"`。
+    /// Berry/Mushroom/Nut/Herb 返回可食用产物；Fiber/Resin/Flower 返回 None。
+    /// Phase 3 迁移到 TOML 数据驱动。
+    pub fn resolve_plant_yield(self) -> Option<PlantYield> {
+        match self {
+            Self::Berry => Some(PlantYield {
+                item_def_id: ItemDefId::new(ItemCategory::Food, 2, 0),
+                hunger_restore: 0.35,
+                hp_restore: 5.0,
+            }),
+            Self::Mushroom => Some(PlantYield {
+                item_def_id: ItemDefId::new(ItemCategory::Food, 2, 1),
+                hunger_restore: 0.30,
+                hp_restore: 3.0,
+            }),
+            Self::Nut => Some(PlantYield {
+                item_def_id: ItemDefId::new(ItemCategory::Food, 2, 2),
+                hunger_restore: 0.40,
+                hp_restore: 2.0,
+            }),
+            Self::Herb => Some(PlantYield {
+                item_def_id: ItemDefId::new(ItemCategory::Food, 2, 3),
+                hunger_restore: 0.10,
+                hp_restore: 8.0,
+            }),
+            Self::Fiber | Self::Resin | Self::Flower => None,
+        }
+    }
 }
 
 /// 再生状态

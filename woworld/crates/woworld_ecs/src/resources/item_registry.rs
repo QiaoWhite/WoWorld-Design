@@ -146,7 +146,21 @@ impl ItemRegistry {
             let consumable = table
                 .get("is_consumable")
                 .and_then(|v| v.as_bool())
-                .map(|b| ConsumableEffect { is_consumable: b });
+                .map(|b| {
+                    let hunger_restore = table
+                        .get("hunger_restore")
+                        .and_then(|v| v.as_float())
+                        .unwrap_or(0.0) as f32;
+                    let hp_restore = table
+                        .get("hp_restore")
+                        .and_then(|v| v.as_float())
+                        .unwrap_or(0.0) as f32;
+                    ConsumableEffect {
+                        is_consumable: b,
+                        hunger_restore,
+                        hp_restore,
+                    }
+                });
 
             let audio_material = None;
             let aesthetic_props = table

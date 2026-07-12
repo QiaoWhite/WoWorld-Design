@@ -117,7 +117,7 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
     use woworld_core::item::{
-        ConsumableEffect, ItemCategory, ItemProperties, ItemTag, Quality, Rarity, ITEM_DEF_ID_NONE,
+        ConsumableEffect, ItemCategory, ItemProperties, ItemTag, Quality, Rarity,
     };
 
     fn make_food_registry() -> impl ItemQuery {
@@ -148,6 +148,8 @@ mod tests {
             tool_tags: None,
             consumable: Some(ConsumableEffect {
                 is_consumable: true,
+                hunger_restore: 0.5,
+                hp_restore: 10.0,
             }),
             audio_material: None,
             aesthetic_props: None,

@@ -38,6 +38,16 @@ impl Default for Goal {
     }
 }
 
+/// ★ V3a: movement 到达后插入，harvest_on_arrival_system 消费后移除。
+///
+/// 将"到达"和"采集"解耦——movement 只负责移动，harvest 负责采集。
+/// 设计对应：`PathFollowingSystem → ActionRequest::MovementArrived`（010-NPC移动行为）。
+#[derive(Debug, Clone, Copy)]
+pub struct ArrivedAtTarget {
+    pub goal_type: GoalType,
+    pub target_pos: Vec3,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

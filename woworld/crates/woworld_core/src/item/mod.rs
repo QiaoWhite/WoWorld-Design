@@ -398,11 +398,19 @@ pub struct ItemPlacementProps {
     pub is_placeable: bool,
 }
 
-/// 消耗品效果占位——Phase 1 为空壳，生命模块就位后展开。
+/// ★ V3a: Phase 1 空壳展开——生命模块 004 §14.1 定义 schema。
+///
+/// 命名说明：设计使用 `satiation`（Vitals.hunger 0=饿→1=饱，吃后 +satiation）。
+/// 代码方向相反（Needs.hunger 0=满足→1=缺乏），故使用 `hunger_restore` 表示"减少缺乏量"。
+/// Phase 3 统一方向后重命名为 `satiation`。
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConsumableEffect {
-    /// 占位：是否为可食用/可饮用物品
+    /// 是否为可食用/可饮用物品
     pub is_consumable: bool,
+    /// ★ V3a: 食用后 Needs.hunger 减少量 (0.0-1.0)
+    pub hunger_restore: f32,
+    /// ★ V3a: 食用后 Vitals.hp 恢复量
+    pub hp_restore: f32,
 }
 
 /// 审美属性占位——Phase 1 为空壳，后续展开。

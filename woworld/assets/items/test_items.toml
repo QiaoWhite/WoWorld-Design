@@ -56,6 +56,91 @@ durability_loss_per_use = 0.0
 is_consumable = true
 tags = ["Edible", "Stackable"]
 
+# ★ V3a: 可采集食物——resolve_plant_yield() 映射目标
+[[items]]
+category = "Food"
+sub_category = 2
+def_index = 0
+name = "野莓"
+weight_grams = 30
+bulk_factor = 0.8
+volume_liters = 0.05
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Standard"
+stack_size = 30
+base_value_copper = 3
+max_durability = 0.0
+durability_loss_per_use = 0.0
+is_consumable = true
+hunger_restore = 0.35
+hp_restore = 5.0
+tags = ["Edible", "Stackable"]
+
+[[items]]
+category = "Food"
+sub_category = 2
+def_index = 1
+name = "野蘑菇"
+weight_grams = 40
+bulk_factor = 0.7
+volume_liters = 0.06
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Standard"
+stack_size = 20
+base_value_copper = 4
+max_durability = 0.0
+durability_loss_per_use = 0.0
+is_consumable = true
+hunger_restore = 0.30
+hp_restore = 3.0
+tags = ["Edible", "Stackable"]
+
+[[items]]
+category = "Food"
+sub_category = 2
+def_index = 2
+name = "野生坚果"
+weight_grams = 25
+bulk_factor = 1.5
+volume_liters = 0.03
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Standard"
+stack_size = 30
+base_value_copper = 5
+max_durability = 0.0
+durability_loss_per_use = 0.0
+is_consumable = true
+hunger_restore = 0.40
+hp_restore = 2.0
+tags = ["Edible", "Stackable"]
+
+[[items]]
+category = "Food"
+sub_category = 2
+def_index = 3
+name = "野草药"
+weight_grams = 10
+bulk_factor = 0.5
+volume_liters = 0.02
+base_quality = "Standard"
+rarity = "Common"
+quality_range_min = "Rough"
+quality_range_max = "Standard"
+stack_size = 50
+base_value_copper = 2
+max_durability = 0.0
+durability_loss_per_use = 0.0
+is_consumable = true
+hunger_restore = 0.10
+hp_restore = 8.0
+tags = ["Edible", "Stackable"]
+
 [[items]]
 category = "FiberMat"
 sub_category = 1

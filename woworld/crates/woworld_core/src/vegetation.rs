@@ -137,6 +137,8 @@ pub struct HarvestableInfo {
     pub yield_base: f32,
     /// 是否处于最佳采集季节
     pub season_optimal: bool,
+    /// 再生状态（★ Vf: 全部 Full——采集消耗是 V3a 的事）
+    pub regen_state: RegenState,
 }
 
 /// 采集产物类别

@@ -102,6 +102,13 @@ impl BiomeClassifier {
     pub fn precipitation_at(&self, pos: WorldPos) -> f64 {
         self.noise.sample_precipitation(pos.x, pos.z)
     }
+
+    /// 采样地形高度（委托 WorldNoise）——供植被/采集物放置使用
+    ///
+    /// 返回该 (x, z) 处的程序化地形高度（米）。不含运行时地形修改。
+    pub fn sample_height(&self, x: f64, z: f64) -> f64 {
+        self.noise.sample_height(x, z)
+    }
 }
 
 // ── 测试 ────────────────────────────────────────

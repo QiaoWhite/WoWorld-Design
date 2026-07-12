@@ -1,6 +1,6 @@
 # Phase 2: 垂直切片
 
-> **状态**: 🟡 探针式垂直切片进行中（正式 Phase 2 仍阻塞于 Phase 1 完成）· 进度 `▓▓▓░░░░░░░ 3/10`（V0+V1 ✅ Sprint-067 · V4a ✅ Sprint-068）
+> **状态**: 🟡 探针式垂直切片进行中（正式 Phase 2 仍阻塞于 Phase 1 完成）· 进度 `▓▓▓▓░░░░░░ 4/10`（V0+V1 ✅ Sprint-067 · V4a ✅ Sprint-068 · Vf ✅ Sprint-069）
 > **定位**: proof-of-fun 探针——**纯涌现、零脚手架**，先证核心体验成立
 > **旗子**: 「活着的村庄」——旁观 3-5 个 NPC 纯涌现地过完一天
 > **前置阶段**: Phase 1 — 核心基础（部分门有意识跳过，见 §2.1）
@@ -75,7 +75,7 @@
 | 1 | **V0 舞台搭建** ✅ | ~~NPC spawn 补 `HasInventory`~~ → **审计更正**：inventory 已由 `inventory_init_system` 幂等补挂 → 降级为验证测试（Sprint-067）| 物品 Phase 2 库存组件 | ✅ 完成——测试坐实 spawn→持有→读写闭环 | 点击 NPC 见其带库存 |
 | 2 | **V1 昼夜涌现** ✅ | circadian 作 `action_weight` **第 6 乘性因子**（=设计 `time_modifier` v3，纯世界时·不含 chronotype）+ 漫游回落（防振荡）（Sprint-067）| 无强依赖 | ✅ 完成——`time_modifier` 白昼度曲线 + `goal_resolution` 回落 Idle。诚实边界：整村可见"夜里睡"待 V3a | NPC 夜倾向休息、昼倾向活动——从需求+节律涌现 |
 | 3 | **V4a 问候/情绪气泡** ✅ | 桩串外移 TOML 片段库（`FragmentCondition` 富条件·概率加权选句）+ **遭遇感知层**（`encounter_system`+迟滞+朝向门）+ 问候接**既有 `ActionIntent` 涌现**（Fight/Flee 否决·非语音决策 silo）+ 告别（Sprint-068）| 邻近/情绪/需求（今天就绪）| ✅ 完成——问候/告别经 `EncounterEvent`→`ActionIntent` 门控涌现；气泡瞬时车道不碰 `ExpressionRef`；实机验证问候可用。**诚实边界**：needs 累积后全村 `SeekSafety` 四散游荡（安全需求无满足路径·V3a/worldgen 未做）→ 世界显荒凉，问候稀疏但真实 | NPC 见面打招呼、分别道别、饿了嘟囔——真短句非桩，外向者热情/内向者沉默皆涌现 |
-| 4 | **Vf 食物源落地** | 实现 P2.25 植被 Phase-2 **最小子集**：Poisson disc 放置可采集物，令 `VegetationProvider::query_harvestable` 返回真实 `HarvestableInfo`（Berry/Mushroom/Nut）| 世界生成 P2.25 设计 | `query_harvestable` 恒返回 `vec![]`（`worldgen/vegetation.rs:168`）；`HarvestableInfo` 类型已定义（`core/vegetation.rs:127`）；**是独立中等 worldgen 冲刺**，非接线 | 世界里有真实可采集浆果/蘑菇点 |
+| 4 | **Vf 食物源落地** ✅ | 实现 P2.25 植被 Phase-2 **最小子集**：Poisson disc 放置可采集物，令 `VegetationProvider::query_harvestable` 返回真实 `HarvestableInfo`（Berry/Mushroom/Nut）（Sprint-069）| 世界生成 P2.25 设计 | ✅ 完成——Poisson disc Bridson 2007 + 群系→产物硬编码映射 + `HarvestableInfo` 补 `regen_state`·1092 tests | 世界里有真实可采集浆果/蘑菇点 |
 | 5 | **V2 牵引移动** | `Goal.target_pos` 解析到最近可采集食物点（复用 `query_harvestable`）/ 水（`OceanProvider`）| Vf, V1 | `npc/movement.rs` 已走 Goal.target_pos；缺"资源点作为 Goal 目标"解析。需求**牵引**，非排班 | 饿的 NPC 走向浆果丛，渴的走向水 |
 | 6 | **V3a 代谢闭环**（命门）| 最小采集配方（走交互配方表）+ `eat_food` 消费系统 → 采集入库、进食使 `Needs.hunger` 真实下降/回 Vitals | V0, Vf, V2 | 采集/生产**零代码**；**消费腿完全缺失**（买到食物无人吃）→ 真核心工作 | NPC 采集浆果→吃→饥饿真实下降，代谢环成立 |
 | 7 | **V3b 市场接真** | `order_creation` 读**真实** `Needs`/库存盈余（弃 seed-random）+ 统一 `Wallet`↔registry、`item_holdings`↔`InventoryRegistry` 双账 | V3a | 撮合是 agent-based ✓，但需求腿接假数据、库存两套账。**市场多热闹就展示多热闹，禁伪造** | 真实成交、价格随供需波动、钱包/库存**一致** |

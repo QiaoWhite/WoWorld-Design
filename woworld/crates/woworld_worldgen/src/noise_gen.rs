@@ -13,7 +13,7 @@ use noise::{NoiseFn, Perlin};
 use serde::Deserialize;
 
 /// 64-bit mixing hash (splitmix64 finalizer)
-fn mix64(mut x: u64) -> u64 {
+pub(crate) fn mix64(mut x: u64) -> u64 {
     x = (x ^ (x >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
     x = (x ^ (x >> 27)).wrapping_mul(0x94d049bb133111eb);
     x ^ (x >> 31)

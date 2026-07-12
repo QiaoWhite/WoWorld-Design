@@ -21,7 +21,7 @@
 | Rust workspace | 5 crates, **~1075 tests 全绿** (core: 401 + worldgen: 58 + atmosphere: 26 + ecs: 590（581 lib + 9 集成） + godot: 0), cargo clippy 零警告 |
 | ECS 架构 | **Phase 0/1/2/3 ✅** — 55 Components + 39 Systems + 581 lib tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + 角色控制器核心三层 + Step 5e 管线集成 + 第三人称相机 MVP + 持续/充能动作运行时 + **★Sprint-068 遭遇感知层（`encounter_system`+迟滞+朝向门）+ 问候/告别气泡（TOML 数据驱动·接既有 `ActionIntent` 涌现·barrier-free）** 就位。 |
 | Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + NPC对话气泡 + 独立 CameraRig 第三人称相机 |
-| 当前冲刺 | **Sprint-068 V4a 问候/情绪气泡完成**（~1075 tests·clippy/fmt 零警告）— `SpeechAct`(core) + TOML 片段库(`FragmentCondition` 富条件+概率加权) + `neighbors_within` 原语(social 重构) + **遭遇感知层**(迟滞/播种/despawn/朝向门) + 问候/告别接**既有 `ActionIntent` 涌现**(Fight/Flee 否决·barrier-free) + 实机验证问候可用 + 修 [ECS-001](bugs/ECS/ECS-001-seeksafety-veto-silences-greetings.md)(SeekSafety 否决陷阱)。→ 下一步: Vf 食物源落地（第 4/10 步） |
+| 当前冲刺 | **Sprint-068 V4a 问候/情绪气泡完成**（~1075 tests·clippy/fmt 零警告·**已推送 `d3d882f`**）— `SpeechAct`(core) + TOML 片段库(`FragmentCondition` 富条件+概率加权) + `neighbors_within` 原语(social 重构) + **遭遇感知层**(迟滞/播种/despawn/朝向门) + 问候/告别接**既有 `ActionIntent` 涌现**(Fight/Flee 否决·barrier-free) + 实机验证问候可用 + 修 [ECS-001](bugs/ECS/ECS-001-seeksafety-veto-silences-greetings.md)(SeekSafety 否决陷阱)。→ 下一步: Vf 食物源落地（第 4/10 步） |
 | 最新 CHG | **CHG-069**（2026-07-11·第三人称相机与视角系统·玩家系统007 v1.2·实现已落地）— 前: CHG-067 物理运动学地基（仅设计） |
 | 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260712-sprint068]]（2026-07-12·Sprint-068 V4a·~1075 tests） |
 

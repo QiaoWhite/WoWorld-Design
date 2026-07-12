@@ -53,7 +53,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **构建项目** | `cd woworld && cargo build --workspace` |
 | **启动 Godot 编辑器** | `tools/godot/Godot_v4.7-stable_win64.exe woworld/godot/project.godot` |
 | **看最新开发日志** | `woworld-dev-plan/01-核心基础/devlogs/DEVLOG-2026-07-12-sprint068.md` (Sprint-068 V4a 问候/情绪气泡·SpeechAct+TOML 片段库(FragmentCondition)+遭遇感知层(encounter_system 迟滞/朝向门)+问候接既有 ActionIntent 涌现(barrier-free)+修 ECS-001(SeekSafety 否决陷阱)·~1075 tests) |
-| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260712-sprint068.md` (2026-07-12 Sprint-068 执行·村庄切片3/10·实机验证问候可用·下一步 Vf 食物源·~1075 tests·未提交) |
+| **看最新交接文档** | `woworld-dev-plan/01-核心基础/handoff/handoff-20260712-sprint068.md` (2026-07-12 Sprint-068 执行·村庄切片3/10·实机验证问候可用·下一步 Vf 食物源·~1075 tests·已推送d3d882f) |
 | **🐛 查已知 bug/陷阱** | `woworld-dev-plan/bugs/INDEX.md` — 调试前必须先查 |
 
 ## 文档结构

@@ -7,6 +7,7 @@
 //! Phase 2:
 //! - order_creation_system: NPC 基于经济认知创建买卖单
 //! - market_matching_system: 撮合所有市场订单簿
+//! - trade_bubble_system: 成交事件→交易吆喝气泡（V4b·接 V3b 成交出口）
 //!
 //! Phase 3:
 //! - needs: 结构化需求评估（Physiological/Occupational/Social）
@@ -17,16 +18,25 @@ use std::collections::HashMap;
 
 use hecs::{CommandBuffer, World};
 use woworld_core::economy::behavioral::EconBehaviorParams;
-use woworld_core::economy::{EconomyQuery, ListingStatus, ListingType, Order, OrderSide};
+use woworld_core::economy::{
+    EconomyQuery, ListingStatus, ListingType, Order, OrderSide, TradeRecord,
+};
 use woworld_core::id::ItemDefId;
 use woworld_core::item::ItemQuery;
+use woworld_core::speech_bubble::{SpeechAct, PRIORITY_TRADE};
+use woworld_core::time::TimeOfDay;
 use woworld_core::types::EntityId;
 
 use crate::components::bigfive::BigFive;
 use crate::components::economy::{EconomicCognition, Wallet};
+use crate::components::emotion::Emotion;
 use crate::components::needs::Needs;
+use crate::events::EventChannel;
 use crate::resources::economy_registry::EconomyRegistry;
 use crate::resources::inventory_registry::InventoryRegistry;
+use crate::resources::speech_bubble_state::{ActiveBubble, SpeechBubbleState};
+use crate::resources::speech_fragment_registry::{SpeechContext, SpeechFragmentRegistry};
+use crate::systems::npc::speech_bubble::{BUBBLE_COOLDOWN_TICKS, BUBBLE_DURATION_TICKS};
 
 /// 经济认知派生系统：从 BigFive 为所有 NPC 派生 EconomicCognition
 ///
@@ -270,11 +280,10 @@ pub fn order_creation_system(
 }
 
 /// 市场撮合系统：遍历所有市场的所有订单簿，撮合并执行交易。
-pub fn market_matching_system(registry: &mut EconomyRegistry, tick: u64) {
-    let trades = registry.match_all_markets(tick);
-    // 交易结果由 record_trade 在 match_all_markets 内部处理
-    // trades 计数用于日志/统计（Phase 2+）
-    let _ = trades.len();
+///
+/// 返回本帧全部成交记录——供 EventChannel 消费（V4b 交易气泡等）。
+pub fn market_matching_system(registry: &mut EconomyRegistry, tick: u64) -> Vec<TradeRecord> {
+    registry.match_all_markets(tick)
 }
 
 /// ★ V3b: Wallet 同步——成交后将 registry 钱包回写 ECS Wallet component。
@@ -294,6 +303,91 @@ pub fn wallet_sync_system(world: &World, cmd: &mut CommandBuffer, registry: &Eco
     }
 }
 
+/// ★ V4b: 交易气泡系统——成交事件→吆喝气泡（薄出口，复用 SpeechBubbleState）。
+///
+/// 消费 `EventChannel<TradeRecord>`（双缓冲·跨帧），买卖双方各独立选句（per-entity seed
+/// → 非对称·涌现）。Priority=2——不覆盖 greeting(3)，可覆盖 self-talk(1)。
+/// 受 cooldown 约束（不连刷），玩家实体不冒泡。
+#[allow(clippy::too_many_arguments)]
+pub fn trade_bubble_system(
+    world: &World,
+    trade_events: &mut EventChannel<TradeRecord>,
+    state: &mut SpeechBubbleState,
+    fragments: &SpeechFragmentRegistry,
+    current_tick: u64,
+    day_progress: f32,
+    player_entity: Option<hecs::Entity>,
+) {
+    let trades = trade_events.drain();
+    if trades.is_empty() {
+        return;
+    }
+
+    let time_of_day = TimeOfDay::from_progress(day_progress as f64);
+
+    for trade in &trades {
+        for &trader_id in &[trade.buyer_id, trade.seller_id] {
+            // EntityId.0 来自 entity.to_bits().get() 往返——恒有效
+            let Some(entity) = hecs::Entity::from_bits(trader_id.0) else {
+                continue;
+            };
+
+            // 玩家实体不冒泡（一致性）
+            if player_entity == Some(entity) {
+                continue;
+            }
+
+            // 实体存在性检查（可能已 despawn）
+            if world.entity(entity).is_err() {
+                continue;
+            }
+
+            let slot = state.slots.entry(entity).or_default();
+
+            // Priority 仲裁: PRIORITY_TRADE=2 ——不覆盖 greeting(3)，可覆盖 self-talk(1)
+            let blocked = slot
+                .active
+                .as_ref()
+                .map(|a| a.priority > PRIORITY_TRADE)
+                .unwrap_or(false);
+            if blocked {
+                continue;
+            }
+
+            if current_tick < slot.next_allowed_tick {
+                continue;
+            }
+
+            // 从片段库选句（per-entity seed → 买卖双方可能不同话·涌现非对称）
+            let pleasure = world
+                .get::<&Emotion>(entity)
+                .map(|e| e.pleasure)
+                .unwrap_or(0.0);
+            let extraversion = world
+                .get::<&BigFive>(entity)
+                .map(|b| b.extraversion)
+                .unwrap_or(0.5);
+            let ctx = SpeechContext {
+                time_of_day,
+                trust: 0.0,
+                pleasure,
+                extraversion,
+                topic: None,
+            };
+            let seed = trader_id.0.wrapping_mul(31).wrapping_add(current_tick);
+            if let Some((text, bt)) = fragments.select(SpeechAct::TradeShout, &ctx, seed) {
+                slot.active = Some(ActiveBubble {
+                    text,
+                    bubble_type: bt,
+                    expiry_tick: current_tick + BUBBLE_DURATION_TICKS,
+                    priority: PRIORITY_TRADE,
+                });
+                slot.next_allowed_tick = current_tick + BUBBLE_COOLDOWN_TICKS;
+            }
+        }
+    }
+}
+
 // ── 测试 ───────────────────────────────────────────────
 
 #[cfg(test)]
@@ -301,7 +395,15 @@ mod tests {
     use super::*;
     use crate::components::bigfive::BigFive;
     use crate::components::economy::{EconomicCognition, Wallet};
+    use crate::components::emotion::Emotion;
+    use crate::events::EventChannel;
+    use crate::resources::speech_bubble_state::{ActiveBubble, SpeechBubbleState};
+    use crate::resources::speech_fragment_registry::SpeechFragmentRegistry;
     use woworld_core::economy::EconomyQuery;
+    use woworld_core::id::ItemDefId;
+    use woworld_core::speech_bubble::{
+        BubbleType, PRIORITY_SELF_TALK, PRIORITY_SOCIAL, PRIORITY_TRADE,
+    };
 
     #[test]
     fn test_cognition_system_inserts() {
@@ -975,5 +1077,312 @@ mod tests {
         let w1 = q1.iter().next().unwrap().1;
         let w2 = q2.iter().next().unwrap().1;
         assert_eq!(w1.total_copper(), w2.total_copper());
+    }
+
+    // ── V4b: trade_bubble_system ──────────────────────────
+
+    /// 创建一个含 Emotion + BigFive 的 NPC 测试实体
+    fn spawn_test_npc(world: &mut World) -> (hecs::Entity, EntityId) {
+        let entity = world.spawn((
+            Emotion::default(),
+            BigFive::from_seed(42),
+            crate::components::transform::Position(glam::Vec3::ZERO),
+        ));
+        let entity_id = EntityId(entity.to_bits().get());
+        (entity, entity_id)
+    }
+
+    /// 创建一条模拟成交记录
+    fn make_trade(buyer: EntityId, seller: EntityId) -> TradeRecord {
+        TradeRecord {
+            item_id: ItemDefId::new(woworld_core::item::ItemCategory::Food, 1, 0),
+            quantity: 1,
+            price_copper: 10,
+            buyer_id: buyer,
+            seller_id: seller,
+            tick: 42,
+        }
+    }
+
+    /// 将 trades 推入 EventChannel 并 flush（模拟 Block A5 行为）
+    fn push_trades(ch: &mut EventChannel<TradeRecord>, trades: Vec<TradeRecord>) {
+        ch.send_all(trades);
+        ch.mid_phase_flush();
+    }
+
+    #[test]
+    fn test_trade_bubble_emits_for_buyer_and_seller() {
+        let mut world = World::new();
+        let (e_buyer, buyer_id) = spawn_test_npc(&mut world);
+        let (e_seller, seller_id) = spawn_test_npc(&mut world);
+
+        let mut trade_events = EventChannel::new();
+        trade_events.begin_frame();
+        push_trades(&mut trade_events, vec![make_trade(buyer_id, seller_id)]);
+
+        let mut state = SpeechBubbleState::new();
+        let fragments = SpeechFragmentRegistry::load_embedded();
+
+        trade_bubble_system(
+            &world,
+            &mut trade_events,
+            &mut state,
+            &fragments,
+            100,
+            0.5,
+            None,
+        );
+
+        assert!(state.active_for(e_buyer).is_some(), "买家应有交易气泡");
+        assert!(state.active_for(e_seller).is_some(), "卖家应有交易气泡");
+        // 验证 priority = 2
+        assert_eq!(state.active_for(e_buyer).unwrap().priority, PRIORITY_TRADE);
+    }
+
+    #[test]
+    fn test_trade_bubble_empty_trades_noop() {
+        let world = World::new();
+        let mut trade_events = EventChannel::new();
+        trade_events.begin_frame();
+        // 不推任何 trade
+
+        let mut state = SpeechBubbleState::new();
+        let fragments = SpeechFragmentRegistry::load_embedded();
+
+        trade_bubble_system(
+            &world,
+            &mut trade_events,
+            &mut state,
+            &fragments,
+            100,
+            0.5,
+            None,
+        );
+
+        assert!(state.slots.is_empty(), "无成交不冒泡");
+    }
+
+    #[test]
+    fn test_trade_bubble_respects_cooldown() {
+        let mut world = World::new();
+        let (_e, entity_id) = spawn_test_npc(&mut world);
+
+        let fragments = SpeechFragmentRegistry::load_embedded();
+
+        // 第一帧: 成交 → 冒泡
+        let mut trade_events1 = EventChannel::new();
+        trade_events1.begin_frame();
+        push_trades(&mut trade_events1, vec![make_trade(entity_id, entity_id)]);
+        let mut state = SpeechBubbleState::new();
+        trade_bubble_system(
+            &world,
+            &mut trade_events1,
+            &mut state,
+            &fragments,
+            100,
+            0.5,
+            None,
+        );
+        assert!(state.active_for(_e).is_some(), "第一帧应冒泡");
+
+        // 第二帧: 新成交、但冷却未到 → 不冒新泡
+        // 仅清除活跃气泡（模拟过期），保留 next_allowed_tick（冷却仍在）
+        if let Some(slot) = state.slots.get_mut(&_e) {
+            slot.active = None;
+        }
+        let mut trade_events2 = EventChannel::new();
+        trade_events2.begin_frame();
+        push_trades(&mut trade_events2, vec![make_trade(entity_id, entity_id)]);
+        trade_bubble_system(
+            &world,
+            &mut trade_events2,
+            &mut state,
+            &fragments,
+            200, // < BUBBLE_COOLDOWN_TICKS (600) since last bubble at tick 100
+            0.5,
+            None,
+        );
+        assert!(
+            state.active_for(_e).is_none(),
+            "冷却内不重复冒泡: tick=200, next_allowed≥100+600=700"
+        );
+    }
+
+    #[test]
+    fn test_trade_bubble_not_overwrite_greeting() {
+        let mut world = World::new();
+        let (_e, entity_id) = spawn_test_npc(&mut world);
+
+        let fragments = SpeechFragmentRegistry::load_embedded();
+
+        // 先设置 greeting 气泡 (priority=3)
+        let mut state = SpeechBubbleState::new();
+        state.slots.entry(_e).or_default().active = Some(ActiveBubble {
+            text: "你好".into(),
+            bubble_type: BubbleType::Normal,
+            expiry_tick: 300,
+            priority: PRIORITY_SOCIAL,
+        });
+
+        // 成交事件
+        let mut trade_events = EventChannel::new();
+        trade_events.begin_frame();
+        push_trades(&mut trade_events, vec![make_trade(entity_id, entity_id)]);
+
+        trade_bubble_system(
+            &world,
+            &mut trade_events,
+            &mut state,
+            &fragments,
+            100,
+            0.5,
+            None,
+        );
+
+        assert_eq!(
+            state.active_for(_e).unwrap().text,
+            "你好",
+            "trade(2) 不覆盖 greeting(3)"
+        );
+    }
+
+    #[test]
+    fn test_trade_bubble_overwrites_self_talk() {
+        let mut world = World::new();
+        let (_e, entity_id) = spawn_test_npc(&mut world);
+
+        let fragments = SpeechFragmentRegistry::load_embedded();
+
+        // 先设置 self-talk 气泡 (priority=1)
+        let mut state = SpeechBubbleState::new();
+        state.slots.entry(_e).or_default().active = Some(ActiveBubble {
+            text: "肚子饿了…".into(),
+            bubble_type: BubbleType::Ambient,
+            expiry_tick: 300,
+            priority: PRIORITY_SELF_TALK,
+        });
+
+        // 成交事件
+        let mut trade_events = EventChannel::new();
+        trade_events.begin_frame();
+        push_trades(&mut trade_events, vec![make_trade(entity_id, entity_id)]);
+
+        trade_bubble_system(
+            &world,
+            &mut trade_events,
+            &mut state,
+            &fragments,
+            100,
+            0.5,
+            None,
+        );
+
+        let bubble = state.active_for(_e).unwrap();
+        assert_eq!(
+            bubble.priority, PRIORITY_TRADE,
+            "trade(2) 覆盖 self-talk(1)"
+        );
+    }
+
+    #[test]
+    fn test_trade_bubble_player_excluded() {
+        let mut world = World::new();
+        let (e_player, player_id) = spawn_test_npc(&mut world);
+        let (_e_npc, npc_id) = spawn_test_npc(&mut world);
+
+        let mut trade_events = EventChannel::new();
+        trade_events.begin_frame();
+        push_trades(&mut trade_events, vec![make_trade(player_id, npc_id)]);
+
+        let mut state = SpeechBubbleState::new();
+        let fragments = SpeechFragmentRegistry::load_embedded();
+
+        trade_bubble_system(
+            &world,
+            &mut trade_events,
+            &mut state,
+            &fragments,
+            100,
+            0.5,
+            Some(e_player),
+        );
+
+        assert!(state.active_for(e_player).is_none(), "玩家实体不冒交易气泡");
+        assert!(state.active_for(_e_npc).is_some(), "非玩家 NPC 仍应冒泡");
+    }
+
+    #[test]
+    fn test_trade_bubble_skips_despawned() {
+        let mut world = World::new();
+        let (_e, entity_id) = spawn_test_npc(&mut world);
+        let trader_id = entity_id;
+
+        // 构造一个对应不存在实体的 EntityId
+        let ghost_id = EntityId(0xDEAD_BEEF_0000_0000);
+
+        let mut trade_events = EventChannel::new();
+        trade_events.begin_frame();
+        push_trades(&mut trade_events, vec![make_trade(trader_id, ghost_id)]);
+
+        let mut state = SpeechBubbleState::new();
+        let fragments = SpeechFragmentRegistry::load_embedded();
+
+        // 不应 panic
+        trade_bubble_system(
+            &world,
+            &mut trade_events,
+            &mut state,
+            &fragments,
+            100,
+            0.5,
+            None,
+        );
+
+        assert!(state.active_for(_e).is_some(), "存在实体仍应冒泡");
+        // ghost 实体不在 world 中 → 不应有 slot
+    }
+
+    #[test]
+    fn test_event_channel_drain_consumes() {
+        let mut world = World::new();
+        let (_e, entity_id) = spawn_test_npc(&mut world);
+
+        let mut trade_events = EventChannel::new();
+        trade_events.begin_frame();
+        push_trades(&mut trade_events, vec![make_trade(entity_id, entity_id)]);
+
+        let mut state = SpeechBubbleState::new();
+        let fragments = SpeechFragmentRegistry::load_embedded();
+
+        // 第一次 drain
+        trade_bubble_system(
+            &world,
+            &mut trade_events,
+            &mut state,
+            &fragments,
+            100,
+            0.5,
+            None,
+        );
+        assert!(state.active_for(_e).is_some());
+
+        // 第二次 drain——应为空（trades 已消费·cooldown 仍有效）
+        // 仅清除活跃气泡（模拟过期），保留 next_allowed_tick
+        if let Some(slot) = state.slots.get_mut(&_e) {
+            slot.active = None;
+        }
+        trade_bubble_system(
+            &world,
+            &mut trade_events,
+            &mut state,
+            &fragments,
+            700, // 超过 cooldown
+            0.5,
+            None,
+        );
+        assert!(
+            state.active_for(_e).is_none(),
+            "drain 后 trades 已消费——EventChannel 为空，不冒新泡"
+        );
     }
 }

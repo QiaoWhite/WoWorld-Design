@@ -21,7 +21,7 @@
 use std::collections::HashSet;
 
 use glam::Vec3;
-use woworld_core::speech_bubble::{BubbleType, SpeechAct};
+use woworld_core::speech_bubble::{BubbleType, SpeechAct, PRIORITY_SELF_TALK, PRIORITY_SOCIAL};
 use woworld_core::time::TimeOfDay;
 use woworld_core::types::EntityId;
 
@@ -38,9 +38,9 @@ use crate::resources::speech_bubble_state::{ActiveBubble, SpeechBubbleState};
 use crate::resources::speech_fragment_registry::{SpeechContext, SpeechFragmentRegistry};
 
 /// 气泡显示时长（tick）——~3s @ 60fps
-const BUBBLE_DURATION_TICKS: u64 = 180;
+pub(crate) const BUBBLE_DURATION_TICKS: u64 = 180;
 /// 同一 NPC 两次气泡最小间隔（tick）——~10s @ 60fps
-const BUBBLE_COOLDOWN_TICKS: u64 = 600;
+pub(crate) const BUBBLE_COOLDOWN_TICKS: u64 = 600;
 /// 同一对 NPC 重复问候的最小间隔（tick）——~30s @ 60fps（G2 防重逢刷屏）
 const GREET_COOLDOWN_TICKS: u64 = 1800;
 /// 自言自语基础触发概率——乘人格因子后错峰
@@ -251,6 +251,7 @@ pub fn speech_bubble_system(
                     text,
                     bubble_type: bt,
                     expiry_tick: current_tick + BUBBLE_DURATION_TICKS,
+                    priority: PRIORITY_SOCIAL,
                 });
                 slot.next_allowed_tick = current_tick + BUBBLE_COOLDOWN_TICKS;
                 if act == SpeechAct::Greeting {
@@ -274,8 +275,13 @@ pub fn speech_bubble_system(
                 slot.active = None;
             }
         }
-        // 已有活跃气泡（含 Pass 1 问候）→ 保留不覆盖
-        if slot.active.is_some() {
+        // 已有高优先级气泡（含 Pass 1 问候/trade shout）→ 保留不覆盖
+        let blocked = slot
+            .active
+            .as_ref()
+            .map(|a| a.priority > PRIORITY_SELF_TALK)
+            .unwrap_or(false);
+        if blocked {
             continue;
         }
         if current_tick < slot.next_allowed_tick {
@@ -311,6 +317,7 @@ pub fn speech_bubble_system(
                     text,
                     bubble_type: bt,
                     expiry_tick: current_tick + BUBBLE_DURATION_TICKS,
+                    priority: PRIORITY_SELF_TALK,
                 });
                 slot.next_allowed_tick = current_tick + BUBBLE_COOLDOWN_TICKS;
             }

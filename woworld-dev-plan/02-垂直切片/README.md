@@ -1,6 +1,6 @@
 # Phase 2: 垂直切片
 
-> **状态**: 🟡 探针式垂直切片进行中（正式 Phase 2 仍阻塞于 Phase 1 完成）· 进度 `▓▓▓▓▓▓░░░░ 6/10`（V0+V1 ✅ Sprint-067 · V4a ✅ Sprint-068 · Vf ✅ Sprint-069 · V2 ✅ Sprint-070 · V3a ✅ Sprint-071）
+> **状态**: 🟡 探针式垂直切片进行中（正式 Phase 2 仍阻塞于 Phase 1 完成）· 进度 `▓▓▓▓▓▓▓▓░░ 8/10`（V0+V1 ✅ Sprint-067 · V4a ✅ Sprint-068 · Vf ✅ Sprint-069 · V2 ✅ Sprint-070 · V3a ✅ Sprint-071 · V3b ✅ Sprint-072 · V4b ✅ Sprint-073）
 > **定位**: proof-of-fun 探针——**纯涌现、零脚手架**，先证核心体验成立
 > **旗子**: 「活着的村庄」——旁观 3-5 个 NPC 纯涌现地过完一天
 > **前置阶段**: Phase 1 — 核心基础（部分门有意识跳过，见 §2.1）
@@ -79,7 +79,7 @@
 | 5 | **V2 牵引移动** ✅ | `Goal.target_pos` 解析到最近可采集食物点（复用 `query_harvestable`）/ 水（`OceanProvider`）| Vf, V1 | ✅ 完成——goal_resolution 同步填充 target_pos（Sprint-070）| 饿的 NPC 走向浆果丛，渴的走向水 |
 | 6 | **V3a 代谢闭环**（命门）✅ | 最小采集配方（走交互配方表）+ `eat_food` 消费系统 → 采集入库、进食使 `Needs.hunger` 真实下降/回 Vitals | V0, Vf, V2 | ✅ 完成——harvest_on_arrival_system + consume_system + ConsumableEffect 展开 + 4 TOML 食物条目（Sprint-071·1111 tests）| NPC 采集浆果→吃→饥饿真实下降，代谢环成立 |
 | 7 | **V3b 市场接真** | `order_creation` 读**真实** `Needs`/库存盈余（弃 seed-random）+ 统一 `Wallet`↔registry、`item_holdings`↔`InventoryRegistry` 双账 | V3a | 撮合是 agent-based ✓，但需求腿接假数据、库存两套账。**市场多热闹就展示多热闹，禁伪造** | 真实成交、价格随供需波动、钱包/库存**一致** |
-| 8 | **V4b 交易气泡** | 交易吆喝气泡（接 V3 成交事件出口）| V3b, V4a | 需经济成交事件暴露给气泡系统（薄出口）| 成交时冒"卖你个好价"类吆喝 |
+| 8 | **V4b 交易气泡** ✅ | 交易吆喝气泡（接 V3 成交事件出口·EventChannel+priority·三级仲裁）| V3b, V4a | ✅ 完成——成交事件走 `EventChannel<TradeRecord>`·`ActiveBubble.priority` 三级制·`TradeShout` 8 TOML 片段·1128 tests（Sprint-073）| 成交时冒"卖你个好价"类吆喝 |
 | 9 | **V5 旁观工具** | 需求满足点场景 + 时间加速 + 点击 NPC 看需求/意图/库存/钱包 | V1-V4 | 21 NPC 可视化已在，缺场景编排 + inspect UI | 人类打开就能看整村活一天 |
 | 10 | **V6 快照存档** | bincode 序列化快照 → 单 LMDB db → 重载重建 | V3 | 存档**零代码**、首次引入 LMDB；**显式砍到 MVP**，不做 `SaveableModule` 14 方法/脏增量/迁移/崩溃恢复/多槽 | 半天存档→重载→村庄从中断处继续 |
 

@@ -20,6 +20,8 @@ pub struct ActiveBubble {
     pub bubble_type: BubbleType,
     /// 过期 tick——`current_tick > expiry_tick` 时气泡消失
     pub expiry_tick: u64,
+    /// 优先级——高可抢占低（对齐 UI与UX系统/005 §SpeechBubbleEvent { priority }）
+    pub priority: u8,
 }
 
 /// 单个 NPC 的气泡槽——活跃气泡 + 冷却计时
@@ -78,6 +80,7 @@ mod tests {
                     text: "你好".into(),
                     bubble_type: BubbleType::Normal,
                     expiry_tick: 100,
+                    priority: 3,
                 }),
                 next_allowed_tick: 0,
             },

@@ -187,6 +187,8 @@ pub struct WorldDriver {
     action_instance_counter: woworld_ecs::resources::action_instance_counter::ActionInstanceCounter,
     /// ★ Step 5e: 动作生命周期事件通道（双缓冲：begin_frame→send→mid_phase_flush→read）
     action_events: woworld_ecs::events::EventChannel<woworld_core::action::ActionLifecycleEvent>,
+    /// ★ V4b: 成交事件通道（双缓冲：Block A0 begin_frame → Block A5 send+flush → 下帧视觉相位 drain）
+    trade_events: woworld_ecs::events::EventChannel<woworld_core::economy::TradeRecord>,
 
     /// ★ Sprint-062: 玩家输入帧快照（Godot input_bridge 每帧填充——桥接层属下一冲刺）
     input_state: woworld_core::input::InputState,
@@ -318,6 +320,7 @@ impl INode3D for WorldDriver {
             action_instance_counter:
                 woworld_ecs::resources::action_instance_counter::ActionInstanceCounter::new(),
             action_events: woworld_ecs::events::EventChannel::new(),
+            trade_events: woworld_ecs::events::EventChannel::new(),
             input_state: woworld_core::input::InputState::default(),
             hotbar_config: woworld_core::input::HotbarConfig::new(),
             nearby_interactables: woworld_ecs::resources::interact::NearbyInteractables::new(),
@@ -1375,6 +1378,17 @@ impl INode3D for WorldDriver {
             &self.relation_storage,
             self.clock.day_progress(),
         );
+        // ★ V4b: 交易气泡——消费上一帧成交事件（economy block 产→EventChannel→本帧 drain）
+        //   在 speech_bubble_system 之后运行——greeting(3) 可抢占 trade(2)，trade(2) 可覆盖 self-talk(1)
+        woworld_ecs::systems::economy::trade_bubble_system(
+            &self.ecs,
+            &mut self.trade_events,
+            &mut self.bubble_state,
+            &self.speech_fragments,
+            self.frame_count,
+            self.clock.day_progress(),
+            self.player_ecs_entity,
+        );
 
         // 先获取玩家位置（避免 borrow 冲突）
         let player_pos = self.get_player_position();
@@ -2116,6 +2130,7 @@ impl WorldDriver {
                 let cc_dt = delta as f32;
                 self.game_time_secs += cc_dt;
                 self.action_events.begin_frame();
+                self.trade_events.begin_frame();
                 player_input_system(&mut self.ecs, &self.input_state);
                 coyote_time_system(&mut self.ecs, cc_dt, &self.terrain);
                 stamina_gate_system(&mut self.ecs, cc_dt);
@@ -2283,10 +2298,13 @@ impl WorldDriver {
                     &self.item_registry,
                     self.frame_count,
                 );
-                woworld_ecs::systems::economy::market_matching_system(
+                let trades = woworld_ecs::systems::economy::market_matching_system(
                     &mut self.economy_registry,
                     self.frame_count,
                 );
+                // ★ V4b: 成交事件 → EventChannel（下帧视觉相位 trade_bubble_system 消费）
+                self.trade_events.send_all(trades);
+                self.trade_events.mid_phase_flush();
                 // ★ V3b: 成交后同步 registry wallet → ECS Wallet component
                 let mut wallet_cmd = CommandBuffer::new();
                 woworld_ecs::systems::economy::wallet_sync_system(

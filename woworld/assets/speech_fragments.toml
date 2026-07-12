@@ -174,3 +174,44 @@ act = "emotion_vent"
 text = "唉…"
 color = "emotion"
 max_pleasure = -0.3
+
+# ─────────────── 交易吆喝 TradeShout（V4b·接 V3b 成交事件出口）───────────────
+
+[[fragment]]
+act = "trade_shout"
+text = "成交！"
+color = "normal"
+
+[[fragment]]
+act = "trade_shout"
+text = "卖你个好价！"
+min_extraversion = 0.5
+
+[[fragment]]
+act = "trade_shout"
+text = "好东西啊！"
+min_extraversion = 0.4
+
+[[fragment]]
+act = "trade_shout"
+text = "下次再来！"
+min_extraversion = 0.5
+
+[[fragment]]
+act = "trade_shout"
+text = "多谢惠顾"
+
+[[fragment]]
+act = "trade_shout"
+text = "嗯，交易愉快"
+min_extraversion = 0.3
+
+[[fragment]]
+act = "trade_shout"
+text = "太便宜了…"
+max_extraversion = 0.3
+
+[[fragment]]
+act = "trade_shout"
+text = "赚到了！"
+min_pleasure = 0.3

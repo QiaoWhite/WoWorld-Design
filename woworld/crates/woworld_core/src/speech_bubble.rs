@@ -35,6 +35,15 @@ pub enum BubbleType {
     Damage,
 }
 
+// ── 气泡优先级常量（对齐 UI与UX系统/005 §SpeechBubbleEvent { priority }）──
+
+/// 社交定向——问候/告别·可抢占一切
+pub const PRIORITY_SOCIAL: u8 = 3;
+/// 交易信号——成交吆喝·可抢占自言自语
+pub const PRIORITY_TRADE: u8 = 2;
+/// 自言自语——需求嘟囔/情绪宣泄·最低
+pub const PRIORITY_SELF_TALK: u8 = 1;
+
 impl BubbleType {
     /// 气泡文字 RGB 颜色（各通道 0.0-1.0）
     pub fn color(&self) -> [f32; 3] {
@@ -83,6 +92,8 @@ pub enum SpeechAct {
     NeedMutter,
     /// 情绪宣泄——自言自语表达情绪极值
     EmotionVent,
+    /// 交易吆喝——成交后买卖双方冒泡（V4b·接 V3b 成交事件出口）
+    TradeShout,
 }
 
 impl SpeechAct {
@@ -92,6 +103,7 @@ impl SpeechAct {
             SpeechAct::Greeting | SpeechAct::Farewell => BubbleType::Normal,
             SpeechAct::NeedMutter => BubbleType::Ambient,
             SpeechAct::EmotionVent => BubbleType::Emotion,
+            SpeechAct::TradeShout => BubbleType::Normal,
         }
     }
 
@@ -102,6 +114,7 @@ impl SpeechAct {
             "farewell" => Some(SpeechAct::Farewell),
             "need_mutter" => Some(SpeechAct::NeedMutter),
             "emotion_vent" => Some(SpeechAct::EmotionVent),
+            "trade_shout" => Some(SpeechAct::TradeShout),
             _ => None,
         }
     }
@@ -183,13 +196,17 @@ mod tests {
 
     #[test]
     fn test_speech_act_default_bubble_type() {
-        // 语义 ⊥ 渲染色：Greeting/Farewell=白, NeedMutter=蓝灰, EmotionVent=黄
+        // 语义 ⊥ 渲染色：Greeting/Farewell=白, TradeShout=白, NeedMutter=蓝灰, EmotionVent=黄
         assert_eq!(
             SpeechAct::Greeting.default_bubble_type(),
             BubbleType::Normal
         );
         assert_eq!(
             SpeechAct::Farewell.default_bubble_type(),
+            BubbleType::Normal
+        );
+        assert_eq!(
+            SpeechAct::TradeShout.default_bubble_type(),
             BubbleType::Normal
         );
         assert_eq!(
@@ -207,5 +224,38 @@ mod tests {
         assert_eq!(BubbleType::from_key("ambient"), BubbleType::Ambient);
         assert_eq!(BubbleType::from_key("emotion"), BubbleType::Emotion);
         assert_eq!(BubbleType::from_key("garbage"), BubbleType::Normal);
+    }
+
+    // ── TradeShout ──────────────────────────
+
+    #[test]
+    fn test_trade_shout_from_key() {
+        assert_eq!(
+            SpeechAct::from_key("trade_shout"),
+            Some(SpeechAct::TradeShout)
+        );
+    }
+
+    #[test]
+    fn test_trade_shout_default_bubble_type() {
+        assert_eq!(
+            SpeechAct::TradeShout.default_bubble_type(),
+            BubbleType::Normal
+        );
+    }
+
+    // ── Priority ────────────────────────────
+
+    #[test]
+    fn test_priority_ordering() {
+        assert!(PRIORITY_SOCIAL > PRIORITY_TRADE);
+        assert!(PRIORITY_TRADE > PRIORITY_SELF_TALK);
+    }
+
+    #[test]
+    fn test_priority_values() {
+        assert_eq!(PRIORITY_SOCIAL, 3);
+        assert_eq!(PRIORITY_TRADE, 2);
+        assert_eq!(PRIORITY_SELF_TALK, 1);
     }
 }

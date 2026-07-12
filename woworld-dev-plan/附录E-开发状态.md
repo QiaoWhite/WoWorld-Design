@@ -19,11 +19,11 @@
 | 零代码的模块 | **21 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
 | Rust workspace | 5 crates, **1128 tests 全绿** (core: 405 + worldgen: 75 + atmosphere: 26 + ecs: 622（613 lib + 9 集成） + godot: 0), cargo clippy 零警告 |
-| ECS 架构 | **Phase 0/1/2/3 ✅** — 55 Components + 42 Systems + 613 lib tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + 角色控制器核心三层 + Step 5e 管线集成 + 第三人称相机 MVP + 持续/充能动作运行时 + 遭遇感知层（问候/告别气泡·barrier-free）+ **★Sprint-069 Poisson disc 采集物生成（Bridson 2007·`query_harvestable` 真实返回）** + **★Sprint-070 V2 牵引移动（`goal_resolution_system` 同步填充 `target_pos`·FindFood→植被查询·FindWater→水点搜索）** + **★Sprint-071 V3a 代谢闭环（采集入库→进食消费·`harvest_on_arrival_system` + `consume_system`）** + **★Sprint-072 V3b 市场接真（order_creation 读真实 Needs/库存·双账统一）** + **★Sprint-073 V4b 交易气泡（成交事件→EventChannel→吆喝气泡·priority 三级仲裁）** 就位。 |
-| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + NPC对话气泡（问候/告别/自言自语） + NPC交易吆喝气泡 + 独立 CameraRig 第三人称相机 + **★BiomeVegetation 初始化（set_vegetation_provider·可采集植被查询在线）** + **★代谢闭环（harvest_on_arrival→库存→consume→真实饥饿循环）** |
-| 当前冲刺 | **Sprint-073 V4b 交易气泡完成**（1128 tests·clippy/fmt 零警告·**待提交**）— 成交事件走 `EventChannel<TradeRecord>` + `ActiveBubble.priority: u8` 三级仲裁 + `SpeechAct::TradeShout` + `trade_bubble_system` (~60行·薄出口·复用 V4a 气泡框架) + 8 TOML 交易吆喝片段·+12 tests。→ 下一步: V5 旁观工具（第 9/10 步·场景编排 + 时间加速 + NPC inspect UI） |
-| 最新 CHG | **CHG-069**（2026-07-11·第三人称相机与视角系统·玩家系统007 v1.2·实现已落地）— 前: CHG-067 物理运动学地基（仅设计） |
-| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260713-sprint073]]（2026-07-13·Sprint-073 V4b·1128 tests） |
+| ECS 架构 | **Phase 0/1/2/3 ✅** — 55 Components + 42 Systems + 614 lib tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + 角色控制器核心三层 + Step 5e 管线集成 + 第三人称相机 MVP + 持续/充能动作运行时 + 遭遇感知层（问候/告别气泡·barrier-free）+ Poisson disc 采集物生成 + V2 牵引移动 + V3a 代谢闭环 + V3b 市场接真 + V4b 交易气泡 + **★V5 旁观工具（控制台 speed 命令·entity_debug 12 section·点击选中+高亮）** 就位。 |
+| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator + 天气 + 经济循环 + 库存系统 + Tab夺舍NPC + NPC对话气泡（问候/告别/自言自语/交易吆喝） + 独立 CameraRig 第三人称相机 + BiomeVegetation 初始化 + 代谢闭环 + **★F3 控制台 speed 命令·模拟速度统一加速** |
+| 当前冲刺 | **Sprint-074 V5 旁观工具完成**（1136 tests·clippy/fmt 零警告·**待提交**）— F3 控制台 `speed` 命令（`WorldClock.time_scale`·统一加速时钟+ECS+天气）+ `entity_debug_system` 扩展（Action/Wallet/Economy/Growth/Inventory 5 新 section·共 12 section）+ 旁观者点击选中+高亮 + `#[func] get_inspect_data` (JSON)。→ 下一步: V6 快照存档（第 10/10 步·最后一站·bincode→LMDB→重载·MVP） |
+| 最新 CHG | **CHG-069**（2026-07-11·第三人称相机与视角系统·玩家系统007 v1.2·实现已落地） |
+| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260713-sprint074]]（2026-07-13·Sprint-074 V5·1136 tests） |
 
 ---
 

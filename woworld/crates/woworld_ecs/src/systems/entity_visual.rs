@@ -9,10 +9,14 @@ use std::collections::HashMap;
 use woworld_core::entity_visual::{DebugField, DebugSection, EntityDebugSnapshot, EntityVisual};
 use woworld_core::naming::generate_name;
 
+use crate::components::action::ActionIntent;
+use crate::components::economy::{EconomicCognition, Wallet};
 use crate::components::emotion::Emotion;
 use crate::components::entity_kind::EntityKind;
+use crate::components::growth::GrowthNeeds;
 use crate::components::lod::LodLevel;
 use crate::components::transform::{Position, Rotation};
+use crate::resources::inventory_registry::InventoryRegistry;
 use crate::resources::speech_bubble_state::SpeechBubbleState;
 
 /// 名字缓存：首次遇到实体时生成并缓存，后续直接返回
@@ -80,9 +84,14 @@ pub fn entity_visual_system(
 }
 
 /// 为单个实体收集完整调试快照（info 命令触发）
+/// 为单个实体收集完整调试快照（`info` 命令 / V5 检视面板触发）
+///
+/// `inventory`: 可选注册表引用——console `info` 传 `None`，检视面板传 `Some(&registry)`。
+///   类型系统强制调用者显式处理"无 registry"情况。
 pub fn entity_debug_system(
     world: &hecs::World,
     entity: hecs::Entity,
+    inventory: Option<&InventoryRegistry>,
 ) -> Option<EntityDebugSnapshot> {
     let pos = world.get::<&Position>(entity).ok()?;
     let kind = world.get::<&EntityKind>(entity).ok()?;
@@ -114,9 +123,10 @@ pub fn entity_debug_system(
         ],
     });
 
-    // Creature 专属：Vitals, Emotion, BigFive, Goal, Needs, Movement, Lifecycle, Social, Economy
+    // Creature 专属：Action, Wallet, Economy, Growth, Vitals, Emotion, BigFive, Goal, Needs,
+    //   Movement, Lifecycle, Inventory (★ V5 扩展)
     if matches!(*kind, EntityKind::Creature) {
-        collect_creature_debug(world, entity, &mut sections);
+        collect_creature_debug(world, entity, inventory, &mut sections);
     }
 
     // Plant / DroppedItem / etc — 占位（Component 尚未定义）
@@ -131,12 +141,141 @@ pub fn entity_debug_system(
     })
 }
 
-/// 收集 Creature 实体的全部 NPC Component 数据
+/// 收集 Creature 实体的全部 NPC Component 数据（★ V5 扩展：Action/Wallet/Economy/Growth/Inventory）
 fn collect_creature_debug(
     world: &hecs::World,
     entity: hecs::Entity,
+    inventory: Option<&InventoryRegistry>,
     sections: &mut Vec<DebugSection>,
 ) {
+    // ★ V5: Action — NPC 正在做什么
+    if let Ok(ai) = world.get::<&ActionIntent>(entity) {
+        sections.push(DebugSection {
+            title: "Action".into(),
+            fields: vec![
+                DebugField {
+                    label: "Category".into(),
+                    value: format!("{:?}", ai.category),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Weight".into(),
+                    value: format!("{:.3}", ai.weight),
+                    color_hint: None,
+                },
+            ],
+        });
+    }
+
+    // ★ V5: Wallet — 铜/银/金币
+    if let Ok(w) = world.get::<&Wallet>(entity) {
+        sections.push(DebugSection {
+            title: "Wallet".into(),
+            fields: vec![
+                DebugField {
+                    label: "Copper".into(),
+                    value: format!("{}", w.copper),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Silver".into(),
+                    value: format!("{}", w.silver),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Gold".into(),
+                    value: format!("{}", w.gold),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Total (copper)".into(),
+                    value: format!("{}", w.total_copper()),
+                    color_hint: None,
+                },
+            ],
+        });
+    }
+
+    // ★ V5: Economy — 经济认知 6 维
+    if let Ok(ec) = world.get::<&EconomicCognition>(entity) {
+        sections.push(DebugSection {
+            title: "Economy".into(),
+            fields: vec![
+                DebugField {
+                    label: "Financial Literacy".into(),
+                    value: format!("{:.3}", ec.financial_literacy),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Market Understanding".into(),
+                    value: format!("{:.3}", ec.market_understanding),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Price Memory".into(),
+                    value: format!("{:.3}", ec.price_memory_accuracy),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Time Pref. Rate".into(),
+                    value: format!("{:.3}", ec.time_preference_rate),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Search Breadth".into(),
+                    value: format!("{}", ec.market_search_breadth),
+                    color_hint: None,
+                },
+            ],
+        });
+    }
+
+    // ★ V5: Growth — 高层次需求
+    if let Ok(gn) = world.get::<&GrowthNeeds>(entity) {
+        sections.push(DebugSection {
+            title: "Growth".into(),
+            fields: vec![
+                DebugField {
+                    label: "Esteem Deficit".into(),
+                    value: format!("{:.3}", gn.esteem_deficit),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Competence Frustration".into(),
+                    value: format!("{:.3}", gn.competence_frustration),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Chronic Days".into(),
+                    value: format!("{}", gn.chronic_days),
+                    color_hint: None,
+                },
+            ],
+        });
+    }
+
+    // ★ V5: Inventory — 通过 InventoryRegistry 查询（非 Component）
+    if let Some(reg) = inventory {
+        let eid = woworld_core::types::EntityId(entity.to_bits().get());
+        let held_count = reg.get_holdings(eid).len();
+        let has_eq = reg.has_equipment(eid);
+        sections.push(DebugSection {
+            title: "Inventory".into(),
+            fields: vec![
+                DebugField {
+                    label: "Items Held".into(),
+                    value: format!("{}", held_count),
+                    color_hint: None,
+                },
+                DebugField {
+                    label: "Has Equipment".into(),
+                    value: if has_eq { "yes".into() } else { "no".into() },
+                    color_hint: None,
+                },
+            ],
+        });
+    }
+
     // Vitals
     if let Ok(v) = world.get::<&crate::components::vitals::Vitals>(entity) {
         sections.push(DebugSection {
@@ -465,7 +604,7 @@ mod tests {
         let mut world_mut = world;
         world_mut.despawn(entity).unwrap();
         // 用无效 entity 查询
-        assert!(entity_debug_system(&world_mut, entity).is_none());
+        assert!(entity_debug_system(&world_mut, entity, None).is_none());
     }
 
     #[test]
@@ -475,6 +614,17 @@ mod tests {
             Position(Vec3::new(1.0, 2.0, 3.0)),
             EcsKind::Creature,
             Rotation::default(),
+            crate::components::action::ActionIntent {
+                category: crate::components::action::ActionCategory::Eat,
+                weight: 0.72,
+            },
+            crate::components::economy::Wallet {
+                copper: 15,
+                silver: 3,
+                gold: 0,
+            },
+            crate::components::economy::EconomicCognition::default(),
+            crate::components::growth::GrowthNeeds::default(),
             crate::components::vitals::Vitals::default(),
             Emotion::default(),
             crate::components::bigfive::BigFive::default(),
@@ -484,13 +634,50 @@ mod tests {
             crate::components::lifecycle::Age::new(80.0, 30.0),
             crate::components::lifecycle::LifeStage::YoungAdult,
         ));
-        let snap = entity_debug_system(&world, e).unwrap();
+        let snap = entity_debug_system(&world, e, None).unwrap();
         assert_eq!(snap.entity_bits, e.to_bits().get());
-        // 应包含 Transform + Vitals + Emotion + BigFive + Goal + Needs + Movement + Lifecycle
+        // ★ V5: Transform + Action + Wallet + Economy + Growth + Vitals +
+        //   Emotion + BigFive + Goal + Needs + Movement + Lifecycle (12 sections min)
+        //   Inventory section absent because None was passed
         assert!(
-            snap.sections.len() >= 8,
-            "expected >=8 sections, got {}",
+            snap.sections.len() >= 12,
+            "expected >=12 sections, got {}",
             snap.sections.len()
+        );
+
+        // 验证新 section 存在且值正确
+        let has_action = snap.sections.iter().any(|s| s.title == "Action");
+        let has_wallet = snap.sections.iter().any(|s| s.title == "Wallet");
+        let has_economy = snap.sections.iter().any(|s| s.title == "Economy");
+        let has_growth = snap.sections.iter().any(|s| s.title == "Growth");
+        assert!(has_action, "missing Action section");
+        assert!(has_wallet, "missing Wallet section");
+        assert!(has_economy, "missing Economy section");
+        assert!(has_growth, "missing Growth section");
+    }
+
+    /// ★ V5: Inventory section 存在当 registry 传入
+    #[test]
+    fn test_debug_system_with_inventory_registry() {
+        use crate::resources::inventory_registry::InventoryRegistry;
+        use woworld_core::types::EntityId;
+
+        let mut world = hecs::World::new();
+        let e = world.spawn((Position(Vec3::ZERO), EcsKind::Creature, Rotation::default()));
+        let mut reg = InventoryRegistry::new();
+        let eid = EntityId(e.to_bits().get());
+        reg.init_inventory(eid, 10);
+
+        let snap = entity_debug_system(&world, e, Some(&reg)).unwrap();
+        let has_inv = snap.sections.iter().any(|s| s.title == "Inventory");
+        assert!(has_inv, "missing Inventory section when registry is Some");
+
+        // None 时不出现 Inventory
+        let snap_none = entity_debug_system(&world, e, None).unwrap();
+        let has_inv_none = snap_none.sections.iter().any(|s| s.title == "Inventory");
+        assert!(
+            !has_inv_none,
+            "Inventory section should be absent when registry is None"
         );
     }
 

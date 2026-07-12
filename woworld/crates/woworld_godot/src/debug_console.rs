@@ -59,6 +59,8 @@ pub struct ConsoleState {
     pub player_pos: glam::Vec3,
     /// Sprint-060: possess 命令设定的目标实体（WorldDriver 下帧处理并清零）
     pub pending_possess_request: Option<hecs::Entity>,
+    /// ★ V5: speed 命令设定的模拟速度倍率（WorldDriver 下帧处理并清零）
+    pub pending_time_scale: Option<f32>,
 }
 
 impl Default for ConsoleState {
@@ -72,6 +74,7 @@ impl Default for ConsoleState {
             history_cursor: 0,
             player_pos: glam::Vec3::ZERO,
             pending_possess_request: None,
+            pending_time_scale: None,
         }
     }
 }
@@ -308,6 +311,13 @@ impl DebugConsole {
                 help: "possess <entity_id> — 夺舍指定实体（按 hecs entity bits）",
             },
         );
+        self.commands.insert(
+            "speed".into(),
+            CommandEntry {
+                func: cmd_speed,
+                help: "speed [value] — 设置模拟速度 (1=正常, 10=快速, 60=极快, 0=暂停)",
+            },
+        );
     }
 }
 
@@ -338,13 +348,48 @@ fn cmd_debugcolor(_args: &[&str], state: &mut ConsoleState, _world: &hecs::World
     )
 }
 
+/// ★ V5: `speed [value]` — 设置或查看模拟速度倍率
+///
+/// 速度档位常量（集中管理，非硬编码分散）:
+///   1.0 = 正常速度, 10.0 = 快速, 60.0 = 极快（~1 秒 = 1 分钟游戏时间）, 0.0 = 暂停
+fn cmd_speed(args: &[&str], state: &mut ConsoleState, _world: &hecs::World) -> String {
+    const SPEED_PRESETS: &[f32] = &[1.0, 10.0, 60.0];
+
+    match args.first() {
+        None => {
+            // 无参数——显示当前速度（WorldDriver 会填入当前值，此占位在注册时替换）
+            "[color=#88ffff]Usage: speed <value> — e.g. speed 10 (fast), speed 1 (normal), speed 60 (very fast), speed 0 (pause)[/color]".into()
+        }
+        Some(&"presets") | Some(&"list") => {
+            format!(
+                "[color=#88ffff]Speed presets: {:?} — Usage: speed <value>[/color]",
+                SPEED_PRESETS
+            )
+        }
+        Some(arg) => match arg.parse::<f32>() {
+            Ok(val) if (0.0..=100.0).contains(&val) => {
+                state.pending_time_scale = Some(val);
+                if val == 0.0 {
+                    "[color=#ffaa00][speed] Simulation paused (0x)[/color]".into()
+                } else {
+                    format!("[color=#88ff88][speed] {val}x[/color]")
+                }
+            }
+            Ok(_) => "[color=#ff8888][speed] Value out of range [0.0, 100.0][/color]".into(),
+            Err(_) => format!(
+                "[color=#ff8888][speed] Invalid value: '{arg}'. Use a number, e.g. speed 10[/color]"
+            ),
+        },
+    }
+}
+
 fn cmd_info(_args: &[&str], state: &mut ConsoleState, world: &hecs::World) -> String {
     let Some(entity) = state.selected_entity else {
         return "[color=#ff8888]No entity selected. Click an entity or use 'select <id>'.[/color]"
             .into();
     };
 
-    match entity_debug_system(world, entity) {
+    match entity_debug_system(world, entity, None) {
         Some(snap) => format_snapshot(&snap),
         None => format!(
             "[color=#ff8888]Entity {:?} not found in ECS world (may have despawned).[/color]",

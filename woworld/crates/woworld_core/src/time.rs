@@ -108,6 +108,9 @@ fn smoothstep(edge0: f64, edge1: f64, x: f64) -> f64 {
 /// 运行时世界时钟
 ///
 /// Godot 侧每帧调用 `advance(delta)`，然后消费 `current` 快照。
+///
+/// `time_scale` 是模拟速度乘数：1.0 = 真实时间, 10.0 = 10 倍速, 0.0 = 暂停。
+/// 消费方（WorldDriver）负责设置此值——core 不定义速度档位。
 #[derive(Clone, Debug)]
 pub struct WorldClock {
     /// 当前时间快照（每帧重算）
@@ -118,8 +121,10 @@ pub struct WorldClock {
     pub sun_orbit_radius: f32,
     /// 一年天数（默认 120，可调 [TUNING]）
     pub days_per_year: u64,
+    /// 模拟速度乘数 [0.0, 100.0]——1.0 = 真实时间, 0.0 = 暂停, 60.0 = 一分钟/秒
+    pub time_scale: f32,
 
-    /// 累计现实时间（秒）
+    /// 累计真实时间（秒，未经 time_scale 缩放——用于 set_time 等绝对值计算）
     accumulator: f64,
 }
 
@@ -141,13 +146,17 @@ impl WorldClock {
             seconds_per_day,
             sun_orbit_radius: 500.0,
             days_per_year: 120,
+            time_scale: 1.0,
             accumulator: initial_progress * seconds_per_day,
         }
     }
 
-    /// 每帧推进 delta 现实秒。返回 `true` 表示跨越了日期边界。
+    /// 每帧推进 delta 现实秒（内部乘以 time_scale）。返回 `true` 表示跨越了日期边界。
+    ///
+    /// 调用方负责将 time_scale 应用于 ECS 系统 delta——clock 只管自己的推进。
     pub fn advance(&mut self, delta_real_seconds: f64) -> bool {
-        self.accumulator += delta_real_seconds;
+        let scaled = delta_real_seconds * self.time_scale as f64;
+        self.accumulator += scaled;
         let day_progress = self.accumulator / self.seconds_per_day;
 
         let whole_days = day_progress.floor() as u64;
@@ -160,6 +169,11 @@ impl WorldClock {
         self.current = WorldTime::from_progress(fractional, new_day_number, self.days_per_year);
 
         new_day_number > old_day_number
+    }
+
+    /// 设置模拟速度，自动 clamp 到 [0.0, 100.0]
+    pub fn set_time_scale(&mut self, scale: f32) {
+        self.time_scale = scale.clamp(0.0, 100.0);
     }
 
     /// 当前日内进度 0.0-1.0（0=午夜, 0.25=日出, 0.5=正午, 0.75=日落）
@@ -314,5 +328,74 @@ mod tests {
         clock.set_time(0.25);
         clock.advance(30.0);
         assert!((clock.current.day_progress - 0.5).abs() < 0.01);
+    }
+
+    // ── time_scale 测试 ─────────────────
+
+    #[test]
+    fn test_time_scale_default_is_one() {
+        let clock = WorldClock::new(60.0);
+        assert!((clock.time_scale - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_time_scale_clamps_to_zero() {
+        let mut clock = WorldClock::new(60.0);
+        clock.set_time_scale(-0.5);
+        assert!(clock.time_scale >= 0.0);
+    }
+
+    #[test]
+    fn test_time_scale_clamps_to_hundred() {
+        let mut clock = WorldClock::new(60.0);
+        clock.set_time_scale(150.0);
+        assert!((clock.time_scale - 100.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_time_scale_normal_range_preserved() {
+        let mut clock = WorldClock::new(60.0);
+        clock.set_time_scale(10.0);
+        assert!((clock.time_scale - 10.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_advance_respects_time_scale() {
+        let mut clock = WorldClock::new(60.0);
+        clock.set_time(0.5); // noon
+        clock.set_time_scale(2.0);
+        // 15 real seconds × 2.0 scale = 30 sim seconds = 0.5 game day
+        clock.advance(15.0);
+        assert!(
+            (clock.current.day_progress - 1.0).abs() < 0.01 || clock.current.day_progress < 0.01,
+            "2x: 15s real → 30s sim = 0.5 day, should be midnight (~0.0), got {}",
+            clock.current.day_progress
+        );
+    }
+
+    #[test]
+    fn test_advance_time_scale_zero_pauses() {
+        let mut clock = WorldClock::new(60.0);
+        clock.set_time(0.5);
+        clock.set_time_scale(0.0);
+        let before = clock.current.day_progress;
+        clock.advance(100.0);
+        assert!(
+            (clock.current.day_progress - before).abs() < 0.001,
+            "pause: time should not advance"
+        );
+    }
+
+    #[test]
+    fn test_set_time_scale_preserves_accumulator_integrity() {
+        // 改变 time_scale 不应导致时间跳跃
+        let mut clock = WorldClock::new(60.0);
+        clock.set_time(0.25);
+        clock.set_time_scale(10.0);
+        clock.advance(3.0); // 30 sim seconds = 0.5 day
+        let dp_after = clock.current.day_progress;
+        clock.set_time_scale(1.0);
+        // 切换 scale 不改变当前时间
+        assert!((clock.current.day_progress - dp_after).abs() < 0.001);
     }
 }

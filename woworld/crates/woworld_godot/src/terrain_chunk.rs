@@ -237,6 +237,8 @@ pub struct WorldDriver {
     down_was_pressed: bool,
     #[allow(dead_code)]
     mouse_left_was_pressed: bool,
+    /// ★ V5: 旁观者点击选中的实体（非控制台模式——console 有独立 selected_entity）
+    spectator_selected_entity: Option<hecs::Entity>,
     /// Sprint-060: Tab 夺舍 / F 退出夺舍边缘检测
     tab_was_pressed: bool,
     f_key_was_pressed: bool,
@@ -344,6 +346,7 @@ impl INode3D for WorldDriver {
             up_was_pressed: false,
             down_was_pressed: false,
             mouse_left_was_pressed: false,
+            spectator_selected_entity: None,
             tab_was_pressed: false,
             f_key_was_pressed: false,
             camera_rig_node: None,
@@ -854,9 +857,11 @@ impl INode3D for WorldDriver {
 
         let player_pos = self.get_player_position();
 
-        // 天气驱动 tick
-        self.weather_driver
-            .tick(delta, self.season_provider.current_season());
+        // 天气驱动 tick（V5: 乘 time_scale 统一模拟速度）
+        self.weather_driver.tick(
+            delta * self.clock.time_scale as f64,
+            self.season_provider.current_season(),
+        );
 
         // 季节检测（每天一次）
         let total_days = self.clock.current.day_number;
@@ -877,7 +882,7 @@ impl INode3D for WorldDriver {
             let atm = self
                 .atmosphere
                 .resolve_with_weather(wt, player_pos, ws, wf, we, wsa, ss, sw);
-            self.update_sun_and_sky(&atm, delta);
+            self.update_sun_and_sky(&atm, delta * self.clock.time_scale as f64);
         }
 
         // ── Phase 2 LODCoordinator: 完整 8 步算法 ──
@@ -1578,6 +1583,51 @@ impl INode3D for WorldDriver {
             }
         }
 
+        // ★ V5: 旁观者点击选中（非控制台模式——console 内部有独立 click→select 逻辑）
+        {
+            let console_visible = self
+                .debug_console
+                .as_ref()
+                .map(|c| c.is_visible())
+                .unwrap_or(false);
+            if !console_visible {
+                let input = Input::singleton();
+                let mouse_left = input.is_mouse_button_pressed(godot::global::MouseButton::LEFT);
+                if mouse_left && !self.mouse_left_was_pressed {
+                    // 点击→射线→AABB 选中（先确定目标，再分离借用高亮）
+                    let hit = if let (Some(ref renderer), Some(ref camera)) =
+                        (&self.entity_renderer, &self.camera_3d_node)
+                    {
+                        let viewport = camera.get_viewport();
+                        viewport.as_ref().and_then(|vp| {
+                            let mouse_pos = vp.get_mouse_position();
+                            let origin = camera.project_ray_origin(mouse_pos);
+                            let normal = camera.project_ray_normal(mouse_pos);
+                            let o = glam::Vec3::new(origin.x, origin.y, origin.z);
+                            let d = glam::Vec3::new(normal.x, normal.y, normal.z);
+                            renderer.raycast_select(o, d)
+                        })
+                    } else {
+                        None
+                    };
+                    self.spectator_selected_entity = hit;
+                }
+                self.mouse_left_was_pressed = mouse_left;
+            }
+
+            // 高亮同步（旁观者选中或控制台选中，二选一）
+            if let Some(ref mut renderer) = self.entity_renderer {
+                let highlight = if console_visible {
+                    self.debug_console
+                        .as_ref()
+                        .and_then(|c| c.state.selected_entity)
+                } else {
+                    self.spectator_selected_entity
+                };
+                renderer.highlight_entity(highlight);
+            }
+        }
+
         // Sprint-060: 处理 possess 命令的请求（console borrow 已释放）
         let pending_possess = self
             .debug_console
@@ -1585,6 +1635,15 @@ impl INode3D for WorldDriver {
             .and_then(|c| c.state.pending_possess_request.take());
         if let Some(target) = pending_possess {
             self.handle_possess_by_entity(target);
+        }
+
+        // ★ V5: 处理 speed 命令的请求
+        let pending_scale = self
+            .debug_console
+            .as_mut()
+            .and_then(|c| c.state.pending_time_scale.take());
+        if let Some(scale) = pending_scale {
+            self.clock.set_time_scale(scale);
         }
     }
 }
@@ -2079,6 +2138,9 @@ impl WorldDriver {
 
         // ── ECS tick — 全 17 System ──────────
         {
+            // ★ V5: sim_delta 统一模拟速度（clock 内部也乘 time_scale，此处供 ECS/天气）
+            let sim_delta = delta * self.clock.time_scale as f64;
+
             use hecs::CommandBuffer;
             use woworld_ecs::systems::life::{
                 cleanup, corpse_decay, death_watch, item_spawn, loot_roll, regen,
@@ -2127,7 +2189,7 @@ impl WorldDriver {
                 use woworld_ecs::systems::movement::stamina_gate_system::stamina_gate_system;
                 use woworld_ecs::systems::player::player_input::player_input_system;
 
-                let cc_dt = delta as f32;
+                let cc_dt = sim_delta as f32;
                 self.game_time_secs += cc_dt;
                 self.action_events.begin_frame();
                 self.trade_events.begin_frame();
@@ -2185,11 +2247,11 @@ impl WorldDriver {
             // ── Block A1: &mut World systems (no CommandBuffer) ──
             woworld_ecs::systems::npc::needs::needs_decay_system(&mut self.ecs, day_progress);
             regen::regen_system(&mut self.ecs);
-            emotion_drift_system(&mut self.ecs, delta as f32);
+            emotion_drift_system(&mut self.ecs, sim_delta as f32);
             physiological_pull_system(&mut self.ecs);
             social_system(
                 &mut self.ecs,
-                delta as f32,
+                sim_delta as f32,
                 self.frame_count,
                 &mut self.relation_storage,
             );
@@ -2200,7 +2262,7 @@ impl WorldDriver {
                 movement_system(
                     &mut self.ecs,
                     &mut move_cmd,
-                    delta as f32,
+                    sim_delta as f32,
                     self.frame_count,
                     &self.terrain,
                 );
@@ -2226,7 +2288,7 @@ impl WorldDriver {
                 age_system(
                     &mut self.ecs,
                     &mut age_cmd,
-                    delta as f32 / self.clock.seconds_per_day as f32,
+                    sim_delta as f32 / self.clock.seconds_per_day as f32,
                 );
                 age_cmd.run_on(&mut self.ecs);
             }
@@ -2471,6 +2533,72 @@ impl WorldDriver {
     #[func]
     fn set_target_arm_distance(&mut self, d: f32) {
         self.camera_arm_target = d;
+    }
+
+    /// ★ V5: 旁观者选中实体的 bits（0 = 无选中）。
+    /// Godot InspectPanel 每帧轮询，检测变化后拉取完整快照。
+    #[func]
+    fn get_selected_entity_bits(&self) -> i64 {
+        self.spectator_selected_entity
+            .map(|e| e.to_bits().get() as i64)
+            .unwrap_or(0)
+    }
+
+    /// ★ V5: 获取实体检视快照（JSON 字符串 → GDScript 解析）。
+    /// 返回 EntityDebugSnapshot 的 JSON——面板只读，不写模拟数据。
+    #[func]
+    fn get_inspect_data(&self, entity_bits: i64) -> godot::builtin::GString {
+        if entity_bits <= 0 {
+            return godot::builtin::GString::from("{}");
+        }
+        let Some(entity) = hecs::Entity::from_bits(entity_bits as u64) else {
+            return godot::builtin::GString::from("{}");
+        };
+
+        let snapshot = woworld_ecs::systems::entity_visual::entity_debug_system(
+            &self.ecs,
+            entity,
+            Some(&self.inventory_registry),
+        );
+
+        let Some(snap) = snapshot else {
+            return godot::builtin::GString::from("{}");
+        };
+
+        // 构建简单 JSON（不引入 serde_json 依赖——手写合规字段）
+        let kind_str = format!("{:?}", snap.kind);
+        let display_name = snap.display_name.replace('"', r#"\""#);
+        let mut json = format!(
+            r#"{{"entity_bits":{},"display_name":"{}","kind":"{}","position":[{:.2},{:.2},{:.2}],"sections":["#,
+            snap.entity_bits,
+            display_name,
+            kind_str,
+            snap.position.x,
+            snap.position.y,
+            snap.position.z,
+        );
+        for (i, section) in snap.sections.iter().enumerate() {
+            if i > 0 {
+                json.push(',');
+            }
+            json.push_str(&format!(r#"{{"title":"{}","fields":["#, section.title));
+            for (j, field) in section.fields.iter().enumerate() {
+                if j > 0 {
+                    json.push(',');
+                }
+                let color = field.color_hint.as_deref().unwrap_or("null");
+                json.push_str(&format!(
+                    r#"{{"label":"{}","value":"{}","color":"{}"}}"#,
+                    field.label.replace('"', r#"\""#),
+                    field.value.replace('"', r#"\""#),
+                    color,
+                ));
+            }
+            json.push_str("]}");
+        }
+        json.push_str("]}");
+
+        godot::builtin::GString::from(&json)
     }
 
     /// 创建完整 NPC Entity（全 Component bundle），返回 hecs Entity

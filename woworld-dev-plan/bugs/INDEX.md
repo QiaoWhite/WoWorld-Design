@@ -31,3 +31,4 @@
 | RENDER-001 | pbr,normal,法线,插值漂移,perspective interpolation,大三角形,dot(N,L),clipmap | PBR 法线透视插值漂移（大三角形） | 渲染 | 🔴回归 | ✅已修复 | [RENDER-001](渲染/RENDER-001-pbr-normal-perspective-drift.md) |
 | RENDER-002 | LOD0,VoxelChunk,光照异常,正方形区域,全黑,锯齿亮斑,shadow,shadow acne,阴影贴图,shadows_disabled,自阴影 | VoxelChunk 阴影贴图深度不连续 → LOD0 视角依赖光照异常 | 渲染 | 🔴回归 | ✅已修复 | [RENDER-002](渲染/RENDER-002-voxel-shadow-depth-discontinuity.md) |
 | TOOL-002 | canvas,obsidian,二进制,损坏,corrupt,json,文本编辑,画布 | .canvas 文件被 LLM 文本编辑损坏 | 工具链 | 🟡反直觉陷阱 | ✅已修复 | [TOOL-002](工具链/TOOL-002-canvas-binary-corruption.md) |
+| ECS-001 | greeting,问候,打招呼,speech_bubble,ActionIntent,veto,否决,SeekSafety,安全需求,social_total,needs累积,全村沉默,早期正常后突停 | SeekSafety 否决静默掐断全村问候（needs 累积后全 SeekSafety） | ECS | 🟡反直觉陷阱 | ✅已修复 | [ECS-001](ECS/ECS-001-seeksafety-veto-silences-greetings.md) |

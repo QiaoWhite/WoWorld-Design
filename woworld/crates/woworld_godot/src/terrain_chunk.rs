@@ -216,6 +216,10 @@ pub struct WorldDriver {
     name_cache: std::collections::HashMap<hecs::Entity, String>,
     /// Sprint-061: 对话气泡状态（speech_bubble_system 维护，跨帧）
     bubble_state: woworld_ecs::resources::speech_bubble_state::SpeechBubbleState,
+    /// Sprint-068: 遭遇感知层状态（encounter_system 维护，跨帧）
+    encounter_state: woworld_ecs::resources::encounter_state::EncounterState,
+    /// Sprint-068: 对话气泡片段库（TOML 数据驱动·启动加载一次）
+    speech_fragments: woworld_ecs::resources::speech_fragment_registry::SpeechFragmentRegistry,
     /// Sprint-059: ECS Player 实体（排除用）
     /// Sprint-060: 夺舍时切换为被控 NPC，自由相机时指向裸实体
     player_ecs_entity: Option<hecs::Entity>,
@@ -326,6 +330,9 @@ impl INode3D for WorldDriver {
             debug_console: None,
             name_cache: std::collections::HashMap::new(),
             bubble_state: woworld_ecs::resources::speech_bubble_state::SpeechBubbleState::new(),
+            encounter_state: woworld_ecs::resources::encounter_state::EncounterState::new(),
+            speech_fragments:
+                woworld_ecs::resources::speech_fragment_registry::SpeechFragmentRegistry::load_embedded(),
             player_ecs_entity: None,
             bare_player_entity: None,
             possession_candidate_index: 0,
@@ -718,6 +725,7 @@ impl INode3D for WorldDriver {
         }
 
         // Spawn NPC 种群（20 个，半径 30m 环形分布，Y 从地形查询）
+        // ⚠️ 占位测试布局——最终 NPC 位置由 worldgen 聚落/生命阶段放置（尚未做）。
         const NPC_COUNT: usize = 20;
         for i in 0..NPC_COUNT {
             let npc_seed = 1000 + i as u64;
@@ -1352,6 +1360,10 @@ impl INode3D for WorldDriver {
             self.frame_count,
             self.player_ecs_entity,
             &mut self.bubble_state,
+            &mut self.encounter_state,
+            &self.speech_fragments,
+            &self.relation_storage,
+            self.clock.day_progress(),
         );
 
         // 先获取玩家位置（避免 borrow 冲突）
@@ -2213,6 +2225,13 @@ impl WorldDriver {
                 cleanup::cleanup_system(&self.ecs, &mut cmd);
                 cmd.run_on(&mut self.ecs);
             }
+
+            // ── Block A4.5: 遭遇感知层（N3：movement+action_weight 之后，位置/ActionIntent 终值）──
+            //   产 EncounterEvent 供下一帧视觉相位 speech_bubble_system 消费（≤1 帧滞后）。
+            woworld_ecs::systems::npc::encounter::encounter_system(
+                &self.ecs,
+                &mut self.encounter_state,
+            );
 
             // ── Block A5: Economy systems (registry-only, no CommandBuffer) ──
             {

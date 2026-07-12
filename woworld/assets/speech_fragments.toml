@@ -1,0 +1,176 @@
+# 对话气泡片段库 — 数据驱动（SpeechFragmentRegistry 加载）
+#
+# 设计依据: 语言表达/003-文本生成引擎 §一「片段组合，非单体模板」+ §1.3「~430 全 TOML」
+#           语言表达/006-对话系统-社交层 §1 PhaticLayer
+#
+# 每片段字段:
+#   act        (必) — 语言行为: greeting / farewell / need_mutter / emotion_vent
+#   text       (必) — 短语（10-50 字）
+#   color      (可) — 气泡渲染色: normal / emotion / ambient / quest / damage（缺省从 act 派生）
+#   topic      (可) — 需求/目标匹配键（need_mutter 用: hunger/thirst/fatigue/social/
+#                     find_food/find_water/find_rest/find_safe/find_social/balance/libido）
+#   time_of_day(可) — 时段条件: dawn / day / dusk / night（对齐 core::time::TimeOfDay）
+#   min_trust / max_trust           (可) — formality 门（trust ∈ [-1,1]）
+#   min_pleasure / max_pleasure     (可) — 情绪门（pleasure ∈ [-1,1]）
+#   min_extraversion / max_extraversion (可) — 人格门（extraversion ∈ [0,1]）
+#   social_effect                   (可) — 声明式 {trust_delta, familiarity_delta}
+#                                          ⚠️ V4a 仅存不施加（关系效果归 social_system）
+#
+# 选择: 按 act 过滤 → 满足全部条件的候选 → 概率加权(种子确定性)选一句。
+# 涌现在「选择」: 同状态不同人格/时段/关系 → 不同候选集 → 不同话。
+
+# ─────────────── 问候 Greeting ───────────────
+# 时段变体 + 人格变体 + formality（trust）变体
+
+[[fragment]]
+act = "greeting"
+text = "早安"
+time_of_day = "dawn"
+social_effect = { trust_delta = 0.005, familiarity_delta = 0.01 }
+
+[[fragment]]
+act = "greeting"
+text = "早上好啊"
+time_of_day = "day"
+min_extraversion = 0.55
+social_effect = { trust_delta = 0.005, familiarity_delta = 0.01 }
+
+[[fragment]]
+act = "greeting"
+text = "晚上好"
+time_of_day = "dusk"
+
+[[fragment]]
+act = "greeting"
+text = "晚上好"
+time_of_day = "night"
+
+# 通用问候（无时段条件·任何时候可选）
+[[fragment]]
+act = "greeting"
+text = "你好"
+
+[[fragment]]
+act = "greeting"
+text = "嘿，你好啊！"
+min_extraversion = 0.7          # 外向者更热情
+
+[[fragment]]
+act = "greeting"
+text = "您好"
+max_trust = 0.15                # 生人更正式（低信任）
+
+[[fragment]]
+act = "greeting"
+text = "嗯。"
+max_extraversion = 0.3          # 内向者只闷哼一声
+
+# ─────────────── 告别 Farewell ───────────────
+
+[[fragment]]
+act = "farewell"
+text = "回见"
+
+[[fragment]]
+act = "farewell"
+text = "先走了"
+
+[[fragment]]
+act = "farewell"
+text = "改天聊"
+min_trust = 0.4                 # 相熟才约"改天"
+
+[[fragment]]
+act = "farewell"
+text = "慢走"
+min_extraversion = 0.55
+
+# ─────────────── 需求嘟囔 NeedMutter（自言自语·迁移自旧 pick_bubble）───────────────
+
+[[fragment]]
+act = "need_mutter"
+text = "肚子饿了…"
+topic = "hunger"
+color = "ambient"
+
+[[fragment]]
+act = "need_mutter"
+text = "口渴…"
+topic = "thirst"
+color = "ambient"
+
+[[fragment]]
+act = "need_mutter"
+text = "好累…"
+topic = "fatigue"
+color = "ambient"
+
+[[fragment]]
+act = "need_mutter"
+text = "有人吗"
+topic = "social"
+color = "normal"
+
+# 目标驱动（goal.urgency 高·迁移自旧 GoalType 分支）
+[[fragment]]
+act = "need_mutter"
+text = "得找点吃的"
+topic = "find_food"
+color = "normal"
+
+[[fragment]]
+act = "need_mutter"
+text = "去找水喝"
+topic = "find_water"
+color = "normal"
+
+[[fragment]]
+act = "need_mutter"
+text = "想歇会儿"
+topic = "find_rest"
+color = "normal"
+
+[[fragment]]
+act = "need_mutter"
+text = "这儿不安全"
+topic = "find_safe"
+color = "normal"
+
+[[fragment]]
+act = "need_mutter"
+text = "找人聊聊"
+topic = "find_social"
+color = "normal"
+
+[[fragment]]
+act = "need_mutter"
+text = "得调理一下"
+topic = "balance"
+color = "normal"
+
+[[fragment]]
+act = "need_mutter"
+text = "有点寂寞"
+topic = "libido"
+color = "normal"
+
+# ─────────────── 情绪宣泄 EmotionVent（自言自语）───────────────
+
+[[fragment]]
+act = "emotion_vent"
+text = "今天心情不错"
+color = "emotion"
+min_pleasure = 0.3
+
+[[fragment]]
+act = "emotion_vent"
+text = "今天真开心！"
+color = "emotion"
+min_pleasure = 0.3
+min_extraversion = 0.6
+
+[[fragment]]
+act = "emotion_vent"
+text = "唉…"
+color = "emotion"
+max_pleasure = -0.3

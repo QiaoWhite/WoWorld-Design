@@ -2,6 +2,7 @@ pub mod action_weight;
 pub mod age;
 pub mod bigfive_derive;
 pub mod emotion;
+pub mod encounter;
 pub mod goal;
 pub mod movement;
 pub mod needs;

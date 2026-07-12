@@ -126,21 +126,23 @@ pub fn social_system(
     // 收集本次触摸的关系对，用于后续衰减未活跃的关系
     let mut touched_pairs: Vec<(EntityId, EntityId)> = Vec::new();
 
-    for i in 0..entries.len() {
-        for j in (i + 1)..entries.len() {
+    // ★ 共享邻近原语（与 encounter_system 同一扫描源·XZ 距离）：先取 <15m 候选对，
+    //   再逐对做 social_radius/传染细分——行为等价于原内联 O(n²)（15m 是外层绑定条件）。
+    let positions: Vec<glam::Vec3> = entries.iter().map(|e| e.pos.0).collect();
+    for (i, j, dist) in
+        crate::systems::npc::encounter::neighbors_within(&positions, CONTAGION_MAX_DISTANCE)
+    {
+        {
             let a = &entries[i];
             let b = &entries[j];
-
-            let dx = a.pos.0.x - b.pos.0.x;
-            let dz = a.pos.0.z - b.pos.0.z;
-            let dist = (dx * dx + dz * dz).sqrt();
 
             // ── 区分两个半径 ──
             // 社交需求恢复: social radius (2-7m, 从 BigFive 派生)
             // 情绪传染: CONTAGION_MAX_DISTANCE (15m, 文档 §2.1.5)
             let social_radius = a.presence.radius.min(b.presence.radius);
             let in_social_range = dist < social_radius;
-            let in_contagion_range = dist < CONTAGION_MAX_DISTANCE;
+            // neighbors_within(15) 保证本对 dist < 15 → 恒在传染范围内
+            let in_contagion_range = true;
 
             if !in_social_range && !in_contagion_range {
                 continue;

@@ -46,6 +46,65 @@ impl BubbleType {
             BubbleType::Damage => [1.0, 0.25, 0.2], // 红
         }
     }
+
+    /// 从 TOML 字符串键解析（数据驱动·ecs 侧 SpeechFragmentRegistry 用）。
+    /// 未知键回退 `Normal`（宽容解析——不 panic）。
+    pub fn from_key(key: &str) -> BubbleType {
+        match key {
+            "emotion" => BubbleType::Emotion,
+            "ambient" => BubbleType::Ambient,
+            "quest" => BubbleType::Quest,
+            "damage" => BubbleType::Damage,
+            _ => BubbleType::Normal,
+        }
+    }
+}
+
+/// 语言行为语义类别——问候/告别/需求嘟囔/情绪宣泄。
+///
+/// 与渲染色 `BubbleType` **正交**：`SpeechAct` = 说的是哪类话（语义），
+/// `BubbleType` = 气泡什么颜色（表现）。二者分离，类型系统降耦。
+///
+/// 对齐设计 `语言表达/006` PhaticLayer + `005` DialogueIntentType 的
+/// **Phatic + 自言自语子集**（本冲刺不实现 DialogueIntent 的 GOAP 主动评估腿）：
+/// - `Greeting` ↔ 006 `Reactive::SomeoneEntered` / `Opening`
+/// - `Farewell` ↔ 006 `Reactive::SomeoneLeft` / `Closing`
+/// - `NeedMutter` ↔ 005 `GoalDriven` 自言自语侧 + 006 `Idle`
+/// - `EmotionVent` ↔ 005 `Emotional` + 006 `Idle`
+///
+/// ⚠️ 非 `DialogueIntentType` 的平行竞品——是其 MVP 投影，未来两体系就位后驱动同一批 `SpeechAct`。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SpeechAct {
+    /// 问候——遭遇他者时的应酬开场
+    Greeting,
+    /// 告别——离场收尾
+    Farewell,
+    /// 需求嘟囔——自言自语表达生理/目标需求
+    NeedMutter,
+    /// 情绪宣泄——自言自语表达情绪极值
+    EmotionVent,
+}
+
+impl SpeechAct {
+    /// 该语言行为在无片段显式指定颜色时的默认气泡渲染色。
+    pub fn default_bubble_type(&self) -> BubbleType {
+        match self {
+            SpeechAct::Greeting | SpeechAct::Farewell => BubbleType::Normal,
+            SpeechAct::NeedMutter => BubbleType::Ambient,
+            SpeechAct::EmotionVent => BubbleType::Emotion,
+        }
+    }
+
+    /// 从 TOML 字符串键解析。未知键返回 `None`（片段表加载时应报错跳过）。
+    pub fn from_key(key: &str) -> Option<SpeechAct> {
+        match key {
+            "greeting" => Some(SpeechAct::Greeting),
+            "farewell" => Some(SpeechAct::Farewell),
+            "need_mutter" => Some(SpeechAct::NeedMutter),
+            "emotion_vent" => Some(SpeechAct::EmotionVent),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -103,5 +162,50 @@ mod tests {
                 assert!((0.0..=1.0).contains(&ch), "channel out of range for {bt:?}");
             }
         }
+    }
+
+    // ── SpeechAct ──────────────────────────
+
+    #[test]
+    fn test_speech_act_from_key_roundtrip() {
+        assert_eq!(SpeechAct::from_key("greeting"), Some(SpeechAct::Greeting));
+        assert_eq!(SpeechAct::from_key("farewell"), Some(SpeechAct::Farewell));
+        assert_eq!(
+            SpeechAct::from_key("need_mutter"),
+            Some(SpeechAct::NeedMutter)
+        );
+        assert_eq!(
+            SpeechAct::from_key("emotion_vent"),
+            Some(SpeechAct::EmotionVent)
+        );
+        assert_eq!(SpeechAct::from_key("nonsense"), None);
+    }
+
+    #[test]
+    fn test_speech_act_default_bubble_type() {
+        // 语义 ⊥ 渲染色：Greeting/Farewell=白, NeedMutter=蓝灰, EmotionVent=黄
+        assert_eq!(
+            SpeechAct::Greeting.default_bubble_type(),
+            BubbleType::Normal
+        );
+        assert_eq!(
+            SpeechAct::Farewell.default_bubble_type(),
+            BubbleType::Normal
+        );
+        assert_eq!(
+            SpeechAct::NeedMutter.default_bubble_type(),
+            BubbleType::Ambient
+        );
+        assert_eq!(
+            SpeechAct::EmotionVent.default_bubble_type(),
+            BubbleType::Emotion
+        );
+    }
+
+    #[test]
+    fn test_bubble_type_from_key_fallback_normal() {
+        assert_eq!(BubbleType::from_key("ambient"), BubbleType::Ambient);
+        assert_eq!(BubbleType::from_key("emotion"), BubbleType::Emotion);
+        assert_eq!(BubbleType::from_key("garbage"), BubbleType::Normal);
     }
 }

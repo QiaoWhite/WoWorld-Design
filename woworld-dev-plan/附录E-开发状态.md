@@ -18,12 +18,12 @@
 | 有代码的模块 | **9 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、地形修改编排层、玩家系统 Phase 1、**★模型动作与物理（角色控制器）**） |
 | 零代码的模块 | **21 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **1055 tests 全绿** (core: 398 + worldgen: 58 + atmosphere: 26 + ecs: 573（564 lib + 9 集成） + godot: 0), cargo clippy 零警告 |
-| ECS 架构 | **Phase 0/1/2/3 ✅** — 55 Components + 38 Systems + 1026 tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + 角色控制器核心三层 + Step 5e 管线集成 + 第三人称相机 MVP + **★持续/充能动作运行时（006·SustainDrain 消耗+SustainPhase 迁移+ReleaseBehavior 分发+充能阶梯 follow-up+CPendingFollowUp/CInputFeelConfig+A3 interrupt_on_move+M4 coyote 字段）** 就位。 |
+| Rust workspace | 5 crates, **~1075 tests 全绿** (core: 401 + worldgen: 58 + atmosphere: 26 + ecs: 590（581 lib + 9 集成） + godot: 0), cargo clippy 零警告 |
+| ECS 架构 | **Phase 0/1/2/3 ✅** — 55 Components + 39 Systems + 581 lib tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + 角色控制器核心三层 + Step 5e 管线集成 + 第三人称相机 MVP + 持续/充能动作运行时 + **★Sprint-068 遭遇感知层（`encounter_system`+迟滞+朝向门）+ 问候/告别气泡（TOML 数据驱动·接既有 `ActionIntent` 涌现·barrier-free）** 就位。 |
 | Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + NPC对话气泡 + 独立 CameraRig 第三人称相机 |
-| 当前冲刺 | **Sprint-067 V0+V1 地基与昼夜涌现完成**（1055 tests·clippy/fmt 零警告·**已推送 `72fa780`**）— V0 库存验证测试（审计:已由 `inventory_init_system` 幂等补挂，不改 spawn_npc）+ V1 `time_modifier` 昼夜第6因子（=设计 ver2.0 v3·纯世界时·白昼度曲线）+ 漫游回落（读 Needs 紧迫度防振荡）+ Vf 食物源 BACKLOG spike。→ 下一步: V4a 问候/情绪气泡（第 3/10 步） |
+| 当前冲刺 | **Sprint-068 V4a 问候/情绪气泡完成**（~1075 tests·clippy/fmt 零警告）— `SpeechAct`(core) + TOML 片段库(`FragmentCondition` 富条件+概率加权) + `neighbors_within` 原语(social 重构) + **遭遇感知层**(迟滞/播种/despawn/朝向门) + 问候/告别接**既有 `ActionIntent` 涌现**(Fight/Flee 否决·barrier-free) + 实机验证问候可用 + 修 [ECS-001](bugs/ECS/ECS-001-seeksafety-veto-silences-greetings.md)(SeekSafety 否决陷阱)。→ 下一步: Vf 食物源落地（第 4/10 步） |
 | 最新 CHG | **CHG-069**（2026-07-11·第三人称相机与视角系统·玩家系统007 v1.2·实现已落地）— 前: CHG-067 物理运动学地基（仅设计） |
-| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260712-sprint067]]（2026-07-12·Sprint-067 V0+V1·1055 tests） |
+| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260712-sprint068]]（2026-07-12·Sprint-068 V4a·~1075 tests） |
 
 ---
 
@@ -32,7 +32,7 @@
 | Phase | 覆盖层 | 涉及模块数 | 代码状态 | 设计状态 |
 |-------|--------|----------|---------|---------|
 | Phase 1: 核心基础 | Layer 0-1 | 10 模块 | 5/10 🟡 | 10/10 ✅ |
-| Phase 2: 垂直切片（探针·活着的村庄） | Layer 1-2 子集 | 10 里程碑（V0/V1/V4a/Vf/V2/V3a/V3b/V4b/V5/V6） | 2/10 🟡 | ✅ 定稿 2026-07-12·A1纯涌现·食物源方案A（见 [[02-垂直切片/README]] §3-§5） |
+| Phase 2: 垂直切片（探针·活着的村庄） | Layer 1-2 子集 | 10 里程碑（V0/V1/V4a/Vf/V2/V3a/V3b/V4b/V5/V6） | 3/10 🟡 | ✅ 定稿 2026-07-12·A1纯涌现·食物源方案A（见 [[02-垂直切片/README]] §3-§5） |
 | Phase 3: 系统完形 | Layer 2-4 | ~17 模块 | 0 🔴 | 17/17 🟡 |
 | Phase 4: 世界填充 | — | 0 新模块 | 0 🔴 | — |
 | Phase 5: 打磨发布 | — | 0 新模块 | 0 🔴 | — |
@@ -217,7 +217,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 | **魔法** | P3(冻结) | **🔴 冻结** | — | **零性能预算 — 预算建立前不可编码** |
 | 物品系统 | P1 | 🟢 Phase 1 | ItemCategory(44)+ItemProperties(28)+ItemRegistry+TOML+ItemQuery trait | v1.0。Phase 1 完成（+33 tests）。延后: Assembly/装备/背包/附魔 |
 | 技能系统 | P1 | 🟡 就绪 | — | SkillId(5分类)/XP公式/天赋三层/教学四路径 |
-| 语言表达 | P4 | 🟡 就绪 | 对话气泡 MVP (BubbleType + speech_bubble_system, 桩化文本) | ExpressionRef/Conversation/信息传播 5 通道。★ Sprint-061 气泡渲染就位(CHG-066)，桩化文本待接入 TextGenerator |
+| 语言表达 | P4 | 🟡 就绪 | 气泡数据驱动 (BubbleType+SpeechAct + speech_bubble_system + TOML 片段库 FragmentCondition + 遭遇驱动问候/告别) | ExpressionRef/Conversation/信息传播 5 通道。★ Sprint-061 渲染(CHG-066) → ★ Sprint-068 桩串外移 TOML(003 片段组合子集)+接遭遇/ActionIntent 涌现；完整 TextGenerator/CompositeTemplate 待后续 |
 | 模型动作与物理 | P4 | 🟡 部分实现 | ✅ 角色控制器核心三层 + Step 5e 集成 (927 tests) | 9 层动画栈/四 trait/6 子模块。★ **角色控制器** MovementSystem+ActionController+手感系统+管线集成(Block A0)完成。**CHG-067 运动学地基**暂缓 per Q-A2 |
 | ├ 角色控制器 | P2 | 🟢 核心+管线+离散/持续/充能运行时 | ✅ 核心三层 + Step 5e + 006 运行时 | 13 篇开发规格（2,731 行）。核心三层 + Block A0 管线 + ActionResolver(004) + **★006 持续/充能运行时(dispatch_release/SustainDrain/充能阶梯/CPendingFollowUp·Sprint-065)**·1026 tests。延后: A2 中断语义/M3 滑翔/I1-5 手感/玩家实体接 Vitals+键位。★ CHG-067 消费者 |
 | 音频系统 | P4 | 🟡 就绪 | — | SoundFootprint/AudioQuery(30 methods) |
@@ -244,7 +244,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 ## 三、近期冲刺
 
-**下一个冲刺**: **V4a 问候/情绪气泡**（垂直切片「活着的村庄」第 3/10 步）——桩串外移 TOML 片段表（按 `SpeechAct`）+ 3m 邻近触发（复用 `social.rs`）+ 对齐 `DialogueIntentType`。序列见 [[02-垂直切片/README]] §3-§4。上一冲刺 **Sprint-067（V0+V1）✅ 完成**（1055 tests），交接见 [[01-核心基础/handoff/handoff-20260712-sprint067]]。
+**下一个冲刺**: **Vf 食物源落地**（垂直切片「活着的村庄」第 4/10 步·Poisson disc 采集植被·P2.25 最小子集）——见 [[sprint-proposals/BACKLOG-Vf-食物源落地-20260712]]。上一冲刺 **Sprint-068（V4a 问候/情绪气泡）✅ 完成**（~1075 tests·实机验证问候可用），交接见 [[01-核心基础/handoff/handoff-20260712-sprint068]]。
 
 **待触发冲刺队列（防遗漏 backlog）**：
 
@@ -257,6 +257,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 | Sprint | 日期 | 目标 | 状态 |
 |--------|------|------|------|
+| Sprint-068 | 2026-07-12 | ★ V4a 问候/情绪气泡 — SpeechAct(core) + TOML 片段库(FragmentCondition 富条件+概率加权) + neighbors_within 原语(social 重构) + 遭遇感知层(迟滞/播种/despawn/朝向门) + 问候/告别接既有 ActionIntent 涌现(Fight/Flee 否决·barrier-free) + 实机验证 + 修 ECS-001(SeekSafety 否决陷阱)·~1075 tests | ✅ 完成 |
 | Sprint-067 | 2026-07-12 | ★ V0+V1 垂直切片地基 — V0 库存验证测试(审计:已由 inventory_init_system 幂等补挂) + V1 time_modifier 昼夜第6因子(=设计 ver2.0 v3·纯世界时·白昼度曲线) + 漫游回落(读 Needs 紧迫度防振荡) + Vf 食物源 BACKLOG spike·1055 tests | ✅ 完成 |
 | Sprint-066 | 2026-07-11 | ★ 手感系统运行时 I1-4 — 缓冲淘汰/物理重检/落地预输入(实机激活)/边缘吸附 + coyote-jump 玩家组件接线(休眠)·1047 tests | ✅ 完成 |
 | Sprint-065 | 2026-07-11 | ★ 持续/充能动作运行时（006）— 解除 Discrete 硬门 + SustainDrain 消耗 + SustainPhase 迁移 + ReleaseBehavior 分发(dispatch_release) + 充能阶梯 follow-up + block/aim_bow TOML + A3(interrupt_on_move) + M4(coyote 字段)·1026 tests | ✅ 完成 |

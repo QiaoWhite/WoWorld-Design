@@ -2,7 +2,7 @@
 
 # DEVELOPMENT_STATUS.md — WoWorld 全局状态追踪
 
-> **最后更新**: 2026-07-12（Sprint-069 Vf 食物源落地·1092 tests）
+> **最后更新**: 2026-07-12（Sprint-070 V2 牵引移动·1100 tests）
 > **维护者**: Claude Code（按 CONSTITUTION.md §7 更新）
 > **关联文件**: `CONSTITUTION.md` · `附录D-模块依赖图.md` · `../CLAUDE-INTERFACES.md`
 
@@ -18,12 +18,12 @@
 | 有代码的模块 | **9 / 27**（世界生成、大气氛围、时间、空间索引、植被、生命系统、地形修改编排层、玩家系统 Phase 1、**★模型动作与物理（角色控制器）**） |
 | 零代码的模块 | **21 / 27** — 设计完备，待实现 |
 | 冻结模块 | **1**（魔法 — 性能预算未建立） |
-| Rust workspace | 5 crates, **1092 tests 全绿** (core: 401 + worldgen: 75 + atmosphere: 26 + ecs: 590（581 lib + 9 集成） + godot: 0), cargo clippy 零警告 |
-| ECS 架构 | **Phase 0/1/2/3 ✅** — 55 Components + 39 Systems + 581 lib tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + 角色控制器核心三层 + Step 5e 管线集成 + 第三人称相机 MVP + 持续/充能动作运行时 + 遭遇感知层（问候/告别气泡·barrier-free）+ **★Sprint-069 Poisson disc 采集物生成（Bridson 2007·`query_harvestable` 真实返回）** 就位。 |
-| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + NPC对话气泡 + 独立 CameraRig 第三人称相机 |
-| 当前冲刺 | **Sprint-069 Vf 食物源落地完成**（1092 tests·clippy/fmt 零警告·**待推送**）— `HarvestableInfo` +`regen_state`(对齐设计 010) + Poisson disc Bridson 2007 + 群系→产物硬编码映射 + `BiomeClassifier::sample_height()` + `mix64` → `pub(crate)`。→ 下一步: V2 牵引移动（第 5/10 步） |
+| Rust workspace | 5 crates, **1100 tests 全绿** (core: 401 + worldgen: 75 + atmosphere: 26 + ecs: 598（589 lib + 9 集成） + godot: 0), cargo clippy 零警告 |
+| ECS 架构 | **Phase 0/1/2/3 ✅** — 55 Components + 39 Systems + 589 lib tests。社会×4 + 物品 Phase 2 + 经济 Phase 3 + 玩家 Phase 1 + 对话气泡 MVP + 角色控制器核心三层 + Step 5e 管线集成 + 第三人称相机 MVP + 持续/充能动作运行时 + 遭遇感知层（问候/告别气泡·barrier-free）+ **★Sprint-069 Poisson disc 采集物生成（Bridson 2007·`query_harvestable` 真实返回）** + **★Sprint-070 V2 牵引移动（`goal_resolution_system` 同步填充 `target_pos`·FindFood→植被查询·FindWater→水点搜索）** 就位。 |
+| Godot 项目 | Godot 4.7 + GDExtension — Transvoxel 完整 + Clipmap LOD 8 层 + Signed Heightfield + 海洋 + 大气 + 昼夜 + LODCoordinator Phase1 + 天气 Phase1 + 经济循环 + 库存系统 + Tab夺舍NPC + NPC对话气泡 + 独立 CameraRig 第三人称相机 + **★BiomeVegetation 初始化（set_vegetation_provider·可采集植被查询在线）** |
+| 当前冲刺 | **Sprint-070 V2 牵引移动完成**（1100 tests·clippy/fmt 零警告·**待提交**）— `goal_resolution_system` 扩展（+vegetation/ocean/search_radius）+ Pass 1 同步填充 `target_pos`（`resolve_target_pos`·`find_nearest_water_xz`）+ WorldDriver 注入 `BiomeVegetation`·+8 tests。→ 下一步: V3a 代谢闭环（第 6/10 步·命门） |
 | 最新 CHG | **CHG-069**（2026-07-11·第三人称相机与视角系统·玩家系统007 v1.2·实现已落地）— 前: CHG-067 物理运动学地基（仅设计） |
-| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260712-sprint069]]（2026-07-12·Sprint-069 Vf·1092 tests） |
+| 最新交接 | [[woworld-dev-plan/01-核心基础/handoff/handoff-20260712-sprint070]]（2026-07-12·Sprint-070 V2·1100 tests） |
 
 ---
 
@@ -32,7 +32,7 @@
 | Phase | 覆盖层 | 涉及模块数 | 代码状态 | 设计状态 |
 |-------|--------|----------|---------|---------|
 | Phase 1: 核心基础 | Layer 0-1 | 10 模块 | 5/10 🟡 | 10/10 ✅ |
-| Phase 2: 垂直切片（探针·活着的村庄） | Layer 1-2 子集 | 10 里程碑（V0/V1/V4a/Vf/V2/V3a/V3b/V4b/V5/V6） | 4/10 🟡 | ✅ 定稿 2026-07-12·A1纯涌现·食物源方案A（见 [[02-垂直切片/README]] §3-§5） |
+| Phase 2: 垂直切片（探针·活着的村庄） | Layer 1-2 子集 | 10 里程碑（V0/V1/V4a/Vf/V2/V3a/V3b/V4b/V5/V6） | 5/10 🟡 | ✅ 定稿 2026-07-12·A1纯涌现·食物源方案A（见 [[02-垂直切片/README]] §3-§5） |
 | Phase 3: 系统完形 | Layer 2-4 | ~17 模块 | 0 🔴 | 17/17 🟡 |
 | Phase 4: 世界填充 | — | 0 新模块 | 0 🔴 | — |
 | Phase 5: 打磨发布 | — | 0 新模块 | 0 🔴 | — |
@@ -244,7 +244,7 @@ GDExtension 桥接层。cdylib → Godot 4.7。
 
 ## 三、近期冲刺
 
-**下一个冲刺**: **Vf 食物源落地**（垂直切片「活着的村庄」第 4/10 步·Poisson disc 采集植被·P2.25 最小子集）——见 [[sprint-proposals/BACKLOG-Vf-食物源落地-20260712]]。上一冲刺 **Sprint-068（V4a 问候/情绪气泡）✅ 完成**（~1075 tests·实机验证问候可用），交接见 [[01-核心基础/handoff/handoff-20260712-sprint068]]。
+**下一个冲刺**: **V3a 代谢闭环**（垂直切片「活着的村庄」第 6/10 步·命门——最小采集配方+eat_food 消费系统）。上一冲刺 **Sprint-070（V2 牵引移动）✅ 完成**（1100 tests），交接见 [[01-核心基础/handoff/handoff-20260712-sprint070]]。
 
 **待触发冲刺队列（防遗漏 backlog）**：
 

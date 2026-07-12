@@ -32,7 +32,7 @@ use woworld_core::material::SurfaceMaterial;
 use woworld_core::ocean::OceanProvider;
 use woworld_worldgen::{
     generate_clipmap_grid, generate_heightmap_data, layer_tex_config, level_spacing,
-    load_material_colors, transvoxel_extract, BiomeClassifier, HeightfieldOcean,
+    load_material_colors, transvoxel_extract, BiomeClassifier, BiomeVegetation, HeightfieldOcean,
     HeightfieldTerrain, HeightmapData, NoiseParams, TerrainBaseDensity, WorldNoise, LEVELS,
 };
 
@@ -370,12 +370,22 @@ impl INode3D for WorldDriver {
         let biome_toml = include_str!("../../../assets/biomes.toml");
         let biome_classifier = BiomeClassifier::from_toml_str(biome_toml, noise.clone())
             .expect("Failed to parse biomes.toml");
+        // ★ V2: 植被提供者——clone classifier（Arc 内部·便宜）→ BiomeVegetation
+        let veg_classifier = biome_classifier.clone();
         // 海洋——与 terrain 共享同一个 Arc<WorldNoise>
         self.ocean = HeightfieldOcean::new(noise.clone());
         let clock = WorldClock::new(DEFAULT_SECONDS_PER_DAY);
         self.terrain = HeightfieldTerrain::with_noise(noise, seed)
             .with_clock(clock.clone())
             .with_biomes(biome_classifier);
+        // ★ V2: 初始化 VegetationProvider——可采集植被查询(FindFood 目标解析)
+        let veg: std::sync::Arc<dyn woworld_core::vegetation::VegetationProvider> =
+            std::sync::Arc::new(
+                BiomeVegetation::new()
+                    .with_classifier(veg_classifier)
+                    .with_world_seed(seed),
+            );
+        self.set_vegetation_provider(veg);
         self.clock = clock;
 
         // 加载材质色表（编译时嵌入——委托 woworld_worldgen 解析）
@@ -2198,7 +2208,13 @@ impl WorldDriver {
                 let mut cmd = CommandBuffer::new();
                 bigfive_derive_system(&self.ecs, &mut cmd);
                 woworld_ecs::systems::npc::needs::need_evaluation_system(&self.ecs, &mut cmd);
-                woworld_ecs::systems::npc::goal::goal_resolution_system(&self.ecs, &mut cmd);
+                woworld_ecs::systems::npc::goal::goal_resolution_system(
+                    &self.ecs,
+                    &mut cmd,
+                    self.vegetation_provider.as_deref(),
+                    &self.ocean,
+                    150.0, // search_radius (m)
+                );
                 action_weight_system(&self.ecs, &mut cmd, day_progress);
                 // Economy: cognition + wallet init
                 woworld_ecs::systems::economy::economic_cognition_update_system(

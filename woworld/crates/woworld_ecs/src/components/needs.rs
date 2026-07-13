@@ -2,6 +2,7 @@
 //!
 //! 参见: `开发文档/02-NPC核心/02-基本需求.md` §需求分类（4 类 × 7 维度）
 
+use serde::{Deserialize, Serialize};
 /// 基本生理与心理需求——7 维驱动力，0=满足 → 1=极度缺乏
 ///
 /// | 类别 | 维度 | 衰减方式 |
@@ -10,7 +11,7 @@
 /// | 心理驱动 | social | 独处积累, 交互恢复 |
 /// | 积累驱动 | element_balance | 瓶颈模型 |
 /// | 周期驱动 | libido | 周期型衰减 |
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Needs {
     pub hunger: f32,
     pub thirst: f32,
@@ -37,7 +38,7 @@ impl Default for Needs {
 
 /// 需求敏感度——从 BigFive 人格派生（Sprint 042 使用默认值，Phase 2 接入 BigFive）
 /// Sprint 053: 扩展 7→9 维（+esteem +competence，v2.0 进阶需求系统）
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct NeedSensitivity {
     pub hunger_sens: f32,
     pub thirst_sens: f32,
@@ -69,7 +70,7 @@ impl Default for NeedSensitivity {
 }
 
 /// 欲望种类——对应 Needs 的 7 个维度
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DesireKind {
     Eat,
     Drink,
@@ -81,7 +82,7 @@ pub enum DesireKind {
 }
 
 /// 当前欲望——由 NeedEvaluation 写入，GoalResolution 消费
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Desire {
     pub kind: DesireKind,
     /// 紧急性 0→1，>0.8 触发目标选择

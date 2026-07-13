@@ -3,8 +3,7 @@
 //! 参见: `WoWorld-Design/开发路线图/002-轨A-正式开发.md` A.2 Tier 0
 
 /// 地表材质（21 变体 — 音频模块权威定义）
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum SurfaceMaterial {
     Grass,
     Sand,

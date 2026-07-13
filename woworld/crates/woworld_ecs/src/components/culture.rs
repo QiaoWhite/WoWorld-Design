@@ -5,13 +5,14 @@
 //!
 //! 参见: woworld_core::culture
 
+use serde::{Deserialize, Serialize};
 use woworld_core::culture::{CultureId, CULTURE_ID_NONE};
 
 /// 文化归属 — NPC 实体的文化标识
 ///
 /// 纯数据，零方法（ECS 铁律 1）。
 /// 4 bytes, Copy——可嵌入高频查询路径。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Culture {
     pub culture_id: CultureId,
 }

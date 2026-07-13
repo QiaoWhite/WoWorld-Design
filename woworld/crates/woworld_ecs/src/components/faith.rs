@@ -5,10 +5,11 @@
 //!
 //! 参见: woworld_core::faith
 
+use serde::{Deserialize, Serialize};
 use woworld_core::faith::{FaithId, FAITH_ID_NONE};
 
 /// 信仰归属 — NPC 实体的信仰标识
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Faith {
     pub faith_id: FaithId,
 }

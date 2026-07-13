@@ -6,13 +6,14 @@
 //! 8 种基本情绪、33 种复合情绪、Mood 心境层均为 Phase 2+。
 
 use crate::components::bigfive::BigFive;
+use serde::{Deserialize, Serialize};
 
 /// PAD 三维情感状态——所有情绪表达的低维基底
 ///
 /// - **pleasure** (-1..1): 不悦 → 愉悦
 /// - **arousal**  (0..1): 平静 → 高度激活
 /// - **control**  (-1..1): 无助 → 掌控
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Emotion {
     pub pleasure: f32,
     pub arousal: f32,

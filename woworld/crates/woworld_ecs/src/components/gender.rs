@@ -5,9 +5,10 @@
 //! Phase 1: 仅生物性别标记。性别认同由文化规范 (NormScope) 处理，非本 Component。
 
 use crate::prng::pseudo_random_f32;
+use serde::{Deserialize, Serialize};
 
 /// 生物性别——5 变体，覆盖真实生物多样性
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum BiologicalSex {
     Male,
     #[default]
@@ -23,7 +24,7 @@ pub enum BiologicalSex {
 }
 
 /// 顺序性别的当前阶段
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SequentialPhase {
     Male,
     Female,

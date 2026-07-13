@@ -392,8 +392,7 @@ impl Default for GaitParams {
 /// 移动参数配置——TOML 数据驱动，每种生物类型一个 profile。
 ///
 /// 所有字段为 f32 数值。TOML 反序列化通过 serde feature gate 启用。
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MovementProfile {
     // 地面速度
     pub walk_speed: f32,

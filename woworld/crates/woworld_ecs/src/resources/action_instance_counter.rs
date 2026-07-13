@@ -5,10 +5,11 @@
 //!
 //! 参见: `WoWorld-Design/.../角色控制器/005-ActionOutcome与动作结果事件.md` §一
 
+use serde::{Deserialize, Serialize};
 use woworld_core::action::ActionInstanceId;
 
 /// 动作实例计数器——每帧可递增多次。
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct ActionInstanceCounter(pub u64);
 
 impl ActionInstanceCounter {

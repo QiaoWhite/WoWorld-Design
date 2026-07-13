@@ -5,10 +5,12 @@
 //!
 //! 参见: `WoWorld-Design/Happy Game/开发阶段/经济系统/007-NPC经济心智.md`
 
+use serde::{Deserialize, Serialize};
+
 /// 经济行为参数——从 BigFive + 认知输入聚合
 ///
 /// 仅供行为经济学函数消费，不存储在 ECS Component 中。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct EconBehaviorParams {
     /// 开放性 (0-1)
     pub openness: f32,
@@ -69,7 +71,7 @@ pub fn subjective_value(objective_delta: f32, params: &EconBehaviorParams) -> f3
 // ── 2. Mental Accounting (心理账户) ────────────────────
 
 /// 心理账户类型
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MentalAccount {
     /// 常规收入
     RegularIncome,
@@ -99,7 +101,7 @@ pub fn spending_propensity(account: MentalAccount, params: &EconBehaviorParams) 
 // ── 3. Anchoring (锚定效应) ────────────────────────────
 
 /// 价格感知——基于锚定价格的判断
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PricePerception {
     VeryCheap,
     Cheap,
@@ -281,6 +283,7 @@ pub fn calculate_scarcity_bonus(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::{Deserialize, Serialize};
 
     fn default_params() -> EconBehaviorParams {
         EconBehaviorParams::default()

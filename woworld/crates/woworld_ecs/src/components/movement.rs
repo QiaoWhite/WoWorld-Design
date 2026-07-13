@@ -6,11 +6,12 @@
 //! 后续: speed 可从 BigFive 派生（外向性→快，尽责性→稳），Phase 2。
 
 use glam::Vec3;
+use serde::{Deserialize, Serialize};
 
 /// 移动参数——movement_system 每帧驱动
 ///
 /// `speed` 后续可从 BigFive + urgency 派生。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Movement {
     /// 基础移动速度 (m/s)
     pub speed: f32,
@@ -30,7 +31,7 @@ impl Default for Movement {
 /// 漫游状态——当 Goal.target_pos 为 None 时，沿此方向移动
 ///
 /// 定期重选方向以避免原地打转。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Wander {
     /// 归一化移动方向（XZ 平面）
     pub direction: Vec3,

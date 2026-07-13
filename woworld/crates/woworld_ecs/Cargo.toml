@@ -11,10 +11,10 @@ description = "WoWorld ECS — hecs-based Component definitions, Systems, and Re
 hecs = "0.10"
 
 # 向量/矩阵（与 woworld_core 共享版本）
-glam = { version = "0.28", features = ["bytemuck"] }
+glam = { version = "0.28", features = ["bytemuck", "serde"] }
 
 # 核心类型（EntityId, WorldPos, LodPrescription, etc.）
-woworld_core = { path = "../woworld_core", features = ["serde"] }
+woworld_core = { path = "../woworld_core" }
 
 # 小缓冲区——Component 内联（栈分配，铁律 2 合规）
 smallvec = "1"

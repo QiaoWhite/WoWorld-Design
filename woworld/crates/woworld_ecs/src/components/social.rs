@@ -6,11 +6,12 @@
 //! 参见: `开发文档/02-NPC核心/01-NPC总纲.md` §社会层
 
 use crate::components::bigfive::BigFive;
+use serde::{Deserialize, Serialize};
 
 /// 社交存在——决定 NPC 对他人的社交影响力
 ///
 /// 外向者半径大、恢复快；内向者半径小、恢复慢。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct SocialPresence {
     /// 社交半径 (m)——在此范围内的其他 NPC 可恢复社交需求
     pub radius: f32,
@@ -47,7 +48,7 @@ impl SocialPresence {
 /// 实际关系数据存储在 `RelationStorage` Resource 中。
 /// 对应文档: `开发文档/02-NPC核心/01-NPC总纲.md` §Handle 类型 —
 /// `RelationHandle{storage_key, count}` → `RelationStorage` Resource
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct RelationHandle;
 
 impl Default for RelationHandle {

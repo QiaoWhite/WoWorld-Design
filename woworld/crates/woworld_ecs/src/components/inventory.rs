@@ -6,16 +6,17 @@
 //!
 //! 参见: `woworld_core::item::inventory` / `woworld_core::item::equipment`
 
+use serde::{Deserialize, Serialize};
 /// 标记 Entity 拥有随身库存（PersonalInventory 数据在 InventoryRegistry 中）。
 ///
 /// ZST — 0 字节。Copy。
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct HasInventory;
 
 /// 标记 Entity 拥有装备（CharacterEquipment 数据在 InventoryRegistry 中）。
 ///
 /// ZST — 0 字节。Copy。
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct HasEquipment;
 
 // hecs 0.10 blanket impl: all T: Send + Sync + 'static are Component.

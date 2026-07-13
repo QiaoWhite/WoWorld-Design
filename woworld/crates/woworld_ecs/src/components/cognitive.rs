@@ -6,11 +6,12 @@
 //! wisdom/mental_age/life_event_count 依赖生命周期和历史系统（未实现），用中点占位。
 
 use crate::components::bigfive::BigFive;
+use serde::{Deserialize, Serialize};
 
 /// 四维认知风格——决定 NPC 如何感知、思考、决策
 ///
 /// 所有维度 0.0-1.0。从 BigFive 一次性派生，仅在极端人格冲击后重算。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct CognitiveStyle {
     /// 分析←0.0→直觉: 高=逻辑推理，低=感觉判断
     pub analytic_intuitive: f32,

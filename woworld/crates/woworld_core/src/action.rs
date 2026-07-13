@@ -15,7 +15,7 @@ use crate::types::EntityId;
 // ── ActionId ────────────────────────────────────────────────────
 
 /// 动作标识符——TOML `action_registry.toml` 中 `[action.NAME]` 的散列或索引。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize)]
 pub struct ActionId(pub u32);
 
 impl ActionId {
@@ -44,7 +44,6 @@ impl ActionId {
 ///
 /// 006 的 `release_behavior`/`stages` 中 `action_id = "quick_shot"` 是字符串键；
 /// 手写整数 id 也保留支持（visit_i64/u64）。
-#[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for ActionId {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -111,8 +110,9 @@ pub enum ActionPhase {
 /// 四级承诺——决定动作被打断的难易程度。
 ///
 /// `None` 是 Rust 合法标识符（非关键字），serde 反序列化时匹配 TOML 字符串 "None"。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum CommitmentLevel {
     /// 空闲——任意动作可立即开始
     None = 0,
@@ -166,8 +166,7 @@ pub enum ActionSource {
 // ── ActionKind ─────────────────────────────────────────────────
 
 /// 动作类型——离散/持续/充能。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ActionKind {
     /// 离散动作——按键瞬间触发，计时器到期结束（light_attack, dodge, jump）
     Discrete,
@@ -180,8 +179,7 @@ pub enum ActionKind {
 // ── ResourceType ────────────────────────────────────────────────
 
 /// 实体可消耗的资源类型。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum ResourceType {
     /// 体力——冲刺/攀爬/防御消耗
     Stamina,
@@ -194,8 +192,7 @@ pub enum ResourceType {
 // ── SustainPhase / SustainDrain ─────────────────────────────────
 
 /// 持续/充能动作的体力消耗阶段。
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SustainPhase {
     /// 正常——资源按基础速率消耗
     Normal,
@@ -214,8 +211,7 @@ pub enum SustainPhase {
 /// 持续动作的资源消耗配置。
 ///
 /// 参见: `006-持续动作与充能动作.md` §二
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SustainDrain {
     /// 消耗的资源类型
     pub resource: ResourceType,
@@ -228,8 +224,7 @@ pub struct SustainDrain {
 // ── ReleaseBehavior / ChargeStage / OverchargeBehavior ──────────
 
 /// 持续/充能动作的释放行为。
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ReleaseBehavior {
     /// 纯结束——释放即完成
     Complete,
@@ -248,8 +243,7 @@ pub enum ReleaseBehavior {
 }
 
 /// 充能阶梯——充能达到阈值时触发的子动作。
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ChargeStage {
     /// 充能阈值 (ms)
     pub threshold_ms: u32,
@@ -260,8 +254,7 @@ pub struct ChargeStage {
 }
 
 /// 充能到顶后的行为。
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum OverchargeBehavior {
     /// 自动释放
     AutoRelease,
@@ -317,8 +310,7 @@ pub struct ActionRequest {
 /// 动作定义——TOML 数据驱动，`action_registry.toml` 中一行。
 ///
 /// Sprint 1: 仅处理 Discrete 动作。Continuous/Charge 字段为 Option，后续 sprint 激活。
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ActionDef {
     /// 动作名（显示用）
     pub name: String,
@@ -343,30 +335,30 @@ pub struct ActionDef {
     /// 是否可缓冲
     pub bufferable: bool,
     /// 缓冲窗口时长 (ms)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub buffer_window_ms: u32,
     /// 物理约束
     pub physics_req: PhysicsRequirement,
     /// 移动锁类型
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub movement_lock: MovementLockDef,
     /// 朝向锁类型
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub rotation_lock: RotationLockDef,
     /// 移动输入是否打断此动作
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub interrupt_on_move: bool,
     /// 持续动作的资源消耗（Optional——仅 Continuous/Charge 动作使用）
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub sustain_drain: Option<SustainDrain>,
     /// 释放行为（Optional——仅 Continuous/Charge 动作使用）
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub release_behavior: Option<ReleaseBehavior>,
     /// 过久阈值 (s)——仅 Continuous/Charge
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub overextend_threshold_secs: Option<f32>,
     /// 强制结束阈值 (s)——仅 Continuous/Charge
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub critical_threshold_secs: Option<f32>,
 }
 
@@ -375,8 +367,7 @@ pub struct ActionDef {
 /// MovementLock 的 TOML 字符串表示。
 ///
 /// MovementLock::Partial{speed_cap} 暂时不支持 TOML 反序列化（Sprint 1 不需要）。
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub enum MovementLockDef {
     #[default]
     Free,
@@ -388,8 +379,7 @@ pub enum MovementLockDef {
 }
 
 /// RotationLock 的 TOML 字符串表示。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum RotationLockDef {
     #[default]
     Free,

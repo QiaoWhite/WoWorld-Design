@@ -22,7 +22,9 @@ pub mod relationship;
 /// 4 bytes 使得 CultureId 可嵌入 NPC 记忆、物品 `era_hint`、事件参与者等高频路径。
 ///
 /// 替代幽灵类型: CultureSeed、CultureStyleId、CultureClusterId
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub struct CultureId(pub u32);
 
 /// 无文化归属哨兵值

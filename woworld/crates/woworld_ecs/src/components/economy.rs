@@ -5,11 +5,12 @@
 //!
 //! 参见: woworld_core::economy
 
+use serde::{Deserialize, Serialize};
 /// NPC 钱包 — 铜/银/金三级货币
 ///
 /// 换算: 金:银:铜 = 1:20:400 (1 gold = 20 silver = 400 copper)
 /// 24 bytes, Copy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Wallet {
     pub copper: u64,
     pub silver: u64,
@@ -88,7 +89,7 @@ impl From<woworld_core::economy::WalletSnapshot> for Wallet {
 /// 所有字段从 BigFive + 技能 + 经验派生（纯函数，零新人格维度）。
 /// 每次 Personality/LifeStage 变更时重算。
 /// 24 bytes.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct EconomicCognition {
     /// 金融素养 [0,1] — 理解价格/利率/货币
     pub financial_literacy: f32,

@@ -13,7 +13,7 @@
 /// 设计 §1.1: Player ≠ 独立实体。Player = SapientMind + ControlMode。
 ///
 /// Phase 1: Auto / Manual 二态。Phase 2: 增加 DomainDelegated。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum ControlMode {
     /// 完全托管——GOAP 正常运转，和其他 NPC 一样。玩家旁观。
     #[default]

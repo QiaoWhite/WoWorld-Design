@@ -4,9 +4,10 @@
 //! Goal 被行动 System（Sprint 042+）消费——选择具体原子动作。
 
 use glam::Vec3;
+use serde::{Deserialize, Serialize};
 
 /// 目标类型——"NPC 想做什么"（对应 7 维 DesireKind）
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GoalType {
     Idle,
     FindFood,
@@ -19,7 +20,7 @@ pub enum GoalType {
 }
 
 /// 当前活跃目标
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Goal {
     pub goal_type: GoalType,
     /// 紧急性 0→1（从 Desire 透传）
@@ -42,7 +43,7 @@ impl Default for Goal {
 ///
 /// 将"到达"和"采集"解耦——movement 只负责移动，harvest 负责采集。
 /// 设计对应：`PathFollowingSystem → ActionRequest::MovementArrived`（010-NPC移动行为）。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ArrivedAtTarget {
     pub goal_type: GoalType,
     pub target_pos: Vec3,

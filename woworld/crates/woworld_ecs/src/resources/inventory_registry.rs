@@ -22,9 +22,9 @@ use woworld_core::types::EntityId;
 #[derive(Debug, Default)]
 pub struct InventoryRegistry {
     /// EntityId → PersonalInventory
-    inventories: HashMap<EntityId, PersonalInventory>,
+    pub inventories: HashMap<EntityId, PersonalInventory>,
     /// EntityId → CharacterEquipment
-    equipment: HashMap<EntityId, CharacterEquipment>,
+    pub equipment: HashMap<EntityId, CharacterEquipment>,
     /// 容器 ItemDefId → 额外槽位数
     container_bonuses: HashMap<ItemDefId, u16>,
 }

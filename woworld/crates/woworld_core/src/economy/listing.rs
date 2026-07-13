@@ -7,11 +7,12 @@
 
 use crate::id::ItemDefId;
 use crate::types::EntityId;
+use serde::{Deserialize, Serialize};
 
 // ── NeedCategory ──────────────────────────────────────
 
 /// 需求来源分类（设计 004 §2.1）
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum NeedCategory {
     /// 生存必需——饥饿/口渴/健康
     Physiological,
@@ -24,7 +25,7 @@ pub enum NeedCategory {
 // ── NeedReason ────────────────────────────────────────
 
 /// 需求起因追溯（设计 004 §2.4）
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NeedReason {
     /// 饥饿驱动——买食物
     Hunger,
@@ -53,7 +54,7 @@ pub enum NeedReason {
 /// 需求紧急度（设计 004 §2.2）
 ///
 /// 驱动 ListingType 映射和订单撮合优先级。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum Urgency {
     /// 愿望清单——低价才买
@@ -73,7 +74,7 @@ pub enum Urgency {
 /// 注: 设计 002 定义了 7 个平级变体（含 StandingOrder/GovernmentQuota/BarterOffer/LoanRequest/IOUTrade），
 /// 004 细化了 Urgent 的载荷字段并新增 Passive。Phase 3 采用 004 版本。
 /// 002 中需外部系统支持的变体延后至 Phase 4+。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum ListingType {
     /// 正常挂单——标准撮合规则
     #[default]
@@ -94,7 +95,7 @@ pub enum ListingType {
 /// 挂单生命周期状态（设计 002 §3.1）
 ///
 /// Partial fill 追踪——撮合后未完全成交的订单留在簿中继续等待。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum ListingStatus {
     /// 活跃中——等待撮合
     #[default]
@@ -134,6 +135,7 @@ pub fn urgency_to_listing_type(urgency: Urgency) -> ListingType {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::{Deserialize, Serialize};
 
     // ── Urgency ────────────────────────────────────────
 

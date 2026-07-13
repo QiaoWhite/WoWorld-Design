@@ -8,11 +8,12 @@
 use crate::components::circadian::Chronotype;
 use crate::components::needs::NeedSensitivity;
 use crate::prng::pseudo_random_f32_salted;
+use serde::{Deserialize, Serialize};
 
 /// 大五人格 (OCEAN)——NPC 个性化根基
 ///
 /// 每个维度 0.0-1.0，中点 0.5。至少一个维度偏离中点 >0.25（可感知差异）。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct BigFive {
     /// 开放性: 高→好奇/尝试新事物; 低→保守/偏好熟悉
     pub openness: f32,

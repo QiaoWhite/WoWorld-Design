@@ -8,6 +8,7 @@
 //! 参见: `WoWorld-Design/.../玩家系统/001-玩家系统总纲.md` §一
 //!       `CHG-063-玩家系统新建-20260624`
 
+use serde::{Deserialize, Serialize};
 use woworld_core::player::ControlMode;
 
 /// 玩家标记 Component
@@ -17,7 +18,7 @@ use woworld_core::player::ControlMode;
 ///
 /// Phase 1: character_name 记录被夺舍前的名字（用于退出时恢复）。
 /// Phase 2: 扩展 character_id/uuid、active_since 等字段。
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PlayerComponent {
     /// 被夺舍前的 display_name（退出时恢复）
     pub original_name_override: Option<String>,
@@ -28,7 +29,7 @@ pub struct PlayerComponent {
 /// 存储实体的当前 ControlMode。NPC 默认 Auto，被夺舍后为 Manual。
 /// 与 PlayerComponent 配对使用——PlayerComponent 标记"谁是玩家"，
 /// ControlModeComponent 描述"怎么控制"。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ControlModeComponent {
     pub mode: ControlMode,
 }

@@ -6,6 +6,7 @@
 //! 参见: `WoWorld-Design/开发路线图/002-轨A-正式开发.md` A.2
 //! 参见: [[CLAUDE-INTERFACES.md]] CHG-014/CHG-015/CHG-061
 
+use serde::{Deserialize, Serialize};
 // ── 物品 ID ────────────────────────────────────────
 
 /// 物品定义标识符（全局恒定）
@@ -14,7 +15,7 @@
 ///
 /// category 0x00-0x7F: 核心游戏（128 类别）
 /// category 0x80-0xFF: Mod 命名空间（128 类别）
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ItemDefId(pub u64);
 
 impl ItemDefId {
@@ -46,7 +47,7 @@ impl ItemDefId {
 }
 
 /// 物品实体标识符（存档内唯一）
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ItemEntId(pub u64);
 
 // ── 技能 ID ────────────────────────────────────────
@@ -56,7 +57,7 @@ pub struct ItemEntId(pub u64);
 /// 位布局: category(8bit) + sub_category(8bit) + group(16bit) + skill(32bit) = u64
 /// 5 大分类: Combat/Magic/Artisan/Academic/Survival
 /// 22 子组
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SkillId(pub u64);
 
 // ── 职业标签 ID ────────────────────────────────────
@@ -65,7 +66,7 @@ pub struct SkillId(pub u64);
 ///
 /// 位布局: category(8bit) + tag_id(24bit) = u32
 /// ~80-100 个基础职业原子标签，TOML 数据驱动
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ProfessionTagId(pub u32);
 
 // ── 物种 ID ────────────────────────────────────────
@@ -76,13 +77,13 @@ pub struct ProfessionTagId(pub u32);
 /// 定义于 `woworld_core`——各消费 crate（建筑/NPC/经济/天气）平等引用。
 ///
 /// 参见: [[CLAUDE-INTERFACES.md]] CHG-046
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SpeciesId(pub u64);
 
 // ── 区块坐标 ───────────────────────────────────────
 
 /// 区块坐标（世界生成的基本空间单元）
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ChunkCoord {
     pub x: i64,
     pub y: i64,

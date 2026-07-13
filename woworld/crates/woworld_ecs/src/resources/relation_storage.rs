@@ -6,6 +6,7 @@
 //! 使用 (min, max) 有序对作为 key，保证 (A,B) 和 (B,A) 共享同一份关系数据。
 //! 存储在 WorldDriver 中，作为参数传入 social_system。
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use woworld_core::types::EntityId;
 
@@ -14,7 +15,7 @@ use woworld_core::types::EntityId;
 /// 关系来源——影响关系变化速率
 ///
 /// 文档: `NPC活人感开发文档ver2.0.md` §2.4 — RelationshipSource
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum RelationshipSource {
     /// 血缘 → 信任度高，变化慢
     Bloodline,
@@ -38,7 +39,7 @@ pub enum RelationshipSource {
 /// 关系中的支配/服从地位
 ///
 /// 文档: `NPC活人感开发文档ver2.0.md` §2.4 — StatusRelation
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub enum StatusRelation {
     /// 支配方——在关系中占主导
     Dominant {
@@ -59,7 +60,7 @@ pub enum StatusRelation {
 /// affection: -1=憎恨 → 0=中性 → 1=深爱（短期波动，天级）
 /// trust: -1=深度不信任 → 0=中性 → 1=完全信任（长期积累，年级）
 /// familiarity: 0=陌生人 → 1=非常熟悉（基于互动次数和质量）
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Relationship {
     /// 好感度 -1~1（短期波动，天级）
     pub affection: f32,
@@ -118,7 +119,7 @@ impl Relationship {
 ///
 /// Key 使用 `(min(a,b), max(a,b))` 保证 (A,B) 和 (B,A) 共享同一条关系。
 /// 存储在 WorldDriver 中，作为 `&mut RelationStorage` 参数传入 social_system。
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct RelationStorage {
     pub relations: BTreeMap<(EntityId, EntityId), Relationship>,
     /// 上次运行关系维护的 tick——避免每帧全表扫描

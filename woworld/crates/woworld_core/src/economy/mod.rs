@@ -13,6 +13,8 @@ pub mod behavioral;
 pub mod bootstrap;
 pub mod listing;
 
+use serde::{Deserialize, Serialize};
+
 use crate::id::ItemDefId;
 use crate::types::EntityId;
 pub use bootstrap::{initial_money_supply, inject_liquidity, BootstrapParams, LiquidityInjection};
@@ -24,7 +26,7 @@ use std::collections::BTreeMap;
 // ── 经济 ID 类型 ───────────────────────────────────────
 
 /// 经济区域标识符
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EconomyId(pub u32);
 
 impl Default for EconomyId {
@@ -34,7 +36,7 @@ impl Default for EconomyId {
 }
 
 /// 市场标识符
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MarketId(pub u32);
 
 /// 无市场哨兵值
@@ -48,7 +50,7 @@ pub const ECONOMY_ID_NONE: EconomyId = EconomyId(u32::MAX);
 /// 市场——一个经济体内的交易场所。
 ///
 /// Phase 2: 一经济体一市场。Phase 3+ 扩展为多层级市场体系。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Market {
     pub market_id: MarketId,
     pub economy_id: EconomyId,
@@ -67,7 +69,7 @@ impl Market {
 }
 
 /// 订单簿——某一物品的买卖单集合。
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OrderBook {
     /// 买单（按价格降序排列——最高买价在前）
     pub bids: Vec<Order>,
@@ -76,7 +78,7 @@ pub struct OrderBook {
 }
 
 /// 订单
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Order {
     pub order_id: u64,
     pub entity_id: EntityId,
@@ -121,14 +123,14 @@ impl Order {
 }
 
 /// 订单方向
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrderSide {
     Bid,
     Ask,
 }
 
 /// 交易记录
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct TradeRecord {
     pub item_id: ItemDefId,
     pub quantity: u32,
@@ -141,7 +143,7 @@ pub struct TradeRecord {
 // ── 钱包快照 ───────────────────────────────────────────
 
 /// 钱包只读快照（供 EconomyQuery 返回）
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct WalletSnapshot {
     pub copper: u64,
     pub silver: u64,
@@ -172,7 +174,7 @@ impl WalletSnapshot {
 // ── 价格快照 ───────────────────────────────────────────
 
 /// 市场价格快照
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub struct PriceSnapshot {
     /// EMA 平滑价格（铜币）
     pub ema_price_copper: u64,
@@ -189,7 +191,7 @@ pub struct PriceSnapshot {
 // ── 经济健康度指数 ─────────────────────────────────────
 
 /// 经济健康度复合指数（stub — Phase 2+ 填充）
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub struct EconomicHealthIndex {
     /// 通胀率 (月化, 0=稳定)
     pub inflation_monthly: f32,
@@ -243,7 +245,7 @@ pub trait EconomyQuery: Send + Sync {
 
 // ── LaborMarketSnapshot ────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct LaborMarketSnapshot {
     pub employment_rate: f32,
     pub avg_daily_wage: u64,
@@ -253,7 +255,7 @@ pub struct LaborMarketSnapshot {
 
 // ── TradeRouteInfo ─────────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TradeRouteInfo {
     pub from: EconomyId,
     pub to: EconomyId,
@@ -264,7 +266,7 @@ pub struct TradeRouteInfo {
 // ── 财富分布 ───────────────────────────────────────────
 
 /// 财富分布快照
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct WealthDistribution {
     /// 基尼系数 [0,1]
     pub gini: f32,
@@ -281,6 +283,7 @@ pub struct WealthDistribution {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::{Deserialize, Serialize};
 
     #[test]
     fn test_wallet_snapshot_total_copper() {

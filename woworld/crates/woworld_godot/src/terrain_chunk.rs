@@ -175,6 +175,10 @@ pub struct WorldDriver {
     item_registry: woworld_ecs::resources::item_registry::ItemRegistry,
     /// 物品种子系统是否已执行（仅一次）
     item_seeded: bool,
+    /// ★ V6: 存档系统（LMDB 持久化）
+    save_system: woworld_save::SaveSystem,
+    /// ★ V6: 世界种子（存档 header 用——与 terrain/vegetation 初始化种子一致）
+    world_seed: u64,
     /// 帧计数器（ECS System 用——单调递增 tick）
     frame_count: u64,
 
@@ -315,6 +319,8 @@ impl INode3D for WorldDriver {
             ),
             item_registry: woworld_ecs::resources::item_registry::ItemRegistry::new(),
             item_seeded: false,
+            save_system: woworld_save::SaveSystem::new("saves"),
+            world_seed: 0,
             frame_count: 0,
             action_registry: woworld_ecs::resources::action_registry::ActionRegistry::new(),
             movement_profile_registry:
@@ -370,6 +376,7 @@ impl INode3D for WorldDriver {
 
         // ── 1. 创建 HeightfieldTerrain（含群系）────
         let seed: u64 = 99;
+        self.world_seed = seed;
         let params = NoiseParams::from_toml_str(include_str!("../../../assets/noise_params.toml"))
             .expect("noise_params.toml must be valid");
         let noise = WorldNoise::with_params(seed, params);
@@ -1645,6 +1652,24 @@ impl INode3D for WorldDriver {
         if let Some(scale) = pending_scale {
             self.clock.set_time_scale(scale);
         }
+
+        // ★ V6: 处理 save 命令的请求
+        let pending_save = self
+            .debug_console
+            .as_mut()
+            .and_then(|c| c.state.pending_save_name.take());
+        if let Some(ref name) = pending_save {
+            self.handle_save(name);
+        }
+
+        // ★ V6: 处理 load 命令的请求
+        let pending_load = self
+            .debug_console
+            .as_mut()
+            .and_then(|c| c.state.pending_load_name.take());
+        if let Some(ref name) = pending_load {
+            self.handle_load(name);
+        }
     }
 }
 
@@ -1987,6 +2012,209 @@ impl WorldDriver {
                 pos.0 = glam::Vec3::new(gp.x as f32, gp.y as f32, gp.z as f32);
             }
         }
+    }
+
+    /// ★ V6: 保存游戏状态到 LMDB 存档
+    fn handle_save(&mut self, save_name: &str) {
+        use woworld_save::snapshot::collect_entities;
+
+        let snapshot = woworld_save::WorldSnapshot {
+            header: woworld_save::SaveHeader::new(
+                self.world_seed,
+                "活着的村庄".into(),
+                self.frame_count,
+                save_name.into(),
+            ),
+            clock: woworld_save::ClockData {
+                accumulator: self.clock.accumulator,
+                seconds_per_day: self.clock.seconds_per_day,
+                days_per_year: self.clock.days_per_year,
+                time_scale: self.clock.time_scale,
+            },
+            frame_count: self.frame_count,
+            game_time_secs: self.game_time_secs,
+            item_seeded: self.item_seeded,
+            hotbar_config: woworld_save::snapshot::HotbarConfigData {
+                slots: self.hotbar_config.slots.map(|opt| opt.map(|a| a.0)),
+            },
+            entities: collect_entities(&self.ecs),
+            inventory: woworld_save::snapshot::InventorySnapshot {
+                inventories: self
+                    .inventory_registry
+                    .inventories
+                    .iter()
+                    .map(|(eid, inv)| (eid.0, inv.clone()))
+                    .collect(),
+                equipment: self
+                    .inventory_registry
+                    .equipment
+                    .iter()
+                    .map(|(eid, eq)| (eid.0, eq.clone()))
+                    .collect(),
+            },
+            relations: woworld_save::snapshot::RelationSnapshot {
+                relations: self
+                    .relation_storage
+                    .relations
+                    .iter()
+                    .map(|((a, b), rel)| ((a.0, b.0), rel.clone()))
+                    .collect(),
+                last_maintenance_tick: self.relation_storage.last_maintenance_tick,
+            },
+            economy_wallets: woworld_save::snapshot::EconomyWalletSnapshot {
+                wallets: self
+                    .economy_registry
+                    .wallet_entries()
+                    .map(|(eid, ws)| (eid.0, ws.copper, ws.silver, ws.gold))
+                    .collect(),
+            },
+            action_counter: self.action_instance_counter.0,
+            block_a0_driving: self.block_a0_driving,
+        };
+
+        match self.save_system.save(&snapshot, save_name) {
+            Ok(path) => godot_print!("[Save] Game saved to: {}", path),
+            Err(e) => godot_error!("[Save] Failed: {}", e),
+        }
+    }
+
+    /// ★ V6: 从 LMDB 存档加载游戏状态
+    fn handle_load(&mut self, save_name: &str) {
+        let snapshot = match self.save_system.load(save_name) {
+            Ok(s) => s,
+            Err(e) => {
+                godot_error!("[Load] {}", e);
+                return;
+            }
+        };
+
+        // 保存旧 player entity bits
+        let player_old_bits = self.player_ecs_entity.map(|e| e.to_bits().get());
+
+        // 清空 ECS world
+        self.ecs = EcsWorld::new();
+
+        // 恢复实体
+        let mapping = woworld_save::snapshot::restore_entities(&mut self.ecs, &snapshot.entities);
+
+        // 恢复 player entity 引用
+        self.player_ecs_entity = player_old_bits.and_then(|bits| mapping.get(&bits).copied());
+        self.bare_player_entity = self.player_ecs_entity;
+
+        // 恢复 InventoryRegistry (EntityId remap)
+        self.inventory_registry =
+            woworld_ecs::resources::inventory_registry::InventoryRegistry::new();
+        for (old_bits, inv) in &snapshot.inventory.inventories {
+            if let Some(&new_entity) = mapping.get(old_bits) {
+                let new_eid = woworld_ecs::entity_id::entity_id_from_hecs(new_entity);
+                self.inventory_registry
+                    .inventories
+                    .insert(new_eid, inv.clone());
+                // 添加 HasInventory ZST 标签
+                let _ = self
+                    .ecs
+                    .insert_one(new_entity, woworld_ecs::components::inventory::HasInventory);
+            }
+        }
+        for (old_bits, eq) in &snapshot.inventory.equipment {
+            if let Some(&new_entity) = mapping.get(old_bits) {
+                let new_eid = woworld_ecs::entity_id::entity_id_from_hecs(new_entity);
+                self.inventory_registry
+                    .equipment
+                    .insert(new_eid, eq.clone());
+                let _ = self
+                    .ecs
+                    .insert_one(new_entity, woworld_ecs::components::inventory::HasEquipment);
+            }
+        }
+
+        // 恢复 RelationStorage (EntityId remap)
+        self.relation_storage =
+            woworld_ecs::resources::relation_storage::RelationStorage::default();
+        for ((a_bits, b_bits), rel) in &snapshot.relations.relations {
+            if let (Some(&new_a), Some(&new_b)) = (mapping.get(a_bits), mapping.get(b_bits)) {
+                let eid_a = woworld_ecs::entity_id::entity_id_from_hecs(new_a);
+                let eid_b = woworld_ecs::entity_id::entity_id_from_hecs(new_b);
+                let key = if eid_a.0 <= eid_b.0 {
+                    (eid_a, eid_b)
+                } else {
+                    (eid_b, eid_a)
+                };
+                self.relation_storage.relations.insert(key, rel.clone());
+                // 添加 RelationHandle ZST 标签
+                let _ = self
+                    .ecs
+                    .insert_one(new_a, woworld_ecs::components::social::RelationHandle);
+                let _ = self
+                    .ecs
+                    .insert_one(new_b, woworld_ecs::components::social::RelationHandle);
+            }
+        }
+        self.relation_storage.last_maintenance_tick = snapshot.relations.last_maintenance_tick;
+
+        // 恢复 EconomyRegistry——先清空旧状态（防 stale market/orderbook/econ_params 泄漏）
+        self.economy_registry = woworld_ecs::resources::economy_registry::EconomyRegistry::new();
+        for (old_bits, copper, silver, gold) in &snapshot.economy_wallets.wallets {
+            if let Some(&new_entity) = mapping.get(old_bits) {
+                let new_eid = woworld_ecs::entity_id::entity_id_from_hecs(new_entity);
+                self.economy_registry.set_wallet(
+                    new_eid,
+                    woworld_core::economy::WalletSnapshot {
+                        copper: *copper,
+                        silver: *silver,
+                        gold: *gold,
+                    },
+                );
+            }
+        }
+
+        // 恢复 clock
+        self.clock = WorldClock::new(snapshot.clock.seconds_per_day);
+        self.clock.accumulator = snapshot.clock.accumulator;
+        self.clock.days_per_year = snapshot.clock.days_per_year;
+        self.clock.set_time_scale(snapshot.clock.time_scale);
+        // 从 accumulator 重建 WorldTime
+        self.clock.advance(0.0);
+
+        // 恢复计数器
+        self.frame_count = snapshot.frame_count;
+        self.game_time_secs = snapshot.game_time_secs;
+        self.item_seeded = snapshot.item_seeded;
+        self.action_instance_counter =
+            woworld_ecs::resources::action_instance_counter::ActionInstanceCounter(
+                snapshot.action_counter,
+            );
+
+        // 恢复热栏配置
+        for (slot, opt_id) in snapshot.hotbar_config.slots.iter().enumerate() {
+            if let Some(action_id) = opt_id {
+                self.hotbar_config
+                    .set(slot as u8, woworld_core::action::ActionId(*action_id));
+            }
+        }
+
+        // 恢复玩家驾驶模式
+        self.block_a0_driving = snapshot.block_a0_driving;
+
+        // 清除派生状态（下帧重建）
+        self.name_cache.clear();
+        self.lod_prev.clear();
+        self.lod_hyst.clear();
+        self.spectator_selected_entity = None;
+
+        // 重建瞬时通道（防旧 entity ID 事件泄漏到新世界）
+        self.action_events = woworld_ecs::events::EventChannel::new();
+        self.trade_events = woworld_ecs::events::EventChannel::new();
+
+        // 从时钟重建 last_game_day（防触发伪季节变更）
+        self.last_game_day = self.clock.current.day_number;
+
+        godot_print!(
+            "[Load] Game loaded from '{}'. {} entities, day {}.",
+            save_name,
+            snapshot.entities.len(),
+            self.clock.current.day_number
+        );
     }
 
     /// Sprint-060: 夺舍指定实体（控制台 possess <id> 命令使用）

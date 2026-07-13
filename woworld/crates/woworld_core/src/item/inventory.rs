@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 
 use crate::id::ItemDefId;
 use crate::item::{effective_encumbrance_kg, ItemCategory, ItemProperties, ITEM_DEF_ID_NONE};
+use serde::{Deserialize, Serialize};
 
 // ── InventorySlot ─────────────────────────────────────
 
@@ -18,7 +19,7 @@ use crate::item::{effective_encumbrance_kg, ItemCategory, ItemProperties, ITEM_D
 ///
 /// Phase 3: `item_def_id` 迁移为 `ItemEntId`。
 /// 16 bytes + 4 padding = 20 bytes → 编译器对齐为 24 bytes。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InventorySlot {
     /// 物品定义 ID。Phase 3: migrate to ItemEntId.
     pub item_def_id: ItemDefId,
@@ -41,7 +42,7 @@ impl Default for InventorySlot {
 // ── InventoryError ────────────────────────────────────
 
 /// 库存操作错误。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InventoryError {
     /// 无空余槽位——背包满了。
     NoSlots,
@@ -58,7 +59,7 @@ pub enum InventoryError {
 /// 随身库存——玩家和所有 NPC 共用同一套代码。
 ///
 /// 槽位为主，负重为安全网。槽位稀缺 → 驱动仓储行为。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersonalInventory {
     /// 统一槽位池——槽位数 = `slots.len()`。
     /// 装备容器时 push 新空槽位，卸下容器时截断。
@@ -316,6 +317,7 @@ impl PersonalInventory {
 mod tests {
     use super::*;
     use crate::item::{ItemCategory, Quality, Rarity, ITEM_DEF_ID_NONE};
+    use serde::{Deserialize, Serialize};
 
     fn test_props(weight_grams: u32, bulk_factor: f32, stack_size: u32) -> ItemProperties {
         ItemProperties {

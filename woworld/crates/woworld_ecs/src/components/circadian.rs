@@ -3,8 +3,9 @@
 //! Chronotype 从 BigFive 人格派生（Phase 2），Sprint 042 使用默认值。
 //! 参见: `开发文档/02-NPC核心/02-基本需求.md` §昼夜节律调制
 
+use serde::{Deserialize, Serialize};
 /// 睡眠类型——决定生理节律的相位偏移
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum Chronotype {
     /// 早鸟型——节律提前 2h
     Morning,

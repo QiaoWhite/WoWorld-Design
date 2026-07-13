@@ -32,8 +32,7 @@ pub enum BufferPriority {
 /// 手感参数——TOML 数据驱动 `input_feel.toml`。
 ///
 /// 所有参数值 Provisional——待实机测试调整。机制结构是最终设计。
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct InputFeelConfig {
     /// 土狼时间窗口 (ms)
     pub coyote_time_ms: f32,
@@ -279,7 +278,7 @@ pub enum HeldItemKind {
 /// 槽位 0-9：键 `1`-`9` 映射到 idx 1-9，idx 0 预留。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HotbarConfig {
-    slots: [Option<ActionId>; 10],
+    pub slots: [Option<ActionId>; 10],
 }
 
 impl HotbarConfig {

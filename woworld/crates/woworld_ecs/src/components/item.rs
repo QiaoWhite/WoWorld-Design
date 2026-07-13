@@ -3,6 +3,7 @@
 //! 用于替代 item_spawn 中裸 `ItemDefId` 组件。
 //! 所有物品定义数据驻留在 ItemRegistry 中。
 
+use serde::{Deserialize, Serialize};
 use woworld_core::id::ItemDefId;
 use woworld_core::item::ITEM_DEF_ID_NONE;
 
@@ -10,7 +11,7 @@ use woworld_core::item::ITEM_DEF_ID_NONE;
 ///
 /// `item_def_id` 指向 ItemRegistry 中的物品定义。
 /// 用于 DroppedItem、Inventory 槽位、装备槽位等场景。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Item {
     pub item_def_id: ItemDefId,
 }

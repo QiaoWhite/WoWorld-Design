@@ -3,11 +3,12 @@
 //! ECS 侧作为零数据 tag Component 使用。
 //! 值类型定义仍在 `woworld_core::types`——此文件仅提供 ECS Component 实现。
 
+use serde::{Deserialize, Serialize};
 /// 实体种类 tag——值枚举与 `woworld_core::types::EntityKind` 同步。
 ///
 /// 作为 Tag Component 使用时，不携带数据——仅标记 Entity 的种类。
 /// 需要完整枚举值的场景请使用 `woworld_core::types::EntityKind`。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum EntityKind {
     #[default]
     Creature = 0,

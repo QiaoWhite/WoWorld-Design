@@ -7,6 +7,7 @@
 
 use crate::components::bigfive::BigFive;
 use crate::prng::pseudo_random_f32_range;
+use serde::{Deserialize, Serialize};
 
 /// 6 个审美信号维度常量
 pub const DIM_FLUENCY: usize = 0;
@@ -20,7 +21,7 @@ pub const DIM_VIRTUOSITY: usize = 5;
 ///
 /// 一次性从 BigFive + 文化参数派生，仅在极端文化冲击或审美事件后微调。
 /// Phase 1: 文化参数用中性值 0.5 替代。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct AestheticTaste {
     /// 6 维审美权重 [0.05, 0.95]——越高越重视该维度
     pub dimension_weights: [f32; 6],

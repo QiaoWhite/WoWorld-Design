@@ -33,7 +33,9 @@ pub const ITEM_DEF_ID_NONE: ItemDefId = ItemDefId(u64::MAX);
 ///
 /// 分类树分为 7 组、~44 个在用变体。
 /// 0x70-0x7F 为核心保留，0x80-0xFF 为 Mod 命名空间。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 #[repr(u8)]
 pub enum ItemCategory {
     // === 0x00-0x0F: 装备 ===

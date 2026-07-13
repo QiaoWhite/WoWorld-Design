@@ -5,8 +5,10 @@
 //!
 //! 参见: `WoWorld-Design/开发路线图/002-轨A-正式开发.md` A.5
 
+use serde::{Deserialize, Serialize};
+
 /// 昼夜四阶段
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TimeOfDay {
     /// 黎明 (day_progress ∈ [0.20, 0.30))
     Dawn,
@@ -40,7 +42,7 @@ impl TimeOfDay {
 ///
 /// 由 `WorldClock::advance()` 每帧重新生成。
 /// 消费方按值复制（Copy），零分配查询。
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct WorldTime {
     /// 日内进度 0.0-1.0（0.0 = 午夜, 0.25 = 日出, 0.5 = 正午, 0.75 = 日落）
     pub day_progress: f64,
@@ -111,7 +113,7 @@ fn smoothstep(edge0: f64, edge1: f64, x: f64) -> f64 {
 ///
 /// `time_scale` 是模拟速度乘数：1.0 = 真实时间, 10.0 = 10 倍速, 0.0 = 暂停。
 /// 消费方（WorldDriver）负责设置此值——core 不定义速度档位。
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WorldClock {
     /// 当前时间快照（每帧重算）
     pub current: WorldTime,
@@ -125,7 +127,7 @@ pub struct WorldClock {
     pub time_scale: f32,
 
     /// 累计真实时间（秒，未经 time_scale 缩放——用于 set_time 等绝对值计算）
-    accumulator: f64,
+    pub accumulator: f64,
 }
 
 impl Default for WorldClock {
@@ -192,6 +194,7 @@ impl WorldClock {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::{Deserialize, Serialize};
 
     #[test]
     fn test_time_of_day_from_progress() {

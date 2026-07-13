@@ -115,8 +115,7 @@ pub enum RotationLock {
 ///
 /// ActionController 在接受新请求前检查此约束。
 /// 参见: `003-ActionController与离散动作.md` §4.1
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum PhysicsRequirement {
     /// 必须在地面——Block/Dodge/LightAttack
     Grounded,

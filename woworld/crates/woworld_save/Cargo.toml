@@ -1,0 +1,22 @@
+[package]
+name = "woworld_save"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "WoWorld Save System — LMDB-backed snapshot save/load with SaveableModule trait"
+
+[dependencies]
+# 核心类型（EntityId, WorldClock, economy types, etc.）
+woworld_core = { path = "../woworld_core" }
+# ECS Component 类型（序列化需要）
+woworld_ecs = { path = "../woworld_ecs" }
+
+# LMDB 数据库（heed = Rust 安全封装）
+heed = "0.22"
+# 二进制序列化
+bincode = "1.3"
+serde = { version = "1", features = ["derive"] }
+
+# hecs Entity 类型引用
+hecs = "0.10"

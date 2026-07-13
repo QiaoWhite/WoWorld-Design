@@ -4,12 +4,13 @@
 //! 参见: `WoWorld-Design/开发路线图/002-轨A-正式开发.md` A.2 Tier 0
 
 use glam::{DVec3 as GlamDVec3, Quat as GlamQuat, Vec3 as GlamVec3};
+use serde::{Deserialize, Serialize};
 
 // ── 坐标与向量 ──────────────────────────────────────
 
 /// 世界坐标（double 精度，覆盖 500km+ 范围）
 /// y 轴为高度
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct WorldPos {
     pub x: f64,
     pub y: f64,
@@ -26,7 +27,7 @@ pub type DVec3 = GlamDVec3;
 pub type Quat = GlamQuat;
 
 /// 轴对齐包围盒（f64 世界坐标）
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Aabb {
     pub min: WorldPos,
     pub max: WorldPos,
@@ -40,11 +41,11 @@ pub struct Aabb {
 /// - bit63: 0=Item(ItemEntId) / 1=NonItem
 /// - bit[62:60]: entity_kind
 /// - bit[59:0]: local_id
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct EntityId(pub u64);
 
 /// 实体类别（bit[62:60] 共 8 种，当前使用 5 种）
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EntityKind {
     Creature = 0,
     BuildingComponent = 1,
@@ -56,7 +57,7 @@ pub enum EntityKind {
 // ── 地形查询 ──────────────────────────────────────
 
 /// 地形射线命中结果
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct TerrainHit {
     pub point: WorldPos,
     pub normal: Vec3,
@@ -67,7 +68,7 @@ pub struct TerrainHit {
 // ── 空间索引 ──────────────────────────────────────
 
 /// 空间索引中的实体条目
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpatialEntity {
     pub id: EntityId,
     pub pos: WorldPos,
@@ -82,7 +83,7 @@ pub struct SpatialEntity {
 // ── 空间事件 ──────────────────────────────────────
 
 /// 空间事件——SpatialEventBus 发布/订阅的消息
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpatialEvent {
     /// 事件类型标签（如 "combat_hit", "spell_cast", "footstep_loud"）
     pub event_type: &'static str,
@@ -99,7 +100,7 @@ pub struct SpatialEvent {
 // ── 气味 ──────────────────────────────────────────
 
 /// 气味源——ScentQuery 懒采样输入
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ScentSource {
     pub position: WorldPos,
     /// 气味类型标签（如 "food_cooking", "blood", "incense"）
@@ -115,5 +116,5 @@ pub struct ScentSource {
 
 /// 材质声学标签——EntityIndex::acoustic_tag_at() 返回值
 /// 值 0-20 对应 21 种 SurfaceMaterial 变体
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AcousticTag(pub u8);

@@ -7,6 +7,7 @@
 //! 参见: `WoWorld-Design/Happy Game/开发阶段/物品系统/004-装备系统.md`
 
 use crate::id::ItemDefId;
+use serde::{Deserialize, Serialize};
 
 // ── SlotId ────────────────────────────────────────────
 
@@ -14,7 +15,7 @@ use crate::id::ItemDefId;
 ///
 /// Phase 2 固定人形格式。
 /// Phase 3: BodyPlan 派生为 `Head(u8)` / `Leg(AppendageLabel, u8)` 等参数化变体。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SlotId {
     // === Outfit 槽位 ===
     /// 头盔（每头 1 槽）
@@ -70,7 +71,7 @@ pub enum SlotId {
 /// 服饰模式——NPC 自主决定当前穿哪套。
 ///
 /// 切换 0 成本（数据指针交换），切换逻辑在 NPC 模块。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum OutfitMode {
     /// 战甲——战斗/巡逻/护卫
@@ -89,7 +90,7 @@ pub enum OutfitMode {
 /// 一套服饰的完整配置。
 ///
 /// Phase 3: 物品迁移为 ItemEntId；新增 `appendage_armor: BTreeMap<SlotId, Option<ItemDefId>>`。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct OutfitSet {
     /// Phase 3: ItemEntId
     pub head: Option<ItemDefId>,
@@ -112,7 +113,7 @@ pub struct OutfitSet {
 /// 饰品集合——不随 Outfit 模式切换。
 ///
 /// 戒指绑定到具体手指（设计 004 §二·3）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct AccessorySet {
     /// 右手中指戒指
     pub ring_right_middle: Option<ItemDefId>,
@@ -138,7 +139,7 @@ pub struct AccessorySet {
 ///
 /// 设计 004 §三：容器槽位提供额外库存容量，但无角色模型上的视觉表示。
 /// 手提槽战斗规则：非战斗→移速惩罚；进入战斗→惩罚消除；离开战斗 5s→恢复。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ContainerSet {
     /// 背槽 ×1——背包/背囊/次元袋
     pub back: Option<ItemDefId>,
@@ -160,7 +161,7 @@ pub struct ContainerSet {
 ///
 /// ★ v1.2 新增。仅对玩家角色生效。NPC 始终全显示。
 /// 设计意图：玩家想隐藏头盔/斗篷但保留属性。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EquipmentVisualToggles {
     pub head: bool,
     pub shoulder: bool,
@@ -202,7 +203,7 @@ impl Default for EquipmentVisualToggles {
 ///
 /// 存储于 InventoryRegistry（非 ECS Component——含 Vec/非 Copy 字段）。
 /// ECS 侧使用 `HasEquipment` ZST 标签标记。
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CharacterEquipment {
     /// 战甲——战斗/巡逻/护卫时的穿着
     pub combat: OutfitSet,
@@ -374,6 +375,7 @@ impl CharacterEquipment {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::{Deserialize, Serialize};
 
     fn sword_id() -> ItemDefId {
         crate::id::ItemDefId(100)

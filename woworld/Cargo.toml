@@ -5,6 +5,7 @@ members = [
     "crates/woworld_worldgen",
     "crates/woworld_atmosphere",
     "crates/woworld_ecs",
+    "crates/woworld_save",
     "crates/woworld_godot",
 ]
 

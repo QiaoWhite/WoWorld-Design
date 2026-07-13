@@ -5,12 +5,13 @@
 //! esteem_deficit（尊重赤字）和 competence_frustration（胜任挫折）属于
 //! 心理成长层——不放 Needs struct，独立为 GrowthColumn SoA。
 
+use serde::{Deserialize, Serialize};
 /// 进阶心理需求——尊重 + 胜任
 ///
 /// 设计规定: 不放入 Needs struct，独立 SoA 列族 (GrowthColumn)。
 /// esteem: passive +0.01/天，通过社交恢复。
 /// competence: 每游戏日按技能 aspiration gap 重算。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct GrowthNeeds {
     /// 尊重赤字 [0, 1]——0=被充分认可，1=无人知晓我的价值
     pub esteem_deficit: f32,

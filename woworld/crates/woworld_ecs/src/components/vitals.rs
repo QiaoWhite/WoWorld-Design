@@ -2,6 +2,7 @@
 //!
 //! 参见: `开发文档/01-世界框架/02-生命系统.md`
 
+use serde::{Deserialize, Serialize};
 use woworld_core::id::ItemDefId;
 use woworld_core::types::EntityId;
 
@@ -20,7 +21,7 @@ use woworld_core::types::EntityId;
 /// | spirit | ★ 恢复——DeathCategory::SpiritExhaustion 依赖此字段 |
 /// | body_temp | Sprint 中合理新增，DeathWatch 消费 |
 /// | oxygen | Sprint 中合理新增，预留给溺水/水下探索 |
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Vitals {
     pub hp: f32,
     pub max_hp: f32,
@@ -48,7 +49,7 @@ impl Default for Vitals {
 // ── DeathCause ────────────────────────
 
 /// 死亡原因分类——6 大类
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DeathCategory {
     /// 暴力致死（武器/徒手/爆炸/坠落等）
     Violent = 0,
@@ -65,7 +66,7 @@ pub enum DeathCategory {
 }
 
 /// 死亡原因记录——仅在 Entity 死亡时装上，作为永久死亡记录保留
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct DeathCause {
     pub category: DeathCategory,
     /// 30 种细分死因编码（见 `开发阶段/生命/004-身体状态与生命过程` §九）
@@ -91,7 +92,7 @@ impl Default for DeathCause {
 ///
 /// `corpse_temperature` 从 37°C 趋近环境温度——感官 System 可据此推断死亡时间。
 /// "尸体还温热"→凶手在附近。"白骨冰冷"→已死数百年。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Corpse {
     /// 死亡时的游戏 tick（WorldClock 帧计数）
     pub death_tick: u64,
@@ -114,7 +115,7 @@ impl Default for Corpse {
 ///
 /// DeathWatch 只标记"这个尸体需要掉落"，不指定掉落表。
 /// LootRoll 自己通过 EntityKind（或未来 SpeciesId）决定查哪个表。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PendingLoot;
 
 impl Default for PendingLoot {
@@ -126,7 +127,7 @@ impl Default for PendingLoot {
 // ── LootResult ────────────────────────
 
 /// 已确定的掉落物列表——固定大小数组，铁律 2 合规
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct LootResult {
     /// 最多 8 个掉落物品
     pub items: [Option<ItemDefId>; 8],
@@ -147,7 +148,7 @@ impl Default for LootResult {
 // ── CorpseLooted ──────────────────────
 
 /// 标记尸体已被搜刮——ItemSpawn 移除 LootResult 后插入
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct CorpseLooted;
 
 impl Default for CorpseLooted {
@@ -159,7 +160,7 @@ impl Default for CorpseLooted {
 // ── DecayingRemains ──────────────────
 
 /// 腐败残骸——CorpseDecay 移除 Corpse 后插入
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct DecayingRemains {
     /// 腐败进度 0.0→1.0，满 1.0 时 CleanupSystem 移除 Entity
     pub decay_progress: f32,
@@ -176,7 +177,7 @@ impl Default for DecayingRemains {
 // ── PendingDespawn ────────────────────
 
 /// 标记 Entity 等待清理——零字段 tag
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PendingDespawn;
 
 impl Default for PendingDespawn {
@@ -188,7 +189,7 @@ impl Default for PendingDespawn {
 // ── RegenState ────────────────────────
 
 /// 基础再生率——不随帧更新的常量数据
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct RegenState {
     /// HP 每秒恢复量
     pub hp_regen_rate: f32,

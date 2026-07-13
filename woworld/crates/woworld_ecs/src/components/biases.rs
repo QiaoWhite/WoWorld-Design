@@ -8,12 +8,13 @@
 use crate::components::bigfive::BigFive;
 use crate::components::cognitive::CognitiveStyle;
 use crate::components::emotion::Emotion;
+use serde::{Deserialize, Serialize};
 
 /// 7 种认知偏误——每个 0-1，越高越强
 ///
 /// 每决策周期从上游 Component 重新计算（纯函数，无额外存储开销）。
 /// Phase 2: 接入 CognitiveTide → availability_heuristic 完整公式。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct CognitiveBiases {
     /// 确认偏误——只寻找支持已有信念的信息
     pub confirmation_bias: f32,

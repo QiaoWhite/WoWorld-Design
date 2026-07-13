@@ -15,7 +15,9 @@
 // ── FaithId ────────────────────────────────────────────
 
 /// 信仰全局标识符 — 扁平 u32，不编码谱系信息
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub struct FaithId(pub u32);
 
 pub const FAITH_ID_NONE: FaithId = FaithId(u32::MAX);

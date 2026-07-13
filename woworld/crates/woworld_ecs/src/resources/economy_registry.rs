@@ -554,6 +554,20 @@ impl EconomyRegistry {
 
     // ── 查询辅助 ──────────────────────────────────────
 
+    /// ★ V6: 遍历所有钱包条目——存档快照用
+    pub fn wallet_entries(&self) -> impl Iterator<Item = (EntityId, WalletSnapshot)> + '_ {
+        self.wallet_entity_ids.iter().enumerate().map(|(i, &eid)| {
+            (
+                eid,
+                WalletSnapshot {
+                    copper: self.wallet_copper[i],
+                    silver: self.wallet_silver[i],
+                    gold: self.wallet_gold[i],
+                },
+            )
+        })
+    }
+
     pub fn wallet_count(&self) -> usize {
         self.wallet_entity_ids.len()
     }

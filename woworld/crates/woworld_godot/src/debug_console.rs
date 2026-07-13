@@ -61,6 +61,10 @@ pub struct ConsoleState {
     pub pending_possess_request: Option<hecs::Entity>,
     /// ★ V5: speed 命令设定的模拟速度倍率（WorldDriver 下帧处理并清零）
     pub pending_time_scale: Option<f32>,
+    /// ★ V6: save 命令设定的存档名（WorldDriver 下帧处理并清零）
+    pub pending_save_name: Option<String>,
+    /// ★ V6: load 命令设定的存档名（WorldDriver 下帧处理并清零）
+    pub pending_load_name: Option<String>,
 }
 
 impl Default for ConsoleState {
@@ -75,6 +79,8 @@ impl Default for ConsoleState {
             player_pos: glam::Vec3::ZERO,
             pending_possess_request: None,
             pending_time_scale: None,
+            pending_save_name: None,
+            pending_load_name: None,
         }
     }
 }
@@ -318,6 +324,20 @@ impl DebugConsole {
                 help: "speed [value] — 设置模拟速度 (1=正常, 10=快速, 60=极快, 0=暂停)",
             },
         );
+        self.commands.insert(
+            "save".into(),
+            CommandEntry {
+                func: cmd_save_console,
+                help: "save [name] — 保存游戏状态到存档文件 (默认 quicksave)",
+            },
+        );
+        self.commands.insert(
+            "load".into(),
+            CommandEntry {
+                func: cmd_load_console,
+                help: "load [name] — 从存档文件加载游戏状态 (默认 quicksave)",
+            },
+        );
     }
 }
 
@@ -513,6 +533,22 @@ fn cmd_possess(args: &[&str], state: &mut ConsoleState, _world: &hecs::World) ->
     // 设置请求——WorldDriver 下帧处理
     state.pending_possess_request = Some(entity);
     format!("[color=#88ff88]Possess request queued for entity {bits}. Teleporting next frame...[/color]")
+}
+
+// ── V6: save/load 命令 ───────────────────
+
+/// `save [name]` — 保存游戏状态到 LMDB 存档
+fn cmd_save_console(args: &[&str], state: &mut ConsoleState, _world: &hecs::World) -> String {
+    let name = args.first().copied().unwrap_or("quicksave");
+    state.pending_save_name = Some(name.to_string());
+    format!("[color=#88ff88]Save requested: '{name}'. Processing...[/color]")
+}
+
+/// `load [name]` — 从 LMDB 存档加载游戏状态
+fn cmd_load_console(args: &[&str], state: &mut ConsoleState, _world: &hecs::World) -> String {
+    let name = args.first().copied().unwrap_or("quicksave");
+    state.pending_load_name = Some(name.to_string());
+    format!("[color=#ffcc00]Load requested: '{name}'. Game state will be replaced...[/color]")
 }
 
 // ── 格式化 ──────────────────────────────

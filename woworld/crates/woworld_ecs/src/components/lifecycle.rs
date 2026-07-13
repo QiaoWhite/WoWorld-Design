@@ -4,8 +4,9 @@
 //!
 //! Phase 1: 年龄跟踪 + 7 阶段判定 + 属性修正。死亡/生育/婴儿 Phase 2+。
 
+use serde::{Deserialize, Serialize};
 /// 7 阶段发育阶段（Life Module 014 定义）
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LifeStage {
     /// 0–2% max_lifespan — 完全依赖照顾者
     Infant,
@@ -52,7 +53,7 @@ impl LifeStage {
 }
 
 /// 年龄跟踪——每帧由 age_system 推进
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Age {
     /// 当前年龄（游戏日）
     pub age_days: f32,
@@ -113,7 +114,7 @@ impl Default for Age {
 ///
 /// # 内存
 /// 20 bytes = 5 × f32
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct GompertzMortality {
     pub base_risk: f32,
     pub current_risk: f32,

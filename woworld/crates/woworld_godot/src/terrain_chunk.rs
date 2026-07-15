@@ -2145,15 +2145,27 @@ impl WorldDriver {
             );
             result
         });
-        // 回退：旧版存档 player_entity_bits=None，搜索 PlayerComponent 实体
+        // 回退：旧版存档 player_entity_bits=None，搜索 PlayerComponent 实体。
+        //   夺舍模式下有两个 PlayerComponent 实体——优先选有 BigFive/Emotion 的（NPC），
+        //   而非裸玩家实体。hecs query 顺序不确定，不能依赖 .next()。
         if self.player_ecs_entity.is_none() {
             godot_print!("[Load] WARN: player_entity_bits not in snapshot, searching for PlayerComponent entity");
             self.player_ecs_entity = self
                 .ecs
                 .query::<&woworld_ecs::components::player::PlayerComponent>()
                 .iter()
-                .next()
-                .map(|(e, _)| e);
+                .map(|(e, _)| e)
+                .max_by_key(|e| {
+                    let has_npc = self
+                        .ecs
+                        .get::<&woworld_ecs::components::bigfive::BigFive>(*e)
+                        .is_ok()
+                        || self
+                            .ecs
+                            .get::<&woworld_ecs::components::emotion::Emotion>(*e)
+                            .is_ok();
+                    if has_npc { 1u8 } else { 0u8 }
+                });
         }
 
         // ★ V6 修复: restore_entities 后的 bare_player_entity 修复。
@@ -2254,7 +2266,10 @@ impl WorldDriver {
             let _ = self.ecs.insert_one(player_entity, CInputBuffer::default());
             let _ = self.ecs.insert_one(player_entity, CInputFeelConfig::default());
             let _ = self.ecs.insert_one(player_entity, CCoyoteTime::default());
-            let _ = self.ecs.insert_one(player_entity, Velocity(glam::Vec3::ZERO));
+            // 仅当实体尚无 Velocity 时才插入零速度（保留从存档恢复的速度）
+            if self.ecs.get::<&Velocity>(player_entity).is_err() {
+                let _ = self.ecs.insert_one(player_entity, Velocity(glam::Vec3::ZERO));
+            }
             let ms = MovementState {
                 stance: Stance::Standing,
                 pace: Pace::Walking,

@@ -31,6 +31,10 @@ pub struct EntityRenderer {
     player_pos: Vec3,
     /// ★ V6: 标记下帧 sync 时需全量重建节点（load 后 hecs bits 重叠 → 颜色错误继承）
     needs_full_rebuild: bool,
+    /// 当前高亮的实体（用于取消高亮时恢复材质）
+    highlighted_entity: Option<hecs::Entity>,
+    /// 缓存的金色高亮材质（避免每帧分配）
+    highlight_material: Option<Gd<Material>>,
 }
 
 /// 单个实体的 Godot 节点集
@@ -58,6 +62,8 @@ impl EntityRenderer {
             color_enhanced: false,
             player_pos: Vec3::ZERO,
             needs_full_rebuild: false,
+            highlighted_entity: None,
+            highlight_material: None,
         }
     }
 
@@ -221,20 +227,40 @@ impl EntityRenderer {
         closest.map(|(e, _)| e)
     }
 
-    /// 高亮选中实体（金色），取消时恢复 hash 颜色
+    /// 高亮选中实体（金色），取消时恢复原材质。
+    /// ★ V6 修复：不再每帧分配新材质 + 不用 entity_hash_color + 不用 set_surface_override。
     pub fn highlight_entity(&mut self, entity: Option<hecs::Entity>) {
-        for (e, node) in self.nodes.iter_mut() {
-            let color = if entity == Some(*e) {
-                Color::from_rgb(1.0, 0.85, 0.2) // 金色高亮
-            } else {
-                entity_hash_color(*e)
-            };
-            let mut mi = node.mesh_instance.clone();
-            let mut mat = StandardMaterial3D::new_gd();
-            mat.set_albedo(color);
-            mat.set_shading_mode(godot::classes::base_material_3d::ShadingMode::UNSHADED);
-            mi.set_surface_override_material(0, &mat);
+        // 若高亮未变化，跳过
+        if self.highlighted_entity == entity {
+            return;
         }
+
+        // 取消旧高亮：恢复原材质
+        if let Some(old) = self.highlighted_entity {
+            if let Some(node) = self.nodes.get(&old) {
+                let mut mi = node.mesh_instance.clone();
+                mi.set_material_override(&node._material);
+            }
+        }
+
+        // 设置新高亮：使用缓存的金色材质
+        if let Some(new_entity) = entity {
+            if let Some(node) = self.nodes.get(&new_entity) {
+                // 惰性初始化高亮材质（仅一次）
+                if self.highlight_material.is_none() {
+                    let mut mat = StandardMaterial3D::new_gd();
+                    mat.set_albedo(Color::from_rgb(1.0, 0.85, 0.2));
+                    mat.set_shading_mode(godot::classes::base_material_3d::ShadingMode::UNSHADED);
+                    self.highlight_material = Some(mat.upcast::<Material>());
+                }
+                let mut mi = node.mesh_instance.clone();
+                if let Some(ref hl_mat) = self.highlight_material {
+                    mi.set_material_override(hl_mat);
+                }
+            }
+        }
+
+        self.highlighted_entity = entity;
     }
 
     // ── 内部方法 ────────────────────────

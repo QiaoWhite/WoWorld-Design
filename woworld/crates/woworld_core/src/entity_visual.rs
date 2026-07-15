@@ -34,6 +34,9 @@ pub struct EntityVisual {
     /// 相机模块据此抑制头顶名字/气泡，并在近距/FP 时隐藏化身胶囊。
     /// 见 玩家系统 007 §九。
     pub controlled: bool,
+    /// ★ V6: 跨存档稳定的 old_id_bits（EntityRenderer 用此做确定性颜色哈希）。
+    ///   None = 首次 spawn（尚未经过 save/load），EntityRenderer 回退 entity bits。
+    pub stable_id: Option<u64>,
 }
 
 impl EntityVisual {
@@ -55,6 +58,9 @@ impl EntityVisual {
 pub struct EntityDebugSnapshot {
     /// hecs Entity 的 bits 表示（跨 FFI 安全）
     pub entity_bits: u64,
+    /// ★ V6: 跨存档稳定的逻辑 ID（= 首次 spawn 或 save 时的 old_id_bits）。
+    ///   None = 新 spawn 的实体，尚未分配到 stable_id。
+    pub stable_id: Option<u64>,
     /// 实体种类
     pub kind: EntityKind,
     /// 显示名
@@ -132,6 +138,7 @@ mod tests {
             bubble_text: None,
             bubble_color: None,
             controlled: false,
+            stable_id: None,
         };
         assert!(v.is_visible());
         assert!(!v.show_label());
@@ -149,6 +156,7 @@ mod tests {
             bubble_text: None,
             bubble_color: None,
             controlled: false,
+            stable_id: None,
         };
         assert!(!v.is_visible());
     }
@@ -165,6 +173,7 @@ mod tests {
             bubble_text: None,
             bubble_color: None,
             controlled: false,
+            stable_id: None,
         };
         assert!(v.show_label());
     }
@@ -181,6 +190,7 @@ mod tests {
             bubble_text: None,
             bubble_color: None,
             controlled: false,
+            stable_id: None,
         };
         assert!(!v.controlled);
     }
@@ -197,6 +207,7 @@ mod tests {
             bubble_text: None,
             bubble_color: None,
             controlled: true,
+            stable_id: None,
         };
         assert!(v.controlled);
     }

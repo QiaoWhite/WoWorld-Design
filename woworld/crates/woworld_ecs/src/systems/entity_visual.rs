@@ -76,6 +76,7 @@ pub fn entity_visual_system(
                 bubble_text,
                 bubble_color,
                 controlled,
+                stable_id: None, // WorldDriver 在下游填充
             },
         ));
     }
@@ -88,17 +89,25 @@ pub fn entity_visual_system(
 ///
 /// `inventory`: 可选注册表引用——console `info` 传 `None`，检视面板传 `Some(&registry)`。
 ///   类型系统强制调用者显式处理"无 registry"情况。
+/// `name_cache`: ★ V6: 可选名字缓存——if Some, 用 stable name; else 从 entity bits 生成。
+/// `stable_ids`: ★ V6: 可选 stable_id 映射——entity → old_id_bits（跨存档不变）。
 pub fn entity_debug_system(
     world: &hecs::World,
     entity: hecs::Entity,
     inventory: Option<&InventoryRegistry>,
+    name_cache: Option<&NameCache>,
+    stable_ids: Option<&std::collections::HashMap<hecs::Entity, u64>>,
 ) -> Option<EntityDebugSnapshot> {
     let pos = world.get::<&Position>(entity).ok()?;
     let kind = world.get::<&EntityKind>(entity).ok()?;
 
     let entity_bits = entity.to_bits().get();
-    let seed = entity_bits;
-    let display_name = generate_name(seed).full();
+    // ★ V6: 优先用 name_cache（跨 save/load 稳定），回退 entity bits
+    let display_name = name_cache
+        .and_then(|nc| nc.get(&entity).cloned())
+        .unwrap_or_else(|| generate_name(entity_bits).full());
+    // ★ V6: stable_id 来自 handle_load 时建立的映射（old_id_bits → new_entity 的反向）
+    let stable_id = stable_ids.and_then(|m| m.get(&entity).copied());
 
     let mut sections = Vec::new();
 
@@ -134,6 +143,7 @@ pub fn entity_debug_system(
 
     Some(EntityDebugSnapshot {
         entity_bits,
+        stable_id,
         kind: kind.to_core(),
         display_name,
         position: pos.0,
@@ -604,7 +614,7 @@ mod tests {
         let mut world_mut = world;
         world_mut.despawn(entity).unwrap();
         // 用无效 entity 查询
-        assert!(entity_debug_system(&world_mut, entity, None).is_none());
+        assert!(entity_debug_system(&world_mut, entity, None, None, None).is_none());
     }
 
     #[test]
@@ -634,7 +644,7 @@ mod tests {
             crate::components::lifecycle::Age::new(80.0, 30.0),
             crate::components::lifecycle::LifeStage::YoungAdult,
         ));
-        let snap = entity_debug_system(&world, e, None).unwrap();
+        let snap = entity_debug_system(&world, e, None, None, None).unwrap();
         assert_eq!(snap.entity_bits, e.to_bits().get());
         // ★ V5: Transform + Action + Wallet + Economy + Growth + Vitals +
         //   Emotion + BigFive + Goal + Needs + Movement + Lifecycle (12 sections min)
@@ -668,12 +678,12 @@ mod tests {
         let eid = EntityId(e.to_bits().get());
         reg.init_inventory(eid, 10);
 
-        let snap = entity_debug_system(&world, e, Some(&reg)).unwrap();
+        let snap = entity_debug_system(&world, e, Some(&reg), None, None).unwrap();
         let has_inv = snap.sections.iter().any(|s| s.title == "Inventory");
         assert!(has_inv, "missing Inventory section when registry is Some");
 
         // None 时不出现 Inventory
-        let snap_none = entity_debug_system(&world, e, None).unwrap();
+        let snap_none = entity_debug_system(&world, e, None, None, None).unwrap();
         let has_inv_none = snap_none.sections.iter().any(|s| s.title == "Inventory");
         assert!(
             !has_inv_none,

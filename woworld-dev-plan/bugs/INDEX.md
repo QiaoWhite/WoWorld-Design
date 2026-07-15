@@ -32,3 +32,5 @@
 | RENDER-002 | LOD0,VoxelChunk,光照异常,正方形区域,全黑,锯齿亮斑,shadow,shadow acne,阴影贴图,shadows_disabled,自阴影 | VoxelChunk 阴影贴图深度不连续 → LOD0 视角依赖光照异常 | 渲染 | 🔴回归 | ✅已修复 | [RENDER-002](渲染/RENDER-002-voxel-shadow-depth-discontinuity.md) |
 | TOOL-002 | canvas,obsidian,二进制,损坏,corrupt,json,文本编辑,画布 | .canvas 文件被 LLM 文本编辑损坏 | 工具链 | 🟡反直觉陷阱 | ✅已修复 | [TOOL-002](工具链/TOOL-002-canvas-binary-corruption.md) |
 | ECS-001 | greeting,问候,打招呼,speech_bubble,ActionIntent,veto,否决,SeekSafety,安全需求,social_total,needs累积,全村沉默,早期正常后突停 | SeekSafety 否决静默掐断全村问候（needs 累积后全 SeekSafety） | ECS | 🟡反直觉陷阱 | ✅已修复 | [ECS-001](ECS/ECS-001-seeksafety-veto-silences-greetings.md) |
+| GD-003 | set_surface_override_material,material_override,材质不生效,颜色不对,albedo,渲染颜色,surface,material,wrong color | `set_surface_override_material` 材质设值但不渲染（GPU输出≠CPU属性） | Godot桥接 | 🟡反直觉陷阱 | ✅已修复 | [GD-003](Godot桥接/GD-003-set-surface-override-material-not-rendered.md) |
+| GD-004 | entity bits,overlap,重叠,复用,clear_nodes,hecs rebuild,load,color inherit,颜色继承,节点复用 | hecs World 重建后 entity bits 重叠 → EntityRenderer 复用旧节点 | Godot桥接 | 🟡反直觉陷阱 | ✅已修复 | [GD-004](Godot桥接/GD-004-hecs-entity-bits-overlap-after-rebuild.md) |

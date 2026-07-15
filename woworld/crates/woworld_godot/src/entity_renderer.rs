@@ -6,7 +6,7 @@
 //! 参见: `开发阶段/模型动作与物理系统/007-调试可视化与EntityRenderer架构.md`
 
 use glam::Vec3;
-use godot::classes::{CapsuleMesh, Label3D, MeshInstance3D, Node3D, StandardMaterial3D};
+use godot::classes::{CapsuleMesh, Label3D, Material, MeshInstance3D, Node3D, StandardMaterial3D};
 use godot::prelude::*;
 use std::collections::HashMap;
 
@@ -29,12 +29,16 @@ pub struct EntityRenderer {
     color_enhanced: bool,
     /// 玩家位置缓存（用于距离裁剪）
     player_pos: Vec3,
+    /// ★ V6: 标记下帧 sync 时需全量重建节点（load 后 hecs bits 重叠 → 颜色错误继承）
+    needs_full_rebuild: bool,
 }
 
 /// 单个实体的 Godot 节点集
 struct EntityNode {
     root: Gd<Node3D>,
     mesh_instance: Gd<MeshInstance3D>,
+    /// ★ V6: 持有材质引用，防止 Godot 垃圾回收后 set_surface_override_material 失效
+    _material: Gd<Material>,
     label: Option<Gd<Label3D>>,
     /// 对话气泡标签（头顶,在名字之上,由 speech_bubble_system 驱动）
     bubble_label: Option<Gd<Label3D>>,
@@ -53,6 +57,7 @@ impl EntityRenderer {
             name_visible: false,
             color_enhanced: false,
             player_pos: Vec3::ZERO,
+            needs_full_rebuild: false,
         }
     }
 
@@ -66,6 +71,17 @@ impl EntityRenderer {
         if !self.first_sync_done {
             godot_print!("EntityRenderer first sync: {} entities", visuals.len());
             self.first_sync_done = true;
+        }
+
+        // ★ V6: load 后强制全量重建——hecs World rebuild → entity bits 重叠 →
+        //   alive.contains_key() 全部命中旧 key → to_remove 为空 → 走 UPDATE
+        //   → 颜色错误继承。这里在 sync 内部检测并清空，保证可靠执行。
+        if self.needs_full_rebuild {
+            godot_print!("[EntityRenderer] Full rebuild triggered — clearing {} nodes", self.nodes.len());
+            for (_, mut node) in self.nodes.drain() {
+                node.root.queue_free();
+            }
+            self.needs_full_rebuild = false;
         }
 
         // 收集存活实体
@@ -145,6 +161,12 @@ impl EntityRenderer {
                 self.nodes.insert(*entity, node);
             }
         }
+    }
+
+    /// ★ V6: 标记需要全量重建（load 后调用）。
+    ///   实际清空发生在下一帧 sync() 开头，保证时序可靠。
+    pub fn clear_nodes(&mut self) {
+        self.needs_full_rebuild = true;
     }
 
     /// 设置头顶名字可见性（由 nameshow 命令调用）
@@ -229,21 +251,22 @@ impl EntityRenderer {
 
         let mut mesh_instance = MeshInstance3D::new_alloc();
         mesh_instance.set_mesh(&capsule);
-        // CapsuleMesh 原点在几何中心 → 向上偏移一半高度让底部贴 root
         mesh_instance.set_position(Vector3::new(0.0, 0.9, 0.0));
 
-        // 颜色
-        let color = if self.color_enhanced {
-            let c = visual.color_hint;
-            Color::from_rgb(c[0], c[1], c[2])
-        } else {
-            entity_hash_color(entity)
-        };
-
         let mut mat = StandardMaterial3D::new_gd();
+        let c = visual.color_hint;
+        let is_gray = (c[0] - 0.5).abs() < 0.01 && (c[1] - 0.5).abs() < 0.01 && (c[2] - 0.5).abs() < 0.01;
+        let color = if is_gray {
+            let seed = visual.stable_id.unwrap_or_else(|| entity.to_bits().get());
+            stable_hash_color_from_seed(seed)
+        } else {
+            Color::from_rgb(c[0], c[1], c[2])
+        };
         mat.set_albedo(color);
         mat.set_shading_mode(godot::classes::base_material_3d::ShadingMode::UNSHADED);
-        mesh_instance.set_surface_override_material(0, &mat);
+        // ★ V6: 用 set_material_override 而非 set_surface_override_material
+        //   ——godot-rust 0.5 的 surface_override 有 bug，材质不生效。
+        mesh_instance.set_material_override(&mat.clone().upcast::<Material>());
 
         // ★ 先入树再设位置（避免 get_global_transform 报错）
         let mut parent = self.parent.clone();
@@ -289,6 +312,7 @@ impl EntityRenderer {
         EntityNode {
             root,
             mesh_instance,
+            _material: mat.clone().upcast::<Material>(),
             label,
             bubble_label,
         }
@@ -336,7 +360,24 @@ impl EntityRenderer {
     }
 }
 
-/// 实体→确定性颜色（splitmix hash）
+/// ★ V6: 用 stable_id 做确定性颜色哈希——同一实体跨 save/load 颜色不变。
+fn stable_hash_color_from_seed(seed: u64) -> Color {
+    let hash = |salt: u64| -> f32 {
+        let mut x = seed.wrapping_add(salt.wrapping_mul(0x9E37_79B9_7F4A_7C15));
+        x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        x ^= x >> 31;
+        (x >> 40) as f32 / (1u64 << 24) as f32
+    };
+    Color::from_rgb(
+        0.2 + hash(1) * 0.8,
+        0.2 + hash(2) * 0.8,
+        0.2 + hash(3) * 0.8,
+    )
+}
+
+/// 实体→确定性颜色（splitmix hash）——已废弃，改用 stable_hash_color。
+#[allow(dead_code)]
 fn entity_hash_color(entity: hecs::Entity) -> Color {
     let id = entity.to_bits().get();
     let hash = |salt: u64| -> f32 {

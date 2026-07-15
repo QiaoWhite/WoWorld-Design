@@ -261,6 +261,7 @@ mod tests {
             item_seeded: false,
             hotbar_config: crate::snapshot::HotbarConfigData { slots: [None; 10] },
             entities: vec![],
+            player_entity_bits: None,
             inventory: crate::snapshot::InventorySnapshot {
                 inventories: vec![],
                 equipment: vec![],
@@ -295,7 +296,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    #[test]
     #[test]
     #[ignore = "heed LMDB needs investigation on Windows test path resolution"]
     fn test_save_load_roundtrip() {

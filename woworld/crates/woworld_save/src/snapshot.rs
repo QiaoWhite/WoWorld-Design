@@ -36,6 +36,12 @@ pub struct WorldSnapshot {
     pub action_counter: u64,
     /// 玩家是否由 Block A0 角色控制器驱动（false = G 键自由飞行）
     pub block_a0_driving: bool,
+    /// ★ V6: save 时 player_ecs_entity 的 entity bits。
+    ///   load 时用此值查 mapping 定位玩家实体——而非依赖内存中可能已变质的旧值。
+    ///   None = 旧版存档或玩家实体不存在。此时回退到搜索 PlayerComponent 实体。
+    ///   ★ 放在 struct 末尾 + serde(default) 确保旧存档兼容。
+    #[serde(default)]
+    pub player_entity_bits: Option<u64>,
 }
 
 // ── ClockData ──────────────────────────────────────────────

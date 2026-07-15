@@ -220,6 +220,9 @@ pub struct WorldDriver {
     debug_console: Option<crate::debug_console::DebugConsole>,
     /// Sprint-059: 名字缓存（entity_visual_system 内部维护）
     name_cache: std::collections::HashMap<hecs::Entity, String>,
+    /// ★ V6: hecs Entity → 跨存档稳定的 old_id_bits（首次 save 时分配）。
+    ///   handle_load 时从 mapping 填充，info 命令用它显示 Stable ID。
+    stable_id_map: std::collections::HashMap<hecs::Entity, u64>,
     /// Sprint-061: 对话气泡状态（speech_bubble_system 维护，跨帧）
     bubble_state: woworld_ecs::resources::speech_bubble_state::SpeechBubbleState,
     /// Sprint-068: 遭遇感知层状态（encounter_system 维护，跨帧）
@@ -340,6 +343,7 @@ impl INode3D for WorldDriver {
             entity_renderer: None,
             debug_console: None,
             name_cache: std::collections::HashMap::new(),
+            stable_id_map: std::collections::HashMap::new(),
             bubble_state: woworld_ecs::resources::speech_bubble_state::SpeechBubbleState::new(),
             encounter_state: woworld_ecs::resources::encounter_state::EncounterState::new(),
             speech_fragments:
@@ -1411,30 +1415,17 @@ impl INode3D for WorldDriver {
                 player_pos.z as f32,
             ));
 
-            let entity_visuals = woworld_ecs::systems::entity_visual::entity_visual_system(
+            let mut entity_visuals = woworld_ecs::systems::entity_visual::entity_visual_system(
                 &self.ecs,
                 self.player_ecs_entity,
                 &mut self.name_cache,
                 &self.bubble_state,
             );
-            // 每 600 帧（~10s）打印一次诊断
-            if self.frame_count % 600 == 0 {
-                godot_print!(
-                    "[EntityRenderer] frame={} entity_count={} renderer_exists=true",
-                    self.frame_count,
-                    entity_visuals.len()
-                );
-                for (_, v) in entity_visuals.iter().take(3) {
-                    godot_print!(
-                        "  name={} pos=({:.1},{:.1},{:.1}) lod={}",
-                        v.display_name,
-                        v.position.x,
-                        v.position.y,
-                        v.position.z,
-                        v.render_lod
-                    );
-                }
+            // ★ V6: 在传给 EntityRenderer 之前填充 stable_id（跨存档颜色稳定）
+            for (entity, visual) in entity_visuals.iter_mut() {
+                visual.stable_id = self.stable_id_map.get(entity).copied();
             }
+            // (EntityRenderer 定期诊断已禁用——信息由 F3 控制台 info/listnpc 提供)
             // ★ 007: 过滤被控实体——近距/FP (arm < 1.0m) 隐藏自身化身胶囊
             let hide_controlled = self.player_avatar_hidden;
             let filtered: Vec<(hecs::Entity, &woworld_core::entity_visual::EntityVisual)> =
@@ -1552,8 +1543,12 @@ impl INode3D for WorldDriver {
                             if let Some(hit_entity) = renderer.raycast_select(o, d) {
                                 console.state.selected_entity = Some(hit_entity);
                                 let bits = hit_entity.to_bits().get();
+                                let stable = console.state.stable_id_snapshot.as_ref()
+                                    .and_then(|m| m.get(&hit_entity))
+                                    .map(|id| format!(" (Stable: {id})"))
+                                    .unwrap_or_default();
                                 console.append_output(&format!(
-                                    "[color=#88ff88]Selected entity: {bits}[/color]"
+                                    "[color=#88ff88]Selected entity: {bits}{stable}[/color]"
                                 ));
                             }
                         }
@@ -1581,6 +1576,9 @@ impl INode3D for WorldDriver {
                     player_pos.y as f32,
                     player_pos.z as f32,
                 );
+                // ★ V6: 同步 name_cache + stable_id_map 到控制台
+                console.state.name_cache_snapshot = Some(self.name_cache.clone());
+                console.state.stable_id_snapshot = Some(self.stable_id_map.clone());
 
                 // 同步 nameshow/color 设置到 renderer
                 if let Some(ref mut renderer) = self.entity_renderer {
@@ -1590,49 +1588,15 @@ impl INode3D for WorldDriver {
             }
         }
 
-        // ★ V5: 旁观者点击选中（非控制台模式——console 内部有独立 click→select 逻辑）
-        {
-            let console_visible = self
+        // ★ V6: 高亮同步——仅控制台模式（F3）下生效。左键留给未来交互操作。
+        //   旁观者点击选中已移除——非控制台下左键不再高亮实体。
+        if let Some(ref mut renderer) = self.entity_renderer {
+            let console_highlight = self
                 .debug_console
                 .as_ref()
-                .map(|c| c.is_visible())
-                .unwrap_or(false);
-            if !console_visible {
-                let input = Input::singleton();
-                let mouse_left = input.is_mouse_button_pressed(godot::global::MouseButton::LEFT);
-                if mouse_left && !self.mouse_left_was_pressed {
-                    // 点击→射线→AABB 选中（先确定目标，再分离借用高亮）
-                    let hit = if let (Some(ref renderer), Some(ref camera)) =
-                        (&self.entity_renderer, &self.camera_3d_node)
-                    {
-                        let viewport = camera.get_viewport();
-                        viewport.as_ref().and_then(|vp| {
-                            let mouse_pos = vp.get_mouse_position();
-                            let origin = camera.project_ray_origin(mouse_pos);
-                            let normal = camera.project_ray_normal(mouse_pos);
-                            let o = glam::Vec3::new(origin.x, origin.y, origin.z);
-                            let d = glam::Vec3::new(normal.x, normal.y, normal.z);
-                            renderer.raycast_select(o, d)
-                        })
-                    } else {
-                        None
-                    };
-                    self.spectator_selected_entity = hit;
-                }
-                self.mouse_left_was_pressed = mouse_left;
-            }
-
-            // 高亮同步（旁观者选中或控制台选中，二选一）
-            if let Some(ref mut renderer) = self.entity_renderer {
-                let highlight = if console_visible {
-                    self.debug_console
-                        .as_ref()
-                        .and_then(|c| c.state.selected_entity)
-                } else {
-                    self.spectator_selected_entity
-                };
-                renderer.highlight_entity(highlight);
-            }
+                .filter(|c| c.is_visible())
+                .and_then(|c| c.state.selected_entity);
+            renderer.highlight_entity(console_highlight);
         }
 
         // Sprint-060: 处理 possess 命令的请求（console borrow 已释放）
@@ -1659,7 +1623,10 @@ impl INode3D for WorldDriver {
             .as_mut()
             .and_then(|c| c.state.pending_save_name.take());
         if let Some(ref name) = pending_save {
-            self.handle_save(name);
+            let msg = self.handle_save(name);
+            if let Some(ref mut console) = self.debug_console {
+                console.append_output(&msg);
+            }
         }
 
         // ★ V6: 处理 load 命令的请求
@@ -1668,7 +1635,10 @@ impl INode3D for WorldDriver {
             .as_mut()
             .and_then(|c| c.state.pending_load_name.take());
         if let Some(ref name) = pending_load {
-            self.handle_load(name);
+            let msg = self.handle_load(name);
+            if let Some(ref mut console) = self.debug_console {
+                console.append_output(&msg);
+            }
         }
     }
 }
@@ -2015,9 +1985,36 @@ impl WorldDriver {
     }
 
     /// ★ V6: 保存游戏状态到 LMDB 存档
-    fn handle_save(&mut self, save_name: &str) {
+    /// 保存游戏状态到 LMDB 存档。返回控制台输出消息（BBCode 格式）。
+    fn handle_save(&mut self, save_name: &str) -> String {
         use woworld_save::snapshot::collect_entities;
+        use woworld_ecs::components::player::PlayerComponent;
 
+        // 诊断：save 时检查哪些实体有 PlayerComponent
+        {
+            let pc_entities: Vec<(hecs::Entity, u64)> = self
+                .ecs
+                .query::<&PlayerComponent>()
+                .iter()
+                .map(|(e, _)| (e, e.to_bits().get()))
+                .collect();
+            godot_print!(
+                "[Save] player_ecs_entity={:?}, PlayerComponent entities: {:?}",
+                self.player_ecs_entity.map(|e| e.to_bits().get()),
+                pc_entities.iter().map(|(_, bits)| *bits).collect::<Vec<_>>(),
+            );
+            // 检查 player_ecs_entity 是否有 PlayerComponent
+            if let Some(pe) = self.player_ecs_entity {
+                let has_pc = self.ecs.get::<&PlayerComponent>(pe).is_ok();
+                godot_print!(
+                    "[Save] player_ecs_entity={} has_PlayerComponent={}",
+                    pe.to_bits().get(),
+                    has_pc,
+                );
+            }
+        }
+
+        let entity_count = self.ecs.query::<&woworld_ecs::components::transform::Position>().iter().count();
         let snapshot = woworld_save::WorldSnapshot {
             header: woworld_save::SaveHeader::new(
                 self.world_seed,
@@ -2038,6 +2035,9 @@ impl WorldDriver {
                 slots: self.hotbar_config.slots.map(|opt| opt.map(|a| a.0)),
             },
             entities: collect_entities(&self.ecs),
+            player_entity_bits: self
+                .player_ecs_entity
+                .map(|e| e.to_bits().get()),
             inventory: woworld_save::snapshot::InventorySnapshot {
                 inventories: self
                     .inventory_registry
@@ -2072,24 +2072,38 @@ impl WorldDriver {
             block_a0_driving: self.block_a0_driving,
         };
 
+        let start = std::time::Instant::now();
         match self.save_system.save(&snapshot, save_name) {
-            Ok(path) => godot_print!("[Save] Game saved to: {}", path),
-            Err(e) => godot_error!("[Save] Failed: {}", e),
+            Ok(path) => {
+                let elapsed = start.elapsed();
+                godot_print!("[Save] Game saved to: {} ({} entities, {:.0}ms)", path, entity_count, elapsed.as_secs_f64() * 1000.0);
+                format!(
+                    "[color=#88ff88][Save] 存档成功: '{}' — {} 实体, {:.0}ms[/color]",
+                    save_name, entity_count, elapsed.as_secs_f64() * 1000.0
+                )
+            }
+            Err(e) => {
+                godot_error!("[Save] Failed: {}", e);
+                format!("[color=#ff4444][Save] 存档失败: {}[/color]", e)
+            }
         }
     }
 
     /// ★ V6: 从 LMDB 存档加载游戏状态
-    fn handle_load(&mut self, save_name: &str) {
+    /// 从 LMDB 存档加载游戏状态。返回控制台输出消息（BBCode 格式）。
+    fn handle_load(&mut self, save_name: &str) -> String {
         let snapshot = match self.save_system.load(save_name) {
             Ok(s) => s,
             Err(e) => {
                 godot_error!("[Load] {}", e);
-                return;
+                return format!("[color=#ff4444][Load] 加载失败: {}[/color]", e);
             }
         };
 
-        // 保存旧 player entity bits
-        let player_old_bits = self.player_ecs_entity.map(|e| e.to_bits().get());
+        // ★ V6 修复: 用快照中保存的 player_entity_bits 定位玩家实体。
+        //   不能依赖 self.player_ecs_entity（其 bits 在上次 load 后已改变，
+        //   若重载同一存档，旧 bits 会在 mapping 中命中错误实体）。
+        let player_old_bits = snapshot.player_entity_bits;
 
         // 清空 ECS world
         self.ecs = EcsWorld::new();
@@ -2097,9 +2111,175 @@ impl WorldDriver {
         // 恢复实体
         let mapping = woworld_save::snapshot::restore_entities(&mut self.ecs, &snapshot.entities);
 
-        // 恢复 player entity 引用
-        self.player_ecs_entity = player_old_bits.and_then(|bits| mapping.get(&bits).copied());
-        self.bare_player_entity = self.player_ecs_entity;
+        // ★ V6 修复: restore_entities 只恢复 ComponentBag 中的持久组件。
+        // 瞬时组件（LodLevel 等）不在 Bag 中，但 entity_visual_system 和
+        // LOD 写回代码要求实体已有 LodLevel 才能更新。不加回则所有实体不可见。
+        {
+            let entities_needing_lod: Vec<hecs::Entity> = self
+                .ecs
+                .query::<&woworld_ecs::components::transform::Position>()
+                .iter()
+                .map(|(e, _)| e)
+                .collect();
+            let count = entities_needing_lod.len();
+            for entity in entities_needing_lod {
+                let _ = self
+                    .ecs
+                    .insert_one(entity, woworld_ecs::prelude::LodLevel::default());
+            }
+            godot_print!("[Load] Added LodLevel::default() to {} entities", count);
+        }
+
+        // 恢复 player entity 引用——用快照中保存的 player_entity_bits 查 mapping
+        godot_print!(
+            "[Load] player_entity_bits from snapshot: {:?}, mapping.len()={}",
+            player_old_bits,
+            mapping.len(),
+        );
+        self.player_ecs_entity = player_old_bits.and_then(|bits| {
+            let result = mapping.get(&bits).copied();
+            godot_print!(
+                "[Load] mapping lookup: old_bits={} → result={:?}",
+                bits,
+                result.map(|e| e.to_bits().get()),
+            );
+            result
+        });
+        // 回退：旧版存档 player_entity_bits=None，搜索 PlayerComponent 实体
+        if self.player_ecs_entity.is_none() {
+            godot_print!("[Load] WARN: player_entity_bits not in snapshot, searching for PlayerComponent entity");
+            self.player_ecs_entity = self
+                .ecs
+                .query::<&woworld_ecs::components::player::PlayerComponent>()
+                .iter()
+                .next()
+                .map(|(e, _)| e);
+        }
+
+        // ★ V6 修复: restore_entities 后的 bare_player_entity 修复。
+        //   player_ecs_entity 已由 mapping 正确定位（old_bits → new entity）。
+        //   任务：找到裸玩家实体（带 PlayerComponent 但无 NPC 核心组件的实体）
+        //   设置为 bare_player_entity。
+        {
+            let player_entities: Vec<hecs::Entity> = self
+                .ecs
+                .query::<&woworld_ecs::components::player::PlayerComponent>()
+                .iter()
+                .map(|(e, _)| e)
+                .collect();
+
+            // 诊断：打印每个带 PlayerComponent 的实体的详情
+            for &e in &player_entities {
+                let bits = e.to_bits().get();
+                let has_bf = self
+                    .ecs
+                    .get::<&woworld_ecs::components::bigfive::BigFive>(e)
+                    .is_ok();
+                let has_emotion = self
+                    .ecs
+                    .get::<&woworld_ecs::components::emotion::Emotion>(e)
+                    .is_ok();
+                godot_print!(
+                    "[Load] PlayerComponent entity: bits={} has_bigfive={} has_emotion={}",
+                    bits, has_bf, has_emotion,
+                );
+            }
+
+            // 裸玩家：没有 BigFive/Emotion（NPC 核心组件）
+            let has_npc_core = |e: hecs::Entity| -> bool {
+                self.ecs
+                    .get::<&woworld_ecs::components::bigfive::BigFive>(e)
+                    .is_ok()
+                    || self
+                        .ecs
+                        .get::<&woworld_ecs::components::emotion::Emotion>(e)
+                        .is_ok()
+            };
+
+            let total_player_components = player_entities.len();
+            if player_entities.len() >= 2 {
+                // 夺舍模式：player_ecs_entity 已由 mapping 正确定位
+                // 找另一个带 PlayerComponent 但无 NPC 核心的实体作为 bare
+                self.bare_player_entity = player_entities
+                    .into_iter()
+                    .find(|&e| {
+                        !has_npc_core(e) && Some(e) != self.player_ecs_entity
+                    });
+                if self.bare_player_entity.is_none() {
+                    self.bare_player_entity = self.player_ecs_entity;
+                }
+            } else {
+                // 自由飞行模式：仅一个 PlayerComponent 实体
+                self.bare_player_entity = self.player_ecs_entity;
+            }
+
+            godot_print!(
+                "[Load] Player entities resolved: player={:?}, bare={:?} (total PlayerComponent: {})",
+                self.player_ecs_entity.map(|e| e.to_bits().get()),
+                self.bare_player_entity.map(|e| e.to_bits().get()),
+                total_player_components,
+            );
+        }
+
+        // ★ V6 修复: 修复玩家实体的 Block A0 CC 组件束。
+        //   ComponentBag 不保存瞬时组件（CMoveIntent/CMovementControl/...）。
+        //   不加回则 movement_system 跳过该实体，玩家输入落空，实体由 NPC AI 驱动。
+        if let Some(player_entity) = self.player_ecs_entity {
+            use woworld_ecs::components::action_state::{CActionRequestBuf, CActiveAction};
+            use woworld_ecs::components::input_state::{CCoyoteTime, CInputBuffer, CInputFeelConfig};
+            use woworld_ecs::components::movement_state::{
+                CMoveIntent, CMovementControl, CMovementRecovery, CMovementState,
+                CPrevMovementState,
+            };
+            use woworld_ecs::components::transform::Velocity;
+            use woworld_core::movement::{MovementState, Pace, Stance};
+
+            // 移除可能残留的旧管线组件（防御性）
+            let _ =
+                self.ecs
+                    .remove_one::<woworld_ecs::components::movement::Movement>(player_entity);
+            let _ =
+                self.ecs
+                    .remove_one::<woworld_ecs::components::goal::Goal>(player_entity);
+            let _ =
+                self.ecs
+                    .remove_one::<woworld_ecs::components::movement::Wander>(player_entity);
+
+            // 添加 Block A0 CC 组件束（与 possess_entity 配方一致）
+            let _ = self.ecs.insert_one(player_entity, CMoveIntent::default());
+            let _ = self.ecs.insert_one(player_entity, CMovementControl::default());
+            let _ = self.ecs.insert_one(player_entity, CMovementRecovery::default());
+            let _ = self.ecs.insert_one(player_entity, CActiveAction::default());
+            let _ = self.ecs.insert_one(player_entity, CActionRequestBuf::default());
+            let _ = self.ecs.insert_one(player_entity, CInputBuffer::default());
+            let _ = self.ecs.insert_one(player_entity, CInputFeelConfig::default());
+            let _ = self.ecs.insert_one(player_entity, CCoyoteTime::default());
+            let _ = self.ecs.insert_one(player_entity, Velocity(glam::Vec3::ZERO));
+            let ms = MovementState {
+                stance: Stance::Standing,
+                pace: Pace::Walking,
+                ..Default::default()
+            };
+            let _ = self.ecs.insert_one(player_entity, CMovementState(ms));
+            let _ = self.ecs.insert_one(player_entity, CPrevMovementState(ms));
+
+            // 瞬移 CharacterBody3D 到玩家实体位置
+            if let Ok(pos) = self
+                .ecs
+                .get::<&woworld_ecs::components::transform::Position>(player_entity)
+            {
+                if let Some(ref mut player_node) = self.player_node {
+                    player_node.set_global_position(godot::builtin::Vector3::new(
+                        pos.0.x, pos.0.y, pos.0.z,
+                    ));
+                }
+            }
+
+            godot_print!(
+                "[Load] Repaired Block A0 CC components for player entity {:?}",
+                player_entity.to_bits().get(),
+            );
+        }
 
         // 恢复 InventoryRegistry (EntityId remap)
         self.inventory_registry =
@@ -2196,8 +2376,22 @@ impl WorldDriver {
         // 恢复玩家驾驶模式
         self.block_a0_driving = snapshot.block_a0_driving;
 
-        // 清除派生状态（下帧重建）
+        // ★ V6 修复: 用稳定种子（old_id_bits）预填充 name_cache。
+        //   entity_visual_system 默认用 entity.to_bits() 做种子生成名字，
+        //   但 load 后 entity bits 改变 → 名字也变 → 玩家看到"另一个胶囊"。
+        //   用 old_id_bits 做种子可保证同一实体跨 save/load 名字稳定。
         self.name_cache.clear();
+        self.stable_id_map.clear();
+        for (old_bits, &new_entity) in &mapping {
+            let name = woworld_core::naming::generate_name(*old_bits).full();
+            self.name_cache.insert(new_entity, name);
+            // stable_id_map: new_entity → old_bits（反向映射，info 命令用）
+            self.stable_id_map.insert(new_entity, *old_bits);
+        }
+        godot_print!(
+            "[Load] Pre-populated name_cache with {} stable entries",
+            mapping.len(),
+        );
         self.lod_prev.clear();
         self.lod_hyst.clear();
         self.spectator_selected_entity = None;
@@ -2206,15 +2400,43 @@ impl WorldDriver {
         self.action_events = woworld_ecs::events::EventChannel::new();
         self.trade_events = woworld_ecs::events::EventChannel::new();
 
+        // ★ V6: load 后强制 EntityRenderer 重建所有节点。
+        //   hecs World 重建后 entity bits 重叠 → nodes HashMap key 命中旧节点
+        //   → sync 走 UPDATE（不更新颜色） → 颜色错误继承。
+        if let Some(ref mut renderer) = self.entity_renderer {
+            renderer.clear_nodes();
+        }
+
         // 从时钟重建 last_game_day（防触发伪季节变更）
         self.last_game_day = self.clock.current.day_number;
 
+        let entity_count = snapshot.entities.len();
+        let day_number = self.clock.current.day_number;
+        // ★ V6 诊断：handle_load 结束时，确认 player_ecs_entity 最终状态
+        if let Some(pe) = self.player_ecs_entity {
+            let pe_bits = pe.to_bits().get();
+            let pe_pos = self
+                .ecs
+                .get::<&woworld_ecs::components::transform::Position>(pe)
+                .map(|p| format!("({:.1}, {:.1}, {:.1})", p.0.x, p.0.y, p.0.z))
+                .unwrap_or_else(|_| "no Position".into());
+            let pe_name = self.name_cache.get(&pe).cloned().unwrap_or_else(|| "no name".into());
+            godot_print!(
+                "[Load] FINAL player_ecs_entity: bits={}, name='{}', pos={}",
+                pe_bits, pe_name, pe_pos,
+            );
+        } else {
+            godot_print!("[Load] FINAL player_ecs_entity: None");
+        }
+
         godot_print!(
             "[Load] Game loaded from '{}'. {} entities, day {}.",
-            save_name,
-            snapshot.entities.len(),
-            self.clock.current.day_number
+            save_name, entity_count, day_number,
         );
+        format!(
+            "[color=#88ff88][Load] 加载成功: '{}' — {} 实体, 第 {} 天[/color]",
+            save_name, entity_count, day_number,
+        )
     }
 
     /// Sprint-060: 夺舍指定实体（控制台 possess <id> 命令使用）
@@ -2787,6 +3009,8 @@ impl WorldDriver {
             &self.ecs,
             entity,
             Some(&self.inventory_registry),
+            Some(&self.name_cache),
+            Some(&self.stable_id_map),
         );
 
         let Some(snap) = snapshot else {

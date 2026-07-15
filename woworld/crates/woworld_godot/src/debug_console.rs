@@ -65,6 +65,11 @@ pub struct ConsoleState {
     pub pending_save_name: Option<String>,
     /// ★ V6: load 命令设定的存档名（WorldDriver 下帧处理并清零）
     pub pending_load_name: Option<String>,
+    /// ★ V6: 名字缓存快照——entity_debug_system (info 命令) 用此获取跨 load 稳定名字。
+    ///   WorldDriver 每帧在消费命令前同步。
+    pub name_cache_snapshot: Option<std::collections::HashMap<hecs::Entity, String>>,
+    /// ★ V6: stable_id 映射——entity → old_id_bits（跨存档不变的数字标识）。
+    pub stable_id_snapshot: Option<std::collections::HashMap<hecs::Entity, u64>>,
 }
 
 impl Default for ConsoleState {
@@ -81,6 +86,8 @@ impl Default for ConsoleState {
             pending_time_scale: None,
             pending_save_name: None,
             pending_load_name: None,
+            name_cache_snapshot: None,
+            stable_id_snapshot: None,
         }
     }
 }
@@ -409,7 +416,7 @@ fn cmd_info(_args: &[&str], state: &mut ConsoleState, world: &hecs::World) -> St
             .into();
     };
 
-    match entity_debug_system(world, entity, None) {
+    match entity_debug_system(world, entity, None, state.name_cache_snapshot.as_ref(), state.stable_id_snapshot.as_ref()) {
         Some(snap) => format_snapshot(&snap),
         None => format!(
             "[color=#ff8888]Entity {:?} not found in ECS world (may have despawned).[/color]",
@@ -469,7 +476,11 @@ fn cmd_select(args: &[&str], state: &mut ConsoleState, _world: &hecs::World) -> 
         Ok(bits) => match hecs::Entity::from_bits(bits) {
             Some(entity) => {
                 state.selected_entity = Some(entity);
-                format!("[color=#88ff88]Selected entity: {bits}[/color]")
+                let stable = state.stable_id_snapshot.as_ref()
+                    .and_then(|m| m.get(&entity))
+                    .map(|id| format!(" (Stable: {id})"))
+                    .unwrap_or_default();
+                format!("[color=#88ff88]Selected entity: {bits}{stable}[/color]")
             }
             None => format!(
                 "[color=#ff8888]Invalid entity bits: {bits} (no entity with that ID)[/color]"
@@ -555,8 +566,12 @@ fn cmd_load_console(args: &[&str], state: &mut ConsoleState, _world: &hecs::Worl
 
 /// 将 EntityDebugSnapshot 格式化为控制台输出
 fn format_snapshot(snap: &EntityDebugSnapshot) -> String {
+    let stable = snap
+        .stable_id
+        .map(|id| format!("Stable: {id}  "))
+        .unwrap_or_default();
     let mut out = format!(
-        "[color=#ffcc00]=== {} (ID: {}) ===[/color]\n",
+        "[color=#ffcc00]=== {} (ID: {})  {stable}===[/color]\n",
         snap.display_name, snap.entity_bits
     );
     out.push_str(&format!(
